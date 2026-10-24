@@ -1,6 +1,7 @@
 import { BASE_SIZE, MAP_H, MAP_W, type Slot } from './constants'
-import { createRng } from './rng'
+import { createRng, type Rng } from './rng'
 
+/** Capa de colisión: qué ocupa cada casilla. */
 export const Tile = {
   GRASS: 0,
   BORDER: 1,
@@ -8,9 +9,34 @@ export const Tile = {
   CAR: 3,
   DEBRIS: 4,
   BASE: 5,
+  ROAD: 6,
+  WATER: 7,
+  TREE: 8,
+  CONTAINER: 9,
+  BARREL: 10,
 } as const
 
 export type TileKind = (typeof Tile)[keyof typeof Tile]
+
+/** Capa de suelo (solo visual). */
+export const Ground = {
+  GRASS: 0,
+  DIRT: 1,
+  ROAD: 2,
+  BASE: 3,
+  WATER: 4,
+} as const
+
+export type ObjectKind = 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'water'
+
+export interface MapObject {
+  kind: ObjectKind
+  x: number
+  y: number
+  w: number
+  h: number
+  variant: number
+}
 
 export interface Rect {
   x: number
@@ -29,16 +55,22 @@ export interface GameMapData {
   w: number
   h: number
   tiles: Uint8Array
+  ground: Uint8Array
+  objects: MapObject[]
   bases: Record<Slot, Rect>
   /** Casilla superior izquierda del núcleo (ocupa 2 × 2). */
   cores: Record<Slot, Point>
   crates: Record<Slot, Point>
   spawns: Point[]
+  roads: { rows: number[]; cols: number[] }
 }
 
-const SOLID_TILES = new Set<number>([Tile.BORDER, Tile.ROCK, Tile.CAR, Tile.DEBRIS])
+const SOLID_TILES = new Set<number>([Tile.BORDER, Tile.ROCK, Tile.CAR, Tile.DEBRIS, Tile.WATER, Tile.TREE, Tile.CONTAINER, Tile.BARREL])
 
 export const isSolidTileKind = (k: number) => SOLID_TILES.has(k)
+
+/** El agua frena el paso pero no las balas. */
+export const blocksBullets = (k: number) => SOLID_TILES.has(k) && k !== Tile.WATER
 
 export const inRect = (r: Rect, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
 
@@ -69,14 +101,36 @@ export function isMapReachable(map: GameMapData): boolean {
   return targets.every((t) => seen[idx(t.x, t.y)] === 1)
 }
 
+const OBJECT_TILE: Record<ObjectKind, TileKind> = {
+  tree: Tile.TREE,
+  rock: Tile.ROCK,
+  car: Tile.CAR,
+  container: Tile.CONTAINER,
+  debris: Tile.DEBRIS,
+  barrel: Tile.BARREL,
+  tires: Tile.BARREL,
+  water: Tile.WATER,
+}
+
 function buildMap(seed: number): GameMapData {
   const rng = createRng(seed)
   const tiles = new Uint8Array(MAP_W * MAP_H)
+  const ground = new Uint8Array(MAP_W * MAP_H)
+  const objects: MapObject[] = []
 
-  // 1. Cuadrícula vacía con borde de muros fijos.
+  // 1. Cuadrícula vacía con borde de muros fijos (bosque).
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++)
       tiles[idx(x, y)] = x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? Tile.BORDER : Tile.GRASS
+
+  // Avenidas en cruz por el centro: llevan de cada orilla a las bases.
+  const roads = { rows: [MAP_H / 2 - 1, MAP_H / 2], cols: [MAP_W / 2 - 1, MAP_W / 2] }
+  for (let y = 1; y < MAP_H - 1; y++)
+    for (let x = 1; x < MAP_W - 1; x++)
+      if (roads.rows.includes(y) || roads.cols.includes(x)) {
+        tiles[idx(x, y)] = Tile.ROAD
+        ground[idx(x, y)] = Ground.ROAD
+      }
 
   // 2. Bases 8 × 8 en esquinas opuestas, con núcleo al centro y caja al lado.
   const bases: Record<Slot, Rect> = {
@@ -94,50 +148,81 @@ function buildMap(seed: number): GameMapData {
   }
   for (const s of [1, 2] as Slot[]) {
     const b = bases[s]
-    for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) tiles[idx(x, y)] = Tile.BASE
+    for (let y = b.y; y < b.y + b.h; y++)
+      for (let x = b.x; x < b.x + b.w; x++) {
+        tiles[idx(x, y)] = Tile.BASE
+        ground[idx(x, y)] = Ground.BASE
+      }
   }
 
-  // 4. Puntos de aparición de zombis en las orillas (simétricos).
+  // 4. Puntos de aparición de zombis al final de cada avenida.
   const spawns: Point[] = [
-    { x: MAP_W / 2 - 1, y: 1 },
-    { x: MAP_W / 2, y: MAP_H - 2 },
-    { x: 1, y: MAP_H / 2 },
-    { x: MAP_W - 2, y: MAP_H / 2 - 1 },
+    { x: roads.cols[0], y: 1 },
+    { x: roads.cols[1], y: MAP_H - 2 },
+    { x: 1, y: roads.rows[1] },
+    { x: MAP_W - 2, y: roads.rows[0] },
   ]
 
-  // 3. Obstáculos al azar fuera de las bases, en espejo para que el mapa sea justo.
+  // 3. Obstáculos en espejo (punto central) para que el mapa sea justo.
   const reserved = (x: number, y: number) =>
     ([1, 2] as Slot[]).some((s) => {
       const b = bases[s]
       return x >= b.x - 1 && x <= b.x + b.w && y >= b.y - 1 && y <= b.y + b.h
     }) || spawns.some((p) => Math.abs(p.x - x) <= 2 && Math.abs(p.y - y) <= 2)
 
-  const place = (x: number, y: number, kind: TileKind) => {
-    const mx = MAP_W - 1 - x
-    const my = MAP_H - 1 - y
-    for (const [px, py] of [[x, y], [mx, my]]) {
-      if (px <= 0 || py <= 0 || px >= MAP_W - 1 || py >= MAP_H - 1 || reserved(px, py)) return
-    }
-    tiles[idx(x, y)] = kind
-    tiles[idx(mx, my)] = kind
+  const fits = (x: number, y: number, w: number, h: number, allowed: number) => {
+    for (let yy = y; yy < y + h; yy++)
+      for (let xx = x; xx < x + w; xx++) {
+        if (xx <= 0 || yy <= 0 || xx >= MAP_W - 1 || yy >= MAP_H - 1) return false
+        if (reserved(xx, yy) || tiles[idx(xx, yy)] !== allowed) return false
+      }
+    return true
   }
 
-  const clusters = rng.int(16, 22)
-  for (let i = 0; i < clusters; i++) {
-    const x = rng.int(1, MAP_W - 2)
-    const y = rng.int(1, MAP_H / 2)
-    const kind = rng.pick([Tile.ROCK, Tile.ROCK, Tile.CAR, Tile.DEBRIS] as const)
-    if (kind === Tile.CAR) {
-      const horizontal = rng.next() < 0.5
-      place(x, y, kind)
-      place(x + (horizontal ? 1 : 0), y + (horizontal ? 0 : 1), kind)
-    } else {
-      const size = kind === Tile.ROCK ? rng.int(1, 3) : 1
-      for (let k = 0; k < size; k++) place(x + (k % 2), y + Math.floor(k / 2), kind)
+  const place = (kind: ObjectKind, x: number, y: number, w: number, h: number, variant: number, on: number = Tile.GRASS) => {
+    const mx = MAP_W - x - w
+    const my = MAP_H - y - h
+    const overlapsMirror = x < mx + w && mx < x + w && y < my + h && my < y + h
+    if (overlapsMirror || !fits(x, y, w, h, on) || !fits(mx, my, w, h, on)) return false
+    for (const [ox, oy] of [[x, y], [mx, my]]) {
+      for (let yy = oy; yy < oy + h; yy++)
+        for (let xx = ox; xx < ox + w; xx++) {
+          tiles[idx(xx, yy)] = OBJECT_TILE[kind]
+          if (kind === 'water') ground[idx(xx, yy)] = Ground.WATER
+        }
+      objects.push({ kind, x: ox, y: oy, w, h, variant })
     }
+    return true
   }
 
-  return { seed, w: MAP_W, h: MAP_H, tiles, bases, cores, crates, spawns }
+  const tryPlace = (times: number, attempts: number, fn: (r: Rng) => boolean) => {
+    let placed = 0
+    for (let i = 0; i < attempts && placed < times; i++) if (fn(rng)) placed++
+  }
+
+  // Autos abandonados sobre un carril (el otro queda libre).
+  tryPlace(2, 40, (r) =>
+    r.next() < 0.5
+      ? place('car', r.int(3, MAP_W / 2 - 4), roads.rows[0], 2, 1, r.int(0, 3), Tile.ROAD)
+      : place('car', roads.cols[0], r.int(3, MAP_H / 2 - 4), 1, 2, r.int(0, 3), Tile.ROAD),
+  )
+  tryPlace(1, 40, (r) => place('water', r.int(2, MAP_W - 5), r.int(2, MAP_H / 2 - 3), r.int(2, 3), 2, 0))
+  tryPlace(2, 60, (r) => (r.next() < 0.5 ? place('container', r.int(2, MAP_W - 4), r.int(2, MAP_H - 3), 2, 1, r.int(0, 1)) : place('container', r.int(2, MAP_W - 3), r.int(2, MAP_H - 4), 1, 2, r.int(0, 1))))
+  tryPlace(4, 60, (r) => place('rock', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 1)))
+  tryPlace(6, 80, (r) => place('tree', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 2)))
+  tryPlace(3, 60, (r) => place('debris', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 1)))
+  tryPlace(2, 60, (r) => place(r.next() < 0.5 ? 'barrel' : 'tires', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, 0))
+
+  // Parches de tierra (solo visual, se puede caminar).
+  for (let i = 0; i < 6; i++) {
+    const x = rng.int(2, MAP_W - 4)
+    const y = rng.int(2, MAP_H - 4)
+    for (const [ox, oy] of [[x, y], [MAP_W - x - 2, MAP_H - y - 2]])
+      for (let yy = oy; yy < oy + 2; yy++)
+        for (let xx = ox; xx < ox + 2; xx++) if (tiles[idx(xx, yy)] === Tile.GRASS && ground[idx(xx, yy)] === Ground.GRASS) ground[idx(xx, yy)] = Ground.DIRT
+  }
+
+  return { seed, w: MAP_W, h: MAP_H, tiles, ground, objects, bases, cores, crates, spawns, roads }
 }
 
 /** Genera un mapa válido; si el BFS falla, prueba con la siguiente semilla. */

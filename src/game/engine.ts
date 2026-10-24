@@ -16,7 +16,7 @@ import {
   type WeaponId,
 } from './constants'
 import { applyDamage, heal, zombieCount, zombieDamage, zombieHp } from './formulas'
-import { generateMap, inRect, isSolidTileKind, tileAt, tileIndex, Tile, type GameMapData, type Point } from './mapgen'
+import { blocksBullets, generateMap, inRect, isSolidTileKind, tileAt, tileIndex, Tile, type GameMapData, type Point } from './mapgen'
 import { createRng, type Rng } from './rng'
 
 // ---------------------------------------------------------------------------
@@ -78,6 +78,8 @@ export interface Zombie {
   attackCd: number
   retargetAt: number
   trapAcc: number
+  /** Solo visual: el sprite depende de la oleada. */
+  kind: 'normal' | 'fast'
   target: { kind: 'player'; id: string } | { kind: 'core'; slot: Slot } | null
 }
 
@@ -223,6 +225,9 @@ const wallAt = (s: MatchState, x: number, y: number) => {
 
 export const isBlocked = (s: MatchState, x: number, y: number) =>
   isSolidTileKind(tileAt(s.map, x, y)) || isCoreTile(s, x, y) || wallAt(s, x, y) !== undefined
+
+const bulletBlocked = (s: MatchState, x: number, y: number) =>
+  blocksBullets(tileAt(s.map, x, y)) || isCoreTile(s, x, y) || wallAt(s, x, y) !== undefined
 
 /** Devuelve la primera casilla sólida que toca un círculo (como caja) en esa posición. */
 function overlapSolid(s: MatchState, x: number, y: number, r: number): Point | null {
@@ -470,7 +475,7 @@ function updateBullets(s: MatchState, dt: number) {
           }
         }
       }
-      if (isBlocked(s, tx, ty)) {
+      if (bulletBlocked(s, tx, ty)) {
         const wall = wallAt(s, tx, ty)
         if (wall && wall.owner !== b.ownerSlot && pvp) {
           wall.hp = applyDamage(wall.hp, b.damage)
@@ -497,7 +502,7 @@ function spawnZombies(s: MatchState) {
     const x = point.x + 0.5 + (s.rng.next() - 0.5) * 0.6
     const y = point.y + 0.5 + (s.rng.next() - 0.5) * 0.6
     const hp = zombieHp(sp.wave)
-    s.zombies.push({ id: s.nextId++, x, y, px: x, py: y, hp, maxHp: hp, damage: zombieDamage(sp.wave), attackCd: 0, retargetAt: 0, trapAcc: 0, target: null })
+    s.zombies.push({ id: s.nextId++, x, y, px: x, py: y, hp, maxHp: hp, damage: zombieDamage(sp.wave), attackCd: 0, retargetAt: 0, trapAcc: 0, target: null, kind: sp.wave === 1 || (sp.wave === 3 && sp.cursor % 2 === 0) ? 'normal' : 'fast' })
     sp.remaining--
     sp.nextAt += sp.interval
   }

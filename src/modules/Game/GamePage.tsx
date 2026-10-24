@@ -3,6 +3,7 @@ import { FastForward, LogOut } from 'lucide-react'
 import { TICK_DT, type Slot, type Stock } from '../../game/constants'
 import { createMatch, playerInOwnBase, previewBuild, step, type Command, type MatchState } from '../../game/engine'
 import { consumeEvents, createFx, createStaticLayer, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
+import { loadSprites, type Sprites } from '../../game/client/sprites'
 import { useGameInput } from './hooks/useGameInput'
 import { useIsTouch } from './hooks/useIsTouch'
 import { snapshotHud, type HudSnapshot } from './hud'
@@ -49,6 +50,8 @@ export function GamePage(props: GamePageProps) {
   const [hud, setHud] = useState<HudSnapshot | null>(null)
   const [fps, setFps] = useState(0)
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [sprites, setSprites] = useState<Sprites | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const isTouch = useIsTouch()
 
   const sendCommand = useCallback((cmd: Command) => commandsRef.current.push(cmd), [])
@@ -61,6 +64,13 @@ export function GamePage(props: GamePageProps) {
   }, [])
 
   useEffect(() => {
+    loadSprites()
+      .then(setSprites)
+      .catch((e: Error) => setLoadError(e.message))
+  }, [])
+
+  useEffect(() => {
+    if (!sprites) return
     const seed = Math.floor(Math.random() * 1_000_000)
     const rivalSlot: Slot = mySlot === 1 ? 2 : 1
     const s = createMatch({
@@ -72,7 +82,7 @@ export function GamePage(props: GamePageProps) {
     })
     matchRef.current = s
     commandsRef.current = []
-    const staticLayer = createStaticLayer(s.map)
+    const staticLayer = createStaticLayer(s.map, sprites)
     const fx = createFx()
     const canvas = canvasRef.current!
     const ctx = canvas.getContext('2d')!
@@ -131,6 +141,7 @@ export function GamePage(props: GamePageProps) {
         dt,
         meId: ME,
         staticLayer,
+        sprites,
         fx,
         preview,
         time: now / 1000,
@@ -162,7 +173,7 @@ export function GamePage(props: GamePageProps) {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
     }
-  }, [round, mySlot, myName, mySurvivor, rivalName, rivalSurvivor, pushToast, readInput])
+  }, [sprites, round, mySlot, myName, mySurvivor, rivalName, rivalSurvivor, pushToast, readInput])
 
   const takeFromCrate = (item: keyof Stock) => sendCommand({ type: 'crateTake', item })
 
@@ -170,6 +181,12 @@ export function GamePage(props: GamePageProps) {
     <div className="fixed inset-0 overflow-hidden bg-ug-bg select-none" data-testid="game">
       <canvas ref={canvasRef} className="absolute inset-0 size-full" data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
+
+      {!sprites && (
+        <div className="absolute inset-0 grid place-items-center">
+          <p className="ug-title-shadow text-3xl text-ug-muted">{loadError ?? 'Cargando mapa…'}</p>
+        </div>
+      )}
 
       {hud && (
         <div className="pointer-events-none absolute inset-0 p-2 sm:p-3">
