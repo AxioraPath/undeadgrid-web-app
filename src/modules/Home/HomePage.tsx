@@ -13,10 +13,12 @@ import { InfoModals, type InfoModalKind } from './components/InfoModals'
 import { HomeBackground } from './components/HomeBackground'
 import { useServerStatus } from '../../shared/hooks/useServerStatus'
 import { randomRoomCode } from '../Lobby/data/catalog'
+import { useAuth } from '../Auth/context/authContext'
 
 export function HomePage() {
   const navigate = useNavigate()
   const { status, latencyMs } = useServerStatus()
+  const { user } = useAuth()
   const [playOpen, setPlayOpen] = useState(false)
   const [info, setInfo] = useState<InfoModalKind | null>(null)
 
@@ -39,7 +41,9 @@ export function HomePage() {
 
         {/* Perfil + accesos rápidos */}
         <div className="order-1 flex items-start justify-between gap-3 lg:order-none lg:col-start-3 lg:row-start-1 lg:-ml-40 lg:justify-end">
-          <PlayerCard name="Jugador" level={1} xp={0} xpToNext={100} />
+          <button type="button" onClick={() => navigate('/login')} className="text-left transition hover:brightness-110" aria-label={user ? 'Tu cuenta' : 'Iniciar sesión'} data-testid="go-auth">
+                      <PlayerCard name={user?.name ?? 'Invitado'} level={1} xp={0} xpToNext={100} />
+                    </button>
           <div className="hidden gap-3 sm:flex">
             <IconButton icon={Users} label="Amigos" onClick={() => setInfo('friends')} />
             <IconButton icon={ChartNoAxesColumn} label="Estadísticas" onClick={() => setInfo('stats')} />
