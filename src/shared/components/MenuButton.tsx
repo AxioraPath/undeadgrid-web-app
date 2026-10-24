@@ -8,6 +8,8 @@ interface MenuButtonProps {
   size?: 'lg' | 'sm'
   onClick: () => void
   testId?: string
+  /** Small count bubble (e.g. rewards ready to claim). Hidden when 0. */
+  badge?: number
 }
 
 const SIZES = {
@@ -15,7 +17,7 @@ const SIZES = {
   sm: { icon: 28, primaryIcon: 30, box: 'size-10', primaryBox: 'size-10', title: 'text-2xl', primaryTitle: 'text-2xl', sub: 'text-lg', pad: 'py-2' },
 }
 
-export function MenuButton({ icon: Icon, title, subtitle, primary, size = 'lg', onClick, testId }: MenuButtonProps) {
+export function MenuButton({ icon: Icon, title, subtitle, primary, size = 'lg', onClick, testId, badge }: MenuButtonProps) {
   const s = SIZES[size]
 
   if (primary) {
@@ -54,6 +56,11 @@ export function MenuButton({ icon: Icon, title, subtitle, primary, size = 'lg', 
         </span>
         <span className={`mt-1 block font-terminal ${s.sub} leading-none text-ug-muted`}>{subtitle}</span>
       </span>
+      {badge ? (
+        <span className="ml-auto grid min-w-7 place-items-center border-2 border-yellow-400 bg-yellow-400/20 px-1 font-terminal text-xl leading-none text-yellow-400" data-testid={testId && `${testId}-badge`}>
+          {badge}
+        </span>
+      ) : null}
     </button>
   )
 }

@@ -1,8 +1,16 @@
 import { createContext, useContext } from 'react'
 
+export interface UserProfile {
+  level: number
+  xp: number
+  xpToNext: number
+}
+
 export interface AuthUser {
   name: string
   email: string
+  /** null until the profile is loaded (or if the server has none). */
+  profile: UserProfile | null
 }
 
 export interface AuthContextValue {
@@ -13,6 +21,10 @@ export interface AuthContextValue {
   register: (name: string, email: string, password: string) => Promise<void>
   /** Solicita el enlace de recuperación. */
   logout: () => void
+  /** Reloads level/xp from the server (after a match or a mission claim). */
+  refreshProfile: () => Promise<void>
+  /** Applies a profile already returned by the server (e.g. a claim response). */
+  applyProfile: (profile: UserProfile) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

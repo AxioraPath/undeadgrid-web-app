@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import type { GameCommand, GameMap, GameState, GameSyncData, PlayerInput, RoomStatus, Slot, Stock } from '../../shared/lib/contracts'
+import type { GameCommand, GameMap, GameState, GameSyncData, MatchXp, PlayerInput, RoomStatus, Slot, Stock } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { consumeEvents, createFx, createStaticLayer, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
@@ -32,6 +32,8 @@ export interface GamePageProps {
   roomResult: { winner: Slot | null; reason: string } | null
   exitLabel: string
   onExit: () => void
+  /** XP gained per slot, when the server reports it. */
+  xp?: MatchXp | null
 }
 
 interface Toast {
@@ -52,7 +54,7 @@ const ROOM_REASON: Record<string, string> = {
  * Partida: el servidor simula todo a 30 ticks/s. Aquí solo se mandan los controles
  * (game:input / game:command) y se dibuja lo que llega en game:state, interpolado.
  */
-export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: GamePageProps) {
+export function GamePage({ mySlot, status, roomResult, exitLabel, onExit, xp }: GamePageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const minimapRef = useRef<HTMLCanvasElement>(null)
   const posRef = useRef<HTMLDivElement>(null)
@@ -367,6 +369,7 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
           winnerOverride={hud.result ? undefined : (roomResult?.winner ?? 0)}
           onExit={onExit}
           exitLabel={exitLabel}
+          xp={xp}
         />
       )}
     </div>

@@ -55,27 +55,85 @@ export interface PlayerStatsDto {
   currentStreak: number
 }
 
+/** xp = progreso DENTRO del nivel actual (0 <= xp < xpToNext). */
+export interface ProfileDto {
+  level: number
+  xp: number
+  xpToNext: number
+  preferredSurvivor: string
+}
+
+export interface MissionDto {
+  key: string
+  type: 'daily' | 'milestone'
+  title: string
+  description: string
+  goal: number
+  progress: number
+  reward: number
+  status: 'active' | 'completed' | 'claimed'
+  resetsAt?: string
+}
+
+export interface MissionsResponse {
+  missions: MissionDto[]
+  dailyResetsAt: string
+}
+
+export interface ClaimResponse {
+  reward: number
+  leveledUp: boolean
+  newLevel: number
+  profile: { level: number; xp: number; xpToNext: number }
+}
+
 export interface MeDto {
   id: string
   email: string
   displayName: string
   createdAt: string
-  profile: { level: number; xp: number; preferredSurvivor: string } | null
+  profile: ProfileDto | null
   stats: PlayerStatsDto | null
 }
 
 /** Perfil y estadísticas del jugador con sesión (requiere el access token). */
 async function me(): Promise<MeDto> {
   const res = await fetch(`${API_URL}/api/me`, {
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    headers: authHeaders(),
     credentials: 'include',
   })
   if (!res.ok) throw new Error('No se pudo cargar tu perfil.')
   return (await res.json()) as MeDto
 }
 
+const authHeaders = (): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+
+/** Misiones diarias y permanentes del jugador. */
+async function getMissions(): Promise<MissionsResponse> {
+  const res = await fetch(`${API_URL}/api/me/missions`, { headers: authHeaders(), credentials: 'include' })
+  if (!res.ok) throw new Error('No se pudieron cargar las misiones.')
+  return (await res.json()) as MissionsResponse
+}
+
+/** Reclama la recompensa de una misión completada. */
+async function claimMission(key: string): Promise<ClaimResponse> {
+  const res = await fetch(`${API_URL}/api/me/missions/${encodeURIComponent(key)}/claim`, {
+    method: 'POST',
+    headers: authHeaders(),
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const msg = (data as { message?: string }).message
+    throw new Error((Array.isArray(msg) ? msg.join(' ') : msg) ?? 'No se pudo reclamar la recompensa.')
+  }
+  return (await res.json()) as ClaimResponse
+}
+
 export const authApi = {
   me,
+  getMissions,
+  claimMission,
   register: (displayName: string, email: string, password: string) =>
     post<AuthResponse>('/register', { displayName, email, password }),
   login: (email: string, password: string) =>

@@ -1,5 +1,5 @@
 // Minimal in-memory stand-in for service-undeadgrid used by the E2E suite.
-// REST: /health, /api/auth/{login,register,refresh,logout}, /api/me, /__test/state
+// REST: /health, /api/auth/{login,register,refresh,logout}, /api/me, /api/me/missions(+/:key/claim), /__test/state
 // Socket.IO: the lobby + game events the web app uses (see src/shared/lib/contracts.ts).
 // Simplifications vs the real server: lobby:start jumps straight to "combat" and the
 // simulation only moves players at constant speed according to game:input.
@@ -37,6 +37,37 @@ const hasRefreshCookie = (req) => /(?:^|;\s*)refresh_token=ok/.test(req.headers.
 const COOKIE = 'refresh_token=ok; HttpOnly; Path=/api/auth; SameSite=Lax'
 const authOk = (u) => ({ user: { id: u.id, email: u.email, displayName: u.displayName }, accessToken: 'mock-access-token' })
 
+// Deterministic profile + missions for the XP/missions flow. Level 3 needs 100 XP; the claimable mission gives 40.
+const profile = { level: 3, xp: 30, xpToNext: 100, preferredSurvivor: 'explorador' }
+const missions = [
+  { key: 'daily_win_1', type: 'daily', title: 'Gana una partida', description: 'Gana 1 partida 1v1.', goal: 1, progress: 1, reward: 40, status: 'completed' },
+  { key: 'daily_zombies_20', type: 'daily', title: 'Cazazombis', description: 'Elimina 20 zombis.', goal: 20, progress: 8, reward: 30, status: 'active' },
+  { key: 'milestone_matches_10', type: 'milestone', title: 'Veterano', description: 'Juega 10 partidas.', goal: 10, progress: 4, reward: 100, status: 'active' },
+]
+const dailyResetsAt = () => new Date(Date.now() + 3 * 3600_000 + 25 * 60_000).toISOString()
+const meBody = () => ({
+  id: TEST_USER.id,
+  email: TEST_USER.email,
+  displayName: TEST_USER.displayName,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  profile: { ...profile },
+  stats: null,
+})
+const claimMission = (key) => {
+  const m = missions.find((x) => x.key === key)
+  if (!m) return [404, { message: 'Misión no encontrada' }]
+  if (m.status !== 'completed') return [409, { message: 'La misión no se puede reclamar' }]
+  m.status = 'claimed'
+  profile.xp += m.reward
+  let leveledUp = false
+  while (profile.xp >= profile.xpToNext) {
+    profile.xp -= profile.xpToNext
+    profile.level++
+    leveledUp = true
+  }
+  return [200, { reward: m.reward, leveledUp, newLevel: profile.level, profile: { level: profile.level, xp: profile.xp, xpToNext: profile.xpToNext } }]
+}
+
 const http = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
   if (url.pathname === '/health') return json(res, 200, { status: 'ok', rooms: rooms.size })
@@ -46,7 +77,13 @@ const http = createServer(async (req, res) => {
       rooms: [...rooms.values()].map((r) => ({ code: r.code, status: r.status, players: r.players.length })),
     })
   }
-  if (url.pathname === '/api/me') return json(res, 200, { id: TEST_USER.id, email: TEST_USER.email, displayName: TEST_USER.displayName })
+  if (url.pathname === '/api/me') return json(res, 200, meBody())
+  if (url.pathname === '/api/me/missions') return json(res, 200, { missions, dailyResetsAt: dailyResetsAt() })
+  const claim = url.pathname.match(/^\/api\/me\/missions\/([^/]+)\/claim$/)
+  if (req.method === 'POST' && claim) {
+    const [status, body] = claimMission(decodeURIComponent(claim[1]))
+    return json(res, status, body)
+  }
   if (req.method === 'POST' && url.pathname.startsWith('/api/auth/')) {
     const body = await readBody(req)
     switch (url.pathname.slice('/api/auth/'.length)) {

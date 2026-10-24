@@ -5,6 +5,8 @@ import { emitAck, getSocket } from '../../../shared/lib/socket'
 import type {
   ChatMessageSnapshot,
   JoinedData,
+  MatchOverPayload,
+  MatchXp,
   PlayerSnapshot,
   RoomSnapshot,
   RoomStatus,
@@ -65,6 +67,7 @@ const toChatMessage = (m: ChatMessageSnapshot): ChatMessage => ({
 export function useLobbyRoom(code: string, isHost: boolean) {
   const [room, setRoom] = useState<RoomSnapshot | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [matchXp, setMatchXp] = useState<MatchXp | null>(null)
   const [mySlot, setMySlot] = useState<Slot>(isHost ? 1 : 2)
 
   // Nombre y superviviente por defecto (editables luego con rename / confirmSurvivor).
@@ -139,7 +142,11 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       console.error('[useLobbyRoom] sala cerrada', d.reason)
       setRoom((r) => (r ? { ...r, status: 'results' } : r))
     }
-    const onMatchOver = (snapshot: RoomSnapshot) => setRoom(snapshot)
+    const onMatchOver = (payload: MatchOverPayload) => {
+      const { xp, ...snapshot } = payload
+      setRoom(snapshot)
+      setMatchXp(xp ?? null)
+    }
 
     socket.on('lobby:state', onState)
     socket.on('chat:message', onChat)
@@ -304,6 +311,8 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     status,
     seed,
     result: room?.result ?? null,
+    /** XP gained per slot in the finished match (undefined when the server did not send it). */
+    matchXp,
   }
 }
 

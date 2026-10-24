@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AuthContext, type AuthUser } from './authContext'
-import { authApi, setAccessToken, type AuthUserDto } from '../../../shared/lib/authApi'
+import { AuthContext, type AuthUser, type UserProfile } from './authContext'
+import { authApi, setAccessToken, type AuthUserDto, type MeDto } from '../../../shared/lib/authApi'
 
-const toUser = (u: AuthUserDto): AuthUser => ({ name: u.displayName, email: u.email })
+const toProfile = (p: MeDto['profile'] | undefined): UserProfile | null =>
+  p && typeof p.xpToNext === 'number' ? { level: p.level, xp: p.xp, xpToNext: p.xpToNext } : null
+
+const toUser = (u: AuthUserDto): AuthUser => ({ name: u.displayName, email: u.email, profile: null })
 
 /**
  * Autenticación real contra el backend. El access token vive en memoria; el
@@ -22,13 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
         setAccessToken(r.accessToken)
         // Con el access token, pedimos el perfil para conocer el nombre.
-        return fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/me`, {
-          headers: { Authorization: `Bearer ${r.accessToken}` },
+        return authApi.me().then((me) => {
+          if (!cancelled) setUser({ name: me.displayName, email: me.email, profile: toProfile(me.profile) })
         })
-          .then((res) => (res.ok ? res.json() : null))
-          .then((me) => {
-            if (!cancelled && me) setUser({ name: me.displayName, email: me.email })
-          })
       })
       .catch(() => {
         /* sin sesión previa */
@@ -41,17 +40,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const applyProfile = useCallback((profile: UserProfile) => {
+    setUser((u) => (u ? { ...u, profile } : u))
+  }, [])
+
+  const loadProfile = useCallback(async () => {
+    try {
+      const me = await authApi.me()
+      const profile = toProfile(me.profile)
+      if (profile) setUser((u) => (u ? { ...u, profile } : u))
+    } catch {
+      /* keep the previous profile */
+    }
+  }, [])
+
   const login = useCallback(async (email: string, password: string) => {
     const { user: u, accessToken } = await authApi.login(email, password)
     setAccessToken(accessToken)
     setUser(toUser(u))
-  }, [])
+    void loadProfile()
+  }, [loadProfile])
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     const { user: u, accessToken } = await authApi.register(name, email, password)
     setAccessToken(accessToken)
     setUser(toUser(u))
-  }, [])
+    void loadProfile()
+  }, [loadProfile])
 
   const logout = useCallback(() => {
     authApi.logout().catch(() => undefined)
@@ -60,8 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, login, register, logout }),
-    [user, login, register, logout],
+    () => ({ user, login, register, logout, refreshProfile: loadProfile, applyProfile }),
+    [user, login, register, logout, loadProfile, applyProfile],
   )
 
   // Evita parpadeo de "no logueado" mientras se rehidrata la sesión.

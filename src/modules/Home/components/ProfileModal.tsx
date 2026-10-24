@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { PixelModal } from '../../../shared/components/PixelModal'
 import { authApi, type MeDto } from '../../../shared/lib/authApi'
+import { XpBar } from '../../../shared/components/XpBar'
 import { useAuth } from '../../Auth/context/authContext'
 
 interface ProfileModalProps {
@@ -65,9 +66,13 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
             {me?.displayName ?? user?.name}
           </p>
           <p className="truncate font-terminal text-base text-ug-muted">{me?.email ?? user?.email}</p>
-          {me?.profile && <p className="font-terminal text-base text-ug-muted">Nivel {me.profile.level}</p>}
         </div>
       </div>
+      {user?.profile && (
+        <div className="mt-3">
+          <XpBar level={user.profile.level} xp={user.profile.xp} xpToNext={user.profile.xpToNext} testId="profile-xp" />
+        </div>
+      )}
 
       <h3 className="ug-title-shadow mt-4 mb-2 text-xl tracking-wide">ESTADÍSTICAS</h3>
       {error && <p className="font-terminal text-lg text-ug-red-hi">{error}</p>}

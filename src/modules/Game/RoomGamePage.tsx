@@ -17,6 +17,7 @@ export function RoomGamePage() {
       mySlot={room.me.slot}
       status={room.status}
       roomResult={room.result}
+      xp={room.matchXp}
       exitLabel="Inicio"
       onExit={exit}
     />

@@ -62,6 +62,11 @@ export interface RoomSnapshot {
   at: number
 }
 
+/** XP gained by each authenticated player of the match, keyed by slot. Absent for guests / old servers. */
+export type MatchXp = Partial<Record<number, number>>
+
+export type MatchOverPayload = RoomSnapshot & { xp?: MatchXp }
+
 export interface JoinedData {
   sessionId: string
   slot: Slot
@@ -79,7 +84,7 @@ export interface ServerToClientEvents {
   'chat:message': (msg: ChatMessageSnapshot) => void
   'combat:phase': (d: CombatSnapshot) => void
   'combat:tick': (d: CombatSnapshot) => void
-  'match:over': (room: RoomSnapshot) => void
+  'match:over': (room: MatchOverPayload) => void
   'game:state': (state: GameState) => void
 }
 

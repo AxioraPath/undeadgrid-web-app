@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Play, Settings, Users } from 'lucide-react'
+import { BookOpen, Play, ScrollText, Settings, Users } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
 import { MenuButton } from '../../shared/components/MenuButton'
 import { PlayerCard } from '../../shared/components/PlayerCard'
@@ -12,27 +12,46 @@ import { PlayModal } from './components/PlayModal'
 import { InfoModals, type InfoModalKind } from './components/InfoModals'
 import { ProfileModal } from './components/ProfileModal'
 import { SettingsModal } from '../../shared/components/SettingsModal'
+import { MissionsModal } from './components/MissionsModal'
+import { authApi } from '../../shared/lib/authApi'
 import { HomeBackground } from './components/HomeBackground'
 import { useServerStatus } from '../../shared/hooks/useServerStatus'
 import { randomRoomCode } from '../Lobby/data/catalog'
 import { useAuth } from '../Auth/context/authContext'
 
+const GUEST_PROFILE = { level: 1, xp: 0, xpToNext: 100 }
+
 export function HomePage() {
   const navigate = useNavigate()
   const { status, latencyMs } = useServerStatus()
-  const { user } = useAuth()
+  const { user, refreshProfile } = useAuth()
+  const signedIn = Boolean(user)
   const [playOpen, setPlayOpen] = useState(false)
   const [info, setInfo] = useState<InfoModalKind | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [missionsOpen, setMissionsOpen] = useState(false)
+  const [claimable, setClaimable] = useState(0)
 
   const closePlay = useCallback(() => setPlayOpen(false), [])
   const closeInfo = useCallback(() => setInfo(null), [])
   const closeProfile = useCallback(() => setProfileOpen(false), [])
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  const closeMissions = useCallback(() => setMissionsOpen(false), [])
+
+  // Fresh level/xp (e.g. after a match) and the number of claimable missions for the badge.
+  useEffect(() => {
+    if (!signedIn) return
+    void refreshProfile()
+    authApi
+      .getMissions()
+      .then((r) => setClaimable(r.missions.filter((m) => m.status === 'completed').length))
+      .catch(() => undefined)
+  }, [signedIn, refreshProfile])
 
   // Con sesión, el perfil y las estadísticas se ven aquí mismo; sin sesión, se pide iniciarla.
   const openProfile = () => (user ? setProfileOpen(true) : navigate('/login'))
+  const openMissions = () => (user ? setMissionsOpen(true) : navigate('/login'))
 
   // TODO: emitir lobby:create / lobby:join por socket cuando exista el servidor.
   const createRoom = () => navigate(`/sala/${randomRoomCode()}`, { state: { isHost: true } })
@@ -51,7 +70,7 @@ export function HomePage() {
         {/* Perfil + accesos rápidos */}
         <div className="order-1 flex items-start justify-between gap-3 lg:order-none lg:col-start-3 lg:row-start-1 lg:-ml-40 lg:justify-end">
           <button type="button" onClick={openProfile} className="text-left transition hover:brightness-110" aria-label={user ? 'Tu perfil' : 'Iniciar sesión'} data-testid="go-auth">
-            <PlayerCard name={user?.name ?? 'Invitado'} level={1} xp={0} xpToNext={100} />
+            <PlayerCard name={user?.name ?? 'Invitado'} {...(user ? user.profile ?? {} : GUEST_PROFILE)} />
           </button>
           <div className="hidden gap-3 sm:flex">
             <IconButton icon={Settings} label="Ajustes" onClick={() => setSettingsOpen(true)} />
@@ -61,6 +80,7 @@ export function HomePage() {
         {/* Menú principal */}
         <nav className="order-3 flex max-w-md flex-col gap-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:max-w-none lg:self-center" aria-label="Menú principal">
           <MenuButton primary icon={Play} title="JUGAR" subtitle="Crear o unirse a una sala" onClick={() => setPlayOpen(true)} testId="menu-play" />
+          <MenuButton icon={ScrollText} title="Misiones" subtitle="Gana XP y sube de nivel" onClick={openMissions} testId="menu-missions" badge={signedIn ? claimable : 0} />
           <MenuButton icon={BookOpen} title="Instrucciones" subtitle="Aprende a jugar" onClick={() => setInfo('instructions')} testId="menu-instructions" />
           <MenuButton icon={Settings} title="Ajustes" subtitle="Controles y gráficos" onClick={() => setSettingsOpen(true)} testId="menu-settings" />
           <MenuButton icon={Users} title="Créditos" subtitle="Equipo del proyecto" onClick={() => setInfo('credits')} testId="menu-credits" />
@@ -85,6 +105,7 @@ export function HomePage() {
       <InfoModals kind={info} onClose={closeInfo} />
       <ProfileModal open={profileOpen} onClose={closeProfile} />
       <SettingsModal open={settingsOpen} onClose={closeSettings} />
+      <MissionsModal open={missionsOpen} onClose={closeMissions} onClaimableChange={setClaimable} />
     </div>
   )
 }

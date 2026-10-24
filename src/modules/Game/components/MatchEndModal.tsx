@@ -1,5 +1,9 @@
+import { useEffect, useState } from 'react'
 import { LogOut, Trophy, Skull } from 'lucide-react'
-import type { Slot } from '../../../shared/lib/contracts'
+import { XpBar } from '../../../shared/components/XpBar'
+import { LevelUpBanner } from '../../../shared/components/LevelUpBanner'
+import { useAuth, type UserProfile } from '../../Auth/context/authContext'
+import type { MatchXp, Slot } from '../../../shared/lib/contracts'
 import { formatTime, type HudSnapshot } from '../hud'
 
 interface MatchEndModalProps {
@@ -9,9 +13,50 @@ interface MatchEndModalProps {
   winnerOverride?: Slot | 0
   onExit: () => void
   exitLabel: string
+  /** XP gained per slot (only for authenticated players; absent otherwise). */
+  xp?: MatchXp | null
 }
 
-export function MatchEndModal({ hud, reasonOverride, winnerOverride, onExit, exitLabel }: MatchEndModalProps) {
+/** "+N XP" with the bar going from the pre-match value to the refreshed profile, plus level-up banner. */
+function XpReward({ gained }: { gained: number }) {
+  const { user, refreshProfile } = useAuth()
+  // Profile as it was when the modal opened (before the post-match refresh).
+  const [before] = useState<UserProfile | null>(() => user?.profile ?? null)
+  const [refreshed, setRefreshed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    refreshProfile().finally(() => !cancelled && setRefreshed(true))
+    return () => {
+      cancelled = true
+    }
+  }, [refreshProfile])
+
+  const shown = refreshed ? (user?.profile ?? before) : before
+  const leveledUp = Boolean(before && refreshed && user?.profile && user.profile.level > before.level)
+
+  return (
+    <div className="mt-3 border-t border-ug-border pt-2 text-left short:mt-1 short:pt-1" data-testid="match-xp">
+      <p className="ug-title-shadow text-center text-2xl leading-none text-yellow-400" data-testid="match-xp-gained">
+        +{gained} XP
+      </p>
+      {shown && (
+        <div className="mt-1.5">
+          <XpBar level={shown.level} xp={shown.xp} xpToNext={shown.xpToNext} testId="match-xp-bar" />
+        </div>
+      )}
+      {leveledUp && user?.profile && (
+        <div className="mt-2">
+          <LevelUpBanner level={user.profile.level} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function MatchEndModal({ hud, reasonOverride, winnerOverride, onExit, exitLabel, xp }: MatchEndModalProps) {
+  const { user } = useAuth()
+  const gained = xp?.[hud.me.slot]
   const winner = winnerOverride ?? hud.result?.winner ?? 0
   const reason = reasonOverride ?? hud.result?.reason ?? ''
   const duration = hud.result?.durationS ?? 0
@@ -51,6 +96,7 @@ export function MatchEndModal({ hud, reasonOverride, winnerOverride, onExit, exi
             ))}
           </tbody>
         </table>
+        {user && typeof gained === 'number' && gained > 0 && <XpReward gained={gained} />}
         <div className="mt-5 flex justify-center gap-3 short:mt-2">
           <button type="button" onClick={onExit} className="ug-panel flex items-center gap-2 px-5 py-2 text-2xl short:py-1 short:text-xl hover:border-ug-border-hi">
             <LogOut size={20} /> {exitLabel}
