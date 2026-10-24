@@ -15,6 +15,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list']],
   use: {
     baseURL,
+    // Local fallback when the bundled Chromium is not installed, e.g. PW_CHANNEL=msedge.
+    channel: process.env.PW_CHANNEL || undefined,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

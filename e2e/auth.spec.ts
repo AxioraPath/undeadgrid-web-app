@@ -15,8 +15,8 @@ test.describe('Flow 1 - Authentication', () => {
 
   test('invalid credentials show an error and keep the user logged out', async ({ page }) => {
     await page.goto('/login')
-    await page.getByLabel('Correo electrónico').fill(USER.email)
-    await page.getByLabel('Contraseña').fill('wrong-password-123')
+    await page.locator('#email').fill(USER.email)
+    await page.locator('#password').fill('wrong-password-123')
     await page.getByRole('button', { name: 'ENTRAR' }).click()
     await expect(page.getByRole('alert')).toContainText('Credenciales inválidas')
     await expect(page).toHaveURL(/\/login$/)
@@ -39,8 +39,8 @@ test.describe('Flow 1 - Authentication', () => {
   test('after logging in from a protected URL the user returns to it', async ({ page }) => {
     await page.goto('/sala/ABCDE')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByLabel('Correo electrónico').fill(USER.email)
-    await page.getByLabel('Contraseña').fill(USER.password)
+    await page.locator('#email').fill(USER.email)
+    await page.locator('#password').fill(USER.password)
     await page.getByRole('button', { name: 'ENTRAR' }).click()
     // Joining a non-existent room is rejected by the server, but we must land on the room route.
     await expect(page).toHaveURL(/\/sala\/ABCDE/)

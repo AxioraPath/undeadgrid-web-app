@@ -6,8 +6,8 @@ export const API = 'http://127.0.0.1:3100'
 
 export async function login(page: Page) {
   await page.goto('/login')
-  await page.getByLabel('Correo electrónico').fill(USER.email)
-  await page.getByLabel('Contraseña').fill(USER.password)
+  await page.locator('#email').fill(USER.email)
+  await page.locator('#password').fill(USER.password)
   await page.getByRole('button', { name: 'ENTRAR' }).click()
   await expect(page.getByTestId('home')).toBeVisible()
 }
