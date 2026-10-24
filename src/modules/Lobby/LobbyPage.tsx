@@ -17,7 +17,6 @@ export function LobbyPage() {
   const navigate = useNavigate()
   const room = useRoom()
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [starting, setStarting] = useState(false)
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
 
   const slotProps = (slot: 1 | 2) => ({
@@ -85,13 +84,7 @@ export function LobbyPage() {
             onCycleDifficulty={room.cycleDifficulty}
           />
         </div>
-        <StartButton
-          canStart={room.canStart && !starting}
-          isHost={room.me.isHost}
-          // TODO: emitir match:start por socket y navegar al canvas de la partida.
-          onStart={() => setStarting(true)}
-        />
-        {starting && <p className="-mt-4 text-center text-2xl text-ug-green">Iniciando partida…</p>}
+        <StartButton canStart={room.canStart} isHost={room.me.isHost} onStart={() => navigate('partida')} />
       </main>
 
       {/* Panel del mapa */}
