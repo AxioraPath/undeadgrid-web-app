@@ -1,5 +1,5 @@
 import { Skull } from 'lucide-react'
-import { CORE_HP, type Slot } from '../../../game/constants'
+import { CORE_HP, type Slot } from '../../../shared/lib/contracts'
 import { formatTime, TOTAL_WAVES, type HudSnapshot } from '../hud'
 
 function CoreBar({ slot, hp, mine }: { slot: Slot; hp: number; mine: boolean }) {

@@ -1,4 +1,4 @@
-import type { Stock } from '../../../game/constants'
+import type { Stock } from '../../../shared/lib/contracts'
 
 const ITEMS: { key: keyof Stock; label: string; icon: string }[] = [
   { key: 'wood', label: 'Madera', icon: '/assets/game/iconos/madera.png' },

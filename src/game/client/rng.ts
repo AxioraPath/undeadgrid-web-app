@@ -1,4 +1,4 @@
-/** PRNG determinista (mulberry32): la misma semilla siempre da la misma secuencia. */
+/** PRNG determinista (mulberry32), solo para decorar el mapa igual en cada recarga. */
 export function createRng(seed: number) {
   let a = seed >>> 0
   const next = () => {

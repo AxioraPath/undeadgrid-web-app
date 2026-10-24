@@ -68,6 +68,10 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   const mySlotRef = useRef<Slot>(mySlot)
   mySlotRef.current = mySlot
 
+  // Código de la sala en la que ya estamos: si la URL cambia a ese código no hay que volver a crear/unirse.
+  const joinedCodeRef = useRef<string | null>(null)
+  const joinRequestRef = useRef<{ code: string; request: Promise<JoinedData> } | null>(null)
+
   // Conexión + join/create al montar. Registra y limpia los listeners del servidor.
   useEffect(() => {
     const socket = getSocket()
@@ -98,34 +102,23 @@ export function useLobbyRoom(code: string, isHost: boolean) {
           setMySlot(joined.slot as Slot)
           setRoom(joined.room)
           persist(joined)
-          // Al crear sala, el servidor asigna el código real. Reflejarlo en la URL
-          // (sin recargar) para que sea compartible con el rival.
-          if (joined.room.code !== code) {
-            try {
-              window.history.replaceState(window.history.state, '', `/sala/${joined.room.code}`)
-            } catch {
-              // history puede no estar disponible (SSR/tests); no es crítico.
-            }
-          }
+          // Al crear sala, el servidor asigna el código real; RoomProvider lo pone en la URL.
+          joinedCodeRef.current = joined.room.code
         }
 
     const join = async () => {
       try {
-        if (isHost) {
-          const joined = await emitAck<JoinedData>('lobby:create', {
-            name: defaultName,
-            survivor: defaultSurvivor,
-          })
-          applyJoined(joined)
-        } else {
-          const joined = await emitAck<JoinedData>('lobby:join', {
-            code,
-            name: defaultName,
-            survivor: defaultSurvivor,
-            sessionId: storedSessionId,
-          })
-          applyJoined(joined)
+        // Si ya hay una petición en vuelo para esta sala (StrictMode monta dos veces en desarrollo),
+        // se reutiliza en lugar de crear/unirse otra vez.
+        if (joinRequestRef.current?.code !== code) {
+          // Al recargar con una sesión guardada se recupera el asiento en lugar de crear otra sala.
+          const request =
+            isHost && !storedSessionId
+              ? emitAck<JoinedData>('lobby:create', { name: defaultName, survivor: defaultSurvivor })
+              : emitAck<JoinedData>('lobby:join', { code, name: defaultName, survivor: defaultSurvivor, sessionId: storedSessionId })
+          joinRequestRef.current = { code, request }
         }
+        applyJoined(await joinRequestRef.current.request)
       } catch (err) {
         console.error('[useLobbyRoom] join/create falló', err)
       }
@@ -145,7 +138,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     socket.on('lobby:closed', onClosed)
     socket.on('match:over', onMatchOver)
 
-    void join()
+    if (joinedCodeRef.current !== code) void join()
 
     return () => {
       cancelled = true
@@ -209,6 +202,33 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     )
   }, [])
 
+  /** En el lobby solo se elige; la confirmación existe solo en la fase de selección. */
+  const selectSurvivor = useCallback(async (id: string) => {
+    try {
+      await emitAck('lobby:selectSurvivor', { survivor: id })
+    } catch (err) {
+      console.error('[useLobbyRoom] selectSurvivor falló', err)
+    }
+  }, [])
+
+  /** El host inicia: lobby → selección (el servidor valida sala llena y ambos listos). */
+  const start = useCallback(() => {
+    emitAck('lobby:start').catch((err) => console.error('[useLobbyRoom] lobby:start falló', err))
+  }, [])
+
+  const leave = useCallback(async () => {
+    try {
+      sessionStorage.removeItem(sessionKey(room?.code ?? code))
+    } catch {
+      // sessionStorage puede no estar disponible; no es crítico.
+    }
+    try {
+      await emitAck('lobby:leave')
+    } catch {
+      // Si ya no estaba en la sala, no importa.
+    }
+  }, [room?.code, code])
+
   const confirmSurvivor = useCallback(async (id: string) => {
     try {
       await emitAck('lobby:selectSurvivor', { survivor: id })
@@ -265,13 +285,17 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     canStart: me.isHost && playerCount === 2 && players.every((p) => p.ready),
     toggleReady,
     rename,
+    selectSurvivor,
     confirmSurvivor,
+    start,
+    leave,
     cycleMap,
     cycleDifficulty,
     sendMessage,
     // Aditivos (no rompen consumidores existentes):
     status,
     seed,
+    result: room?.result ?? null,
   }
 }
 

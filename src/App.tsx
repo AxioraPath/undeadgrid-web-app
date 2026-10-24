@@ -3,7 +3,6 @@ import { HomePage } from './modules/Home/HomePage'
 import { RoomProvider } from './modules/Lobby/context/RoomProvider'
 import { LobbyPage } from './modules/Lobby/LobbyPage'
 import { SurvivorSelectPage } from './modules/Lobby/SurvivorSelectPage'
-import { PracticeGamePage } from './modules/Game/PracticeGamePage'
 import { RoomGamePage } from './modules/Game/RoomGamePage'
 
 export default function App() {
@@ -16,7 +15,6 @@ export default function App() {
           <Route path="personaje" element={<SurvivorSelectPage />} />
           <Route path="partida" element={<RoomGamePage />} />
         </Route>
-        <Route path="/prueba" element={<PracticeGamePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

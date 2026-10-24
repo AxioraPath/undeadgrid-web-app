@@ -1,18 +1,22 @@
-import { RotateCcw, LogOut, Trophy, Skull } from 'lucide-react'
-import type { Slot } from '../../../game/constants'
+import { LogOut, Trophy, Skull } from 'lucide-react'
+import type { Slot } from '../../../shared/lib/contracts'
 import { formatTime, type HudSnapshot } from '../hud'
 
 interface MatchEndModalProps {
   hud: HudSnapshot
-  onRestart: () => void
+  /** Motivo que da la sala cuando la partida no terminó en el motor (p. ej. el rival abandonó). */
+  reasonOverride?: string
+  winnerOverride?: Slot | 0
   onExit: () => void
   exitLabel: string
 }
 
-export function MatchEndModal({ hud, onRestart, onExit, exitLabel }: MatchEndModalProps) {
-  const r = hud.result!
-  const won = r.winner === hud.me.slot
-  const draw = r.winner === 0
+export function MatchEndModal({ hud, reasonOverride, winnerOverride, onExit, exitLabel }: MatchEndModalProps) {
+  const winner = winnerOverride ?? hud.result?.winner ?? 0
+  const reason = reasonOverride ?? hud.result?.reason ?? ''
+  const duration = hud.result?.durationS ?? 0
+  const won = winner === hud.me.slot
+  const draw = winner === 0
   const title = draw ? 'EMPATE' : won ? 'VICTORIA' : 'DERROTA'
   const rows: { label: string; get: (slot: Slot) => number }[] = [
     { label: 'Vida del núcleo', get: (s) => hud.stats[s].core },
@@ -22,12 +26,12 @@ export function MatchEndModal({ hud, onRestart, onExit, exitLabel }: MatchEndMod
   ]
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/75 p-4" data-testid="match-end" data-winner={r.winner}>
+    <div className="fixed inset-0 z-40 grid place-items-center bg-black/75 p-4" data-testid="match-end" data-winner={winner}>
       <div className="ug-panel w-full max-w-md p-5 text-center">
         {won ? <Trophy size={52} className="mx-auto text-yellow-400" /> : <Skull size={52} className="mx-auto text-ug-red-hi" />}
         <h2 className={`ug-title-shadow mt-2 text-6xl leading-none ${won ? 'text-yellow-400' : draw ? 'text-ug-text' : 'text-ug-red-hi'}`}>{title}</h2>
         <p className="font-terminal text-lg text-ug-muted">
-          {r.reason} · {formatTime(r.durationS)}
+          {reason}{duration ? ` · ${formatTime(duration)}` : ''}
         </p>
         <table className="mt-4 w-full text-left font-terminal text-lg">
           <thead>
@@ -48,9 +52,6 @@ export function MatchEndModal({ hud, onRestart, onExit, exitLabel }: MatchEndMod
           </tbody>
         </table>
         <div className="mt-5 flex justify-center gap-3">
-          <button type="button" onClick={onRestart} className="flex items-center gap-2 border-2 border-ug-red-hi bg-gradient-to-b from-[#d0181f] to-[#8c0d12] px-5 py-2 text-2xl hover:brightness-110">
-            <RotateCcw size={20} /> Revancha
-          </button>
           <button type="button" onClick={onExit} className="ug-panel flex items-center gap-2 px-5 py-2 text-2xl hover:border-ug-border-hi">
             <LogOut size={20} /> {exitLabel}
           </button>

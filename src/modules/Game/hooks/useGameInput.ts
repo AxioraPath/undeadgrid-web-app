@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import type { Command, PlayerInput } from '../../../game/engine'
+import type { GameCommand as Command, PlayerInput } from '../../../shared/lib/contracts'
 
 const KEYMAP: Record<string, keyof PlayerInput> = {
   KeyW: 'up',

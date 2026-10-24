@@ -1,8 +1,18 @@
-import { CORE_HP, MAP_H, MAP_W, TILE, type Slot } from '../constants'
-import { lerp } from '../formulas'
-import { Ground, Tile, type GameMapData, type MapObject } from '../mapgen'
-import { createRng } from '../rng'
-import type { BuildPreview, GameEvent, MatchState, Player, Zombie, ZombieKind } from '../engine'
+import {
+  CORE_HP,
+  Ground,
+  PLAYER_MAX_HP,
+  TILE,
+  Tile,
+  type BuildHint,
+  type GameEvent,
+  type GameMap,
+  type MapObject,
+  type Slot,
+  type ZombieKind,
+} from '../../shared/lib/contracts'
+import type { PlayerView, View, ZombieView } from './interpolation'
+import { createRng } from './rng'
 import { drawFrame as drawSheetFrame, frameAt, sheetAnimations, survivorSheet, type SheetName, type Sprites } from './sprites'
 
 const SLOT_COLOR: Record<Slot, { main: string; light: string; dark: string; tint: string }> = {
@@ -35,7 +45,9 @@ function drawAnchored(ctx: Ctx, img: HTMLImageElement, cx: number, bottom: numbe
 // Capa estática del mapa (se dibuja una vez, a 64 px por casilla)
 // ---------------------------------------------------------------------------
 
-export function createStaticLayer(map: GameMapData, sp: Sprites): HTMLCanvasElement {
+export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement {
+  const MAP_W = map.w
+  const MAP_H = map.h
   const c = document.createElement('canvas')
   c.width = MAP_W * T2
   c.height = MAP_H * T2
@@ -112,7 +124,9 @@ export function createStaticLayer(map: GameMapData, sp: Sprites): HTMLCanvasElem
 }
 
 /** Pieza de camino según con qué lados conecta (n/e/s/w). La base y el borde del mapa cuentan como conexión. */
-function roadPiece(map: GameMapData, x: number, y: number) {
+function roadPiece(map: GameMap, x: number, y: number) {
+  const MAP_W = map.w
+  const MAP_H = map.h
   const links = (dx: number, dy: number) => {
     const nx = x + dx
     const ny = y + dy
@@ -283,9 +297,9 @@ export interface Camera {
   scale: number
 }
 
-export function computeCamera(w: number, h: number, focusX: number, focusY: number): Camera {
-  const worldW = MAP_W * TILE
-  const worldH = MAP_H * TILE
+export function computeCamera(map: GameMap, w: number, h: number, focusX: number, focusY: number): Camera {
+  const worldW = map.w * TILE
+  const worldH = map.h * TILE
   const tilesAcross = w > h ? 22 : 11
   let scale = w / (tilesAcross * TILE)
   scale = Math.max(scale, w / worldW, h / worldH)
@@ -304,25 +318,22 @@ export interface FrameOptions {
   width: number // px CSS
   height: number
   dpr: number
-  alpha: number // interpolación entre los dos últimos ticks
   dt: number
-  meId: string
+  meSlot: Slot
   staticLayer: HTMLCanvasElement
   sprites: Sprites
   fx: Fx
-  preview: BuildPreview | null
+  /** Casilla que construiría el botón de acción (la calcula el servidor). */
+  hint: BuildHint | null
 }
 
-const ix = (prev: number, cur: number, a: number) => lerp(prev, cur, a)
-
-export function drawFrame(ctx: Ctx, s: MatchState, o: FrameOptions): Camera {
+export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   updateFx(o.fx, o.dt)
   const sp = o.sprites
   const fx = o.fx
-  const me = s.players.find((p) => p.id === o.meId)
-  const fx0 = me ? ix(me.px, me.x, o.alpha) : MAP_W / 2
-  const fy0 = me ? ix(me.py, me.y, o.alpha) : MAP_H / 2
-  const cam = computeCamera(o.width, o.height, fx0, fy0)
+  const map = v.map
+  const me = v.players.find((p) => p.slot === o.meSlot)
+  const cam = computeCamera(map, o.width, o.height, me?.x ?? map.w / 2, me?.y ?? map.h / 2)
   const shake = fx.shake > 0 ? (Math.random() - 0.5) * 24 * fx.shake : 0
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -332,7 +343,7 @@ export function drawFrame(ctx: Ctx, s: MatchState, o: FrameOptions): Camera {
   ctx.setTransform(k, 0, 0, k, (-cam.x + shake) * k, (-cam.y + shake) * k)
   ctx.imageSmoothingEnabled = false
 
-  ctx.drawImage(o.staticLayer, 0, 0, MAP_W * TILE, MAP_H * TILE)
+  ctx.drawImage(o.staticLayer, 0, 0, map.w * TILE, map.h * TILE)
 
   // Sangre en el suelo
   for (const d of fx.decals) {
@@ -342,12 +353,12 @@ export function drawFrame(ctx: Ctx, s: MatchState, o: FrameOptions): Camera {
     ctx.fill()
   }
 
-  if (me && o.preview) drawBuildGrid(ctx, s, me.slot)
+  if (o.hint) drawBuildGrid(ctx, map, o.meSlot)
 
   // Trampas (al ras del suelo)
-  for (const [key, st] of s.structures) {
+  for (const [key, st] of v.structures) {
     if (st.type !== 'trap') continue
-    drawAnchored(ctx, sp['trampa-puas'], (key % MAP_W + 0.5) * TILE, (Math.floor(key / MAP_W) + 1) * TILE, ART)
+    drawAnchored(ctx, sp['trampa-puas'], ((key % map.w) + 0.5) * TILE, (Math.floor(key / map.w) + 1) * TILE, ART)
   }
 
   // Cuerpos de zombis (animación de muerte que se queda en el último cuadro)
@@ -362,31 +373,27 @@ export function drawFrame(ctx: Ctx, s: MatchState, o: FrameOptions): Camera {
   // Todo lo que tiene altura se ordena por la posición de los pies
   type Drawable = { y: number; draw: () => void }
   const list: Drawable[] = []
-  for (const [key, st] of s.structures) {
+  for (const [key, st] of v.structures) {
     if (st.type === 'trap') continue
-    const tx = key % MAP_W
-    const ty = Math.floor(key / MAP_W)
-    list.push({ y: ty + 1, draw: () => drawWall(ctx, s, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp) })
+    const tx = key % map.w
+    const ty = Math.floor(key / map.w)
+    list.push({ y: ty + 1, draw: () => drawWall(ctx, v, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp) })
   }
   for (const slot of [1, 2] as Slot[]) {
-    const c = s.map.crates[slot]
+    const c = map.crates[slot]
     list.push({ y: c.y + 1, draw: () => drawAnchored(ctx, sp[slot === 1 ? 'caja-azul' : 'caja-roja'], (c.x + 0.5) * TILE, (c.y + 1) * TILE, ART * 1.05) })
-    const core = s.map.cores[slot]
-    list.push({ y: core.y + 2, draw: () => drawCore(ctx, s, sp, slot, fx) })
+    const core = map.cores[slot]
+    list.push({ y: core.y + 2, draw: () => drawCore(ctx, v, sp, slot, fx) })
   }
   const alive = new Set<number>()
-  for (const z of s.zombies) {
+  for (const z of v.zombies) {
     alive.add(z.id)
-    const x = ix(z.px, z.x, o.alpha)
-    const y = ix(z.py, z.y, o.alpha)
-    list.push({ y, draw: () => drawZombie(ctx, s, sp, fx, z, x, y) })
+    list.push({ y: z.y, draw: () => drawZombie(ctx, v, sp, fx, z) })
   }
   for (const id of fx.facing.keys()) if (!alive.has(id)) fx.facing.delete(id)
-  for (const p of s.players) {
+  for (const p of v.players) {
     if (p.alive) {
-      const x = ix(p.px, p.x, o.alpha)
-      const y = ix(p.py, p.y, o.alpha)
-      list.push({ y, draw: () => drawPlayer(ctx, s, sp, fx, p, x, y, p.id === o.meId) })
+      list.push({ y: p.y, draw: () => drawPlayer(ctx, v, sp, fx, p, p.slot === o.meSlot) })
     } else {
       const d = fx.deadPlayers[p.slot]
       if (d) {
@@ -401,9 +408,9 @@ export function drawFrame(ctx: Ctx, s: MatchState, o: FrameOptions): Camera {
   // Balas
   ctx.strokeStyle = '#ffe08a'
   ctx.lineWidth = 2
-  for (const b of s.bullets) {
-    const x = ix(b.px, b.x, o.alpha) * TILE
-    const y = ix(b.py, b.y, o.alpha) * TILE - 8
+  for (const b of v.bullets) {
+    const x = b.x * TILE
+    const y = b.y * TILE - 8
     ctx.beginPath()
     ctx.moveTo(x - b.vx * 0.6, y - b.vy * 0.6)
     ctx.lineTo(x, y)
@@ -425,8 +432,8 @@ export function drawFrame(ctx: Ctx, s: MatchState, o: FrameOptions): Camera {
   ctx.globalAlpha = 1
 
   // Casilla de enfrente al construir
-  if (o.preview) {
-    const { x, y, ok } = o.preview
+  if (o.hint) {
+    const { x, y, ok } = o.hint
     ctx.fillStyle = ok ? 'rgba(46, 232, 106, 0.4)' : 'rgba(255, 42, 47, 0.35)'
     ctx.fillRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
     ctx.strokeStyle = ok ? '#2ee86a' : '#ff2a2f'
@@ -449,8 +456,8 @@ function drawSheet(ctx: Ctx, sheet: HTMLImageElement, frame: number, feetX: numb
   ctx.restore()
 }
 
-function drawBuildGrid(ctx: Ctx, s: MatchState, slot: Slot) {
-  const b = s.map.bases[slot]
+function drawBuildGrid(ctx: Ctx, map: GameMap, slot: Slot) {
+  const b = map.bases[slot]
   ctx.fillStyle = 'rgba(46, 232, 106, 0.08)'
   ctx.fillRect(b.x * TILE, b.y * TILE, b.w * TILE, b.h * TILE)
   ctx.strokeStyle = 'rgba(46, 232, 106, 0.3)'
@@ -474,8 +481,8 @@ function hpBar(ctx: Ctx, x: number, y: number, w: number, pct: number, color = '
   ctx.fillRect(Math.round(x - w / 2), Math.round(y), Math.round(w * Math.max(0, pct)), 3)
 }
 
-const isWallAt = (s: MatchState, x: number, y: number) => {
-  const st = s.structures.get(y * MAP_W + x)
+const isWallAt = (v: View, x: number, y: number) => {
+  const st = v.structures.get(y * v.map.w + x)
   return !!st && st.type !== 'trap'
 }
 
@@ -483,8 +490,8 @@ const isWallAt = (s: MatchState, x: number, y: number) => {
  * Las paredes del arte miden 2 casillas (128 × 64 o 64 × 128); el juego construye por casilla.
  * Cada casilla dibuja la mitad que le toca según su posición, así una fila de paredes queda continua.
  */
-function drawWall(ctx: Ctx, s: MatchState, sp: Sprites, tx: number, ty: number, type: 'wood' | 'reinforced', pct: number) {
-  const vertical = (isWallAt(s, tx, ty - 1) || isWallAt(s, tx, ty + 1)) && !isWallAt(s, tx - 1, ty) && !isWallAt(s, tx + 1, ty)
+function drawWall(ctx: Ctx, v: View, sp: Sprites, tx: number, ty: number, type: 'wood' | 'reinforced', pct: number) {
+  const vertical = (isWallAt(v, tx, ty - 1) || isWallAt(v, tx, ty + 1)) && !isWallAt(v, tx - 1, ty) && !isWallAt(v, tx + 1, ty)
   const mat = type === 'wood' ? 'madera' : 'metal'
   const state = pct <= 0.33 ? '-destruida' : pct <= 0.66 ? '-danada' : ''
   const img = sp[`pared-${mat}-${vertical ? 'v' : 'h'}${state}`]
@@ -496,9 +503,9 @@ function drawWall(ctx: Ctx, s: MatchState, sp: Sprites, tx: number, ty: number, 
   if (pct < 1) hpBar(ctx, x + TILE / 2, y - 6, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
 }
 
-function drawCore(ctx: Ctx, s: MatchState, sp: Sprites, slot: Slot, fx: Fx) {
-  const c = s.map.cores[slot]
-  const hp = s.cores[slot].hp
+function drawCore(ctx: Ctx, v: View, sp: Sprites, slot: Slot, fx: Fx) {
+  const c = v.map.cores[slot]
+  const hp = v.cores[slot]
   const color = slot === 1 ? 'azul' : 'rojo'
   const state = hp <= 0 ? '-destruido' : hp < CORE_HP / 2 ? '-danado' : ''
   const cx = (c.x + 1) * TILE
@@ -522,44 +529,42 @@ function drawCore(ctx: Ctx, s: MatchState, sp: Sprites, slot: Slot, fx: Fx) {
   if (hp > 0) hpBar(ctx, cx, c.y * TILE - 10, 54, hp / CORE_HP, SLOT_COLOR[slot].main)
 }
 
-function drawZombie(ctx: Ctx, s: MatchState, sp: Sprites, fx: Fx, z: Zombie, x: number, y: number) {
-  const dx = z.x - z.px
-  const dy = z.y - z.py
-  const moving = Math.abs(dx) + Math.abs(dy) > 0.0005
-  const dir = moving ? dirOf(dx, dy) : (fx.facing.get(z.id) ?? 'down')
+function drawZombie(ctx: Ctx, v: View, sp: Sprites, fx: Fx, z: ZombieView) {
+  const dir = z.moving ? dirOf(z.dx, z.dy) : (fx.facing.get(z.id) ?? 'down')
   fx.facing.set(z.id, dir)
 
   const sheet = ZOMBIE_SHEET[z.kind]
   const anims = sheetAnimations(sheet)
-  const sinceAttack = s.time - z.attackAt
-  const sinceHurt = s.time - z.hurtAt
+  const sinceAttack = v.time - z.attackAt
+  const sinceHurt = v.time - z.hurtAt
   let frame: number
-  if (z.attackAt >= 0 && sinceAttack < 0.45) frame = frameAt(anims[`attack_${dir}`], sinceAttack)
-  else if (z.hurtAt >= 0 && sinceHurt < 0.2) frame = frameAt(anims.hurt, sinceHurt)
-  else frame = frameAt(anims[moving ? `walk_${dir}` : `idle_${dir}`], fx.clock + z.id * 0.37)
+  if (z.attackAt >= 0 && sinceAttack >= 0 && sinceAttack < 0.45) frame = frameAt(anims[`attack_${dir}`], sinceAttack)
+  else if (z.hurtAt >= 0 && sinceHurt >= 0 && sinceHurt < 0.2) frame = frameAt(anims.hurt, sinceHurt)
+  else frame = frameAt(anims[z.moving ? `walk_${dir}` : `idle_${dir}`], fx.clock + z.id * 0.37)
 
+  const x = z.x * TILE
+  const y = z.y * TILE
   ctx.fillStyle = 'rgba(0,0,0,0.3)'
   ctx.beginPath()
-  ctx.ellipse(x * TILE, y * TILE + 10, z.kind === 'tank' ? 13 : 9, 4, 0, 0, Math.PI * 2)
+  ctx.ellipse(x, y + 10, z.kind === 'tank' ? 13 : 9, 4, 0, 0, Math.PI * 2)
   ctx.fill()
-  drawSheet(ctx, sp[`sheet-${sheet}`], frame, x * TILE, y * TILE + 11)
-  if (z.hp < z.maxHp) hpBar(ctx, x * TILE, y * TILE - (z.kind === 'tank' ? 34 : 26), 18, z.hp / z.maxHp)
+  drawSheet(ctx, sp[`sheet-${sheet}`], frame, x, y + 11)
+  if (z.hp < z.maxHp) hpBar(ctx, x, y - (z.kind === 'tank' ? 34 : 26), 18, z.hp / z.maxHp)
 }
 
-function drawPlayer(ctx: Ctx, s: MatchState, sp: Sprites, fx: Fx, p: Player, cx: number, cy: number, isMe: boolean) {
-  const x = cx * TILE
-  const y = cy * TILE
+function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe: boolean) {
+  const x = p.x * TILE
+  const y = p.y * TILE
   const col = SLOT_COLOR[p.slot]
   const sheet = survivorSheet(p.survivor)
   const anims = sheetAnimations(sheet)
-  const moving = Math.abs(p.x - p.px) + Math.abs(p.y - p.py) > 0.0005
   const dir = dirOf(p.dirX, p.dirY)
-  const sinceShot = s.time - p.shotAt
-  const sinceHurt = s.time - p.hurtAt
+  const sinceShot = v.time - p.shotAt
+  const sinceHurt = v.time - p.hurtAt
   let frame: number
-  if (p.shotAt >= 0 && sinceShot < 0.22) frame = frameAt(anims[`${p.weapon === 'shotgun' ? 'shotgun' : 'pistol'}_${dir}`], sinceShot)
-  else if (p.hurtAt >= 0 && sinceHurt < 0.2) frame = frameAt(anims.hurt, sinceHurt)
-  else frame = frameAt(anims[moving ? `walk_${dir}` : `idle_${dir}`], fx.clock)
+  if (p.shotAt >= 0 && sinceShot >= 0 && sinceShot < 0.22) frame = frameAt(anims[`${p.weapon === 'shotgun' ? 'shotgun' : 'pistol'}_${dir}`], sinceShot)
+  else if (p.hurtAt >= 0 && sinceHurt >= 0 && sinceHurt < 0.2) frame = frameAt(anims.hurt, sinceHurt)
+  else frame = frameAt(anims[p.moving ? `walk_${dir}` : `idle_${dir}`], fx.clock)
 
   ctx.strokeStyle = col.main
   ctx.lineWidth = 2
@@ -581,31 +586,32 @@ function drawPlayer(ctx: Ctx, s: MatchState, sp: Sprites, fx: Fx, p: Player, cx:
   ctx.strokeRect(Math.round(x - 9), Math.round(y - 33), 18, 11)
   ctx.fillStyle = '#ffffff'
   ctx.fillText(`J${p.slot}`, Math.round(x), Math.round(y - 27))
-  if (p.hp < 100) hpBar(ctx, x, y - 38, 22, p.hp / 100, '#2ee86a')
+  if (p.hp < PLAYER_MAX_HP) hpBar(ctx, x, y - 38, 22, p.hp / PLAYER_MAX_HP, '#2ee86a')
 }
 
 // ---------------------------------------------------------------------------
 // Minimapa
 // ---------------------------------------------------------------------------
 
-export function drawMinimap(ctx: Ctx, s: MatchState, staticLayer: HTMLCanvasElement, meId: string, cam: Camera | null, viewW: number, viewH: number) {
+export function drawMinimap(ctx: Ctx, v: View, staticLayer: HTMLCanvasElement, meSlot: Slot, cam: Camera | null, viewW: number, viewH: number) {
+  const map = v.map
   const w = ctx.canvas.width
   const h = ctx.canvas.height
-  const k = Math.min(w / (MAP_W * TILE), h / (MAP_H * TILE))
+  const k = Math.min(w / (map.w * TILE), h / (map.h * TILE))
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.imageSmoothingEnabled = true
-  ctx.drawImage(staticLayer, 0, 0, MAP_W * TILE * k, MAP_H * TILE * k)
+  ctx.drawImage(staticLayer, 0, 0, map.w * TILE * k, map.h * TILE * k)
   ctx.setTransform(k, 0, 0, k, 0, 0)
   for (const slot of [1, 2] as Slot[]) {
-    const c = s.map.cores[slot]
-    ctx.fillStyle = s.cores[slot].hp > 0 ? SLOT_COLOR[slot].main : '#333'
+    const c = map.cores[slot]
+    ctx.fillStyle = v.cores[slot] > 0 ? SLOT_COLOR[slot].main : '#333'
     ctx.fillRect(c.x * TILE, c.y * TILE, TILE * 2, TILE * 2)
   }
   ctx.fillStyle = '#7bd65a'
-  for (const z of s.zombies) ctx.fillRect(z.x * TILE - 12, z.y * TILE - 12, 24, 24)
-  for (const p of s.players) {
+  for (const z of v.zombies) ctx.fillRect(z.x * TILE - 12, z.y * TILE - 12, 24, 24)
+  for (const p of v.players) {
     if (!p.alive) continue
-    ctx.fillStyle = p.id === meId ? '#ffffff' : SLOT_COLOR[p.slot].light
+    ctx.fillStyle = p.slot === meSlot ? '#ffffff' : SLOT_COLOR[p.slot].light
     ctx.beginPath()
     ctx.arc(p.x * TILE, p.y * TILE, 26, 0, Math.PI * 2)
     ctx.fill()

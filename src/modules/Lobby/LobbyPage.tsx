@@ -16,6 +16,10 @@ import { useRoom } from './context/roomContext'
 export function LobbyPage() {
   const navigate = useNavigate()
   const room = useRoom()
+  const leaveRoom = async () => {
+    await room.leave()
+    navigate('/')
+  }
   const [settingsOpen, setSettingsOpen] = useState(false)
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
 
@@ -44,7 +48,7 @@ export function LobbyPage() {
         <GameLogo size="sm" />
         <button
           type="button"
-          onClick={() => navigate('/')}
+          onClick={leaveRoom}
           className="ug-panel flex items-center gap-2 px-3 py-2 font-terminal text-lg lg:hidden"
         >
           <LogOut size={18} /> Salir
@@ -64,7 +68,7 @@ export function LobbyPage() {
         <nav className="flex flex-col gap-3" aria-label="Menú de sala">
           <MenuButton primary size="sm" icon={Users} title="Sala" subtitle="Multijugador 1v1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
           <MenuButton size="sm" icon={Settings} title="Ajustes" subtitle="Audio y controles" onClick={() => setSettingsOpen(true)} />
-          <MenuButton size="sm" icon={LogOut} title="Salir" subtitle="Volver al menú" onClick={() => navigate('/')} testId="leave-room" />
+          <MenuButton size="sm" icon={LogOut} title="Salir" subtitle="Volver al menú" onClick={leaveRoom} testId="leave-room" />
         </nav>
       </aside>
 
@@ -84,7 +88,7 @@ export function LobbyPage() {
             onCycleDifficulty={room.cycleDifficulty}
           />
         </div>
-        <StartButton canStart={room.canStart} isHost={room.me.isHost} onStart={() => navigate('partida')} />
+        <StartButton canStart={room.canStart} isHost={room.me.isHost} onStart={room.start} />
       </main>
 
       {/* Panel del mapa */}

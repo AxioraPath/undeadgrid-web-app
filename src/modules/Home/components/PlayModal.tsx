@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { DoorOpen, Plus, Swords } from 'lucide-react'
+import { DoorOpen, Plus } from 'lucide-react'
 import { PixelModal } from '../../../shared/components/PixelModal'
 import { CODE_LENGTH } from '../../Lobby/data/catalog'
 
@@ -61,13 +60,6 @@ export function PlayModal({ open, onClose, onCreate, onJoin }: PlayModalProps) {
         </button>
       </form>
 
-      <Link
-        to="/prueba"
-        data-testid="practice-match"
-        className="mt-4 flex items-center justify-center gap-2 border-2 border-dashed border-ug-border py-2 font-terminal text-lg text-ug-muted hover:border-ug-border-hi hover:text-ug-text"
-      >
-        <Swords size={18} /> Partida de prueba (local, sin rival real)
-      </Link>
     </PixelModal>
   )
 }
