@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import { CORE_HP, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
+import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
-import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
+import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
 import { drawAimLine } from '../../game/client/aimLine'
 import { loadSprites, type Sprites } from '../../game/client/sprites'
 import { useGameInput } from './hooks/useGameInput'
@@ -93,9 +93,20 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const detectedTouch = useIsTouch()
   const isTouch = settings.touchControls === 'auto' ? detectedTouch : settings.touchControls === 'on'
 
+  // Modo construir: la última selección de la barra fue pared, trampa o torreta (4, 5, 7).
+  // En celular, tocar una casilla de tu base construye ahí (como en Minecraft).
+  const [buildMode, setBuildMode] = useState(false)
+  const buildModeRef = useRef(false)
   const sendCommand = useCallback((cmd: GameCommand) => {
+    if (cmd.type === 'hotbar' && cmd.slot !== 3) {
+      const building = cmd.slot === 4 || cmd.slot === 5 || cmd.slot === 7
+      buildModeRef.current = building
+      setBuildMode(building)
+    }
     getSocket().emit('game:command', cmd)
   }, [])
+  /** Cámara y posición del jugador del último cuadro: para convertir un clic/toque en casilla. */
+  const viewRef = useRef<{ cam: Camera | null; w: number; h: number; mePos: { x: number; y: number } | null }>({ cam: null, w: 0, h: 0, mePos: null })
   const { read: readInput, setTouchDirection, setTouchAim, readTouchAim, setMouseAction } = useGameInput(sendCommand)
   const finished = status === 'results'
   const aimEnabled = settings.mouseAim && !isTouch
@@ -162,6 +173,30 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
     }
   }, [aimEnabled, setMouseAction])
 
+  // Construir en una casilla: clic derecho con el mouse, o tocarla en celular con pared/trampa/torreta elegida.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !map) return
+    const down = (e: PointerEvent) => {
+      if (finishedRef.current) return
+      const rightClick = e.pointerType === 'mouse' && e.button === 2
+      const tap = e.pointerType !== 'mouse' && buildModeRef.current
+      if (!rightClick && !tap) return
+      const v = viewRef.current
+      if (!v.cam) return
+      const rect = canvas.getBoundingClientRect()
+      const w = screenToWorld(v.cam, (e.clientX - rect.left) * (v.w / rect.width), (e.clientY - rect.top) * (v.h / rect.height))
+      sendCommand({ type: 'build', x: Math.floor(w.x / TILE), y: Math.floor(w.y / TILE) })
+    }
+    const noMenu = (e: Event) => e.preventDefault()
+    canvas.addEventListener('pointerdown', down)
+    canvas.addEventListener('contextmenu', noMenu)
+    return () => {
+      canvas.removeEventListener('pointerdown', down)
+      canvas.removeEventListener('contextmenu', noMenu)
+    }
+  }, [map, sendCommand])
+
   const pushToast = useCallback((text: string) => {
     const id = Date.now() + Math.random()
     setToasts((ts) => [...ts.filter((t) => t.text !== text), { id, text }].slice(-3))
@@ -189,6 +224,9 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       for (const e of state.events) {
         if (e.type === 'rejected' && e.slot === mySlot) pushToast(e.reason)
         if (e.type === 'phase') pushToast(e.label.toUpperCase())
+        if (e.type === 'armoryReady') pushToast('¡CAJA DE ARMAMENTO EN EL CENTRO!')
+        if (e.type === 'armoryOpened')
+          pushToast(e.slot === mySlot ? '¡Metralleta, torreta y botiquín conseguidos!' : 'El rival abrió la caja de armamento')
       }
     },
     [mySlot, pushToast],
@@ -319,6 +357,17 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       const meNow = latest.players.find((p) => p.slot === mySlot)
 
       const prefs = getSettings()
+      // Casilla de tu base bajo el mouse: ahí construye el clic derecho.
+      let ghost: { x: number; y: number; inReach: boolean } | null = null
+      if (aimEnabledRef.current && mouse.over && cam && mePos && !finishedRef.current) {
+        const rect = canvas.getBoundingClientRect()
+        const w = screenToWorld(cam, (mouse.x - rect.left) * (size.w / rect.width), (mouse.y - rect.top) * (size.h / rect.height))
+        const gx = Math.floor(w.x / TILE)
+        const gy = Math.floor(w.y / TILE)
+        const b = map.bases[mySlot]
+        if (gx >= b.x && gx < b.x + b.w && gy >= b.y && gy < b.y + b.h)
+          ghost = { x: gx, y: gy, inReach: Math.hypot(gx + 0.5 - mePos.x, gy + 0.5 - mePos.y) <= BUILD_REACH }
+      }
       cam = drawFrame(ctx, view, {
         width: size.w,
         height: size.h,
@@ -333,9 +382,11 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         screenShake: prefs.screenShake,
         effects: prefs.effects,
         aim,
+        ghost,
       })
       const meView = view.players.find((p) => p.slot === mySlot)
       mePos = meView ? { x: meView.x, y: meView.y } : null
+      viewRef.current = { cam, w: size.w, h: size.h, mePos }
       if (touchAim && cam && mePos && !finishedRef.current) {
         drawAimLine(ctx, cam, mePos.x, mePos.y, touchAim, size.dpr)
       } else if (aim && mouse.over && !finishedRef.current) {
@@ -377,6 +428,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
     }
   }, [sprites, map, mySlot, readInput, readTouchAim])
 
+  const armoryProgress = hud?.armory?.available ? hud.armory.progress[mySlot] : undefined
   const takeFromCrate = (item: keyof Stock) => sendCommand({ type: 'crateTake', item })
 
   // Prefer the server's `match:over` data; until it arrives, fall back to what the game state knows.
@@ -488,10 +540,23 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
           <div className="ug-dock pointer-events-none absolute inset-x-0 flex flex-col items-center gap-1 px-2">
             {hud.me.onCrate && !finished && <CrateMenu stock={hud.crate} onTake={takeFromCrate} />}
             {isTouch && settings.keyHelp && <ControlsHelp touch />}
-            {hud.me.inBase && hud.me.buildHint && (
-              <p className={`text-center text-[clamp(1rem,3vmin,1.125rem)] leading-none ${hud.me.buildHint.ok ? 'text-ug-green' : 'text-ug-red-hi'}`} data-testid="build-hint">
-                {isTouch ? 'Botón' : 'Espacio'}: {hud.me.buildHint.label}
+            {armoryProgress !== undefined && !finished && (
+              <p className="ug-title-shadow text-center text-[clamp(1rem,3vmin,1.25rem)] leading-none text-yellow-300" data-testid="armory-progress">
+                Abriendo caja de armamento… {Math.min(armoryProgress, ARMORY_OPEN_S).toFixed(1)} / {ARMORY_OPEN_S} s (no recibas daño)
               </p>
+            )}
+            {isTouch && buildMode && !finished ? (
+              <p className="text-center text-[clamp(1rem,3vmin,1.125rem)] leading-none text-ug-green" data-testid="build-hint">
+                Toca una casilla de tu base para construir
+              </p>
+            ) : (
+              !isTouch &&
+              hud.me.inBase &&
+              hud.me.buildHint && (
+                <p className={`text-center text-[clamp(1rem,3vmin,1.125rem)] leading-none ${hud.me.buildHint.ok ? 'text-ug-green' : 'text-ug-red-hi'}`} data-testid="build-hint">
+                  Espacio o clic derecho: {hud.me.buildHint.label}
+                </p>
+              )
             )}
             <div className="pointer-events-auto">
               <Hotbar hud={hud} onSelect={(slot) => sendCommand({ type: 'hotbar', slot })} />

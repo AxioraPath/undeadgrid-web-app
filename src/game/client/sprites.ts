@@ -32,10 +32,12 @@ const OBJECTS = [
   'contenedor-rojo-h', 'contenedor-rojo-v', 'contenedor-azul-h', 'contenedor-azul-v',
   'barrera-concreto', 'barrera-obra',
   'puente-madera-h', 'puente-madera-v', 'farol-poste',
-  'caja-azul', 'caja-roja',
+  'caja-azul', 'caja-roja', 'caja-suministros', 'caja-suministros-abierta',
+  'almacen', 'tienda', 'torre-vigilancia', 'torre-agua', 'generador', 'tanque-combustible', 'muro-piedra-h', 'valla-madera',
   'nucleo-azul', 'nucleo-azul-danado', 'nucleo-azul-destruido', 'nucleo-rojo', 'nucleo-rojo-danado', 'nucleo-rojo-destruido',
 ]
 const CONSTRUCTION = [
+  'sacos-h',
   'pared-madera-h', 'pared-madera-h-danada', 'pared-madera-h-destruida', 'pared-madera-v', 'pared-madera-v-danada', 'pared-madera-v-destruida',
   'pared-metal-h', 'pared-metal-h-danada', 'pared-metal-h-destruida', 'pared-metal-v', 'pared-metal-v-danada', 'pared-metal-v-destruida',
   'trampa-puas',

@@ -1,15 +1,17 @@
 const ROWS = [
   ['WASD', 'Moverse'],
-  ['Espacio', 'En tu base: construir · Fuera: disparar'],
-  ['1 – 2', 'Pistola / Escopeta'],
+  ['Espacio', 'En tu base: construir enfrente · Fuera: disparar'],
+  ['1 2 6', 'Pistola / Escopeta / Metralleta'],
   ['3', 'Usar botiquín'],
-  ['4 – 5', 'Elegir pared / trampa'],
+  ['4 5 7', 'Pared / trampa / torreta'],
+  ['Centro', 'Quédate 5 s junto a la caja de armamento'],
   ['Caja', 'Párate encima para tomar recursos'],
 ]
 
 const MOUSE_ROWS = [
   ['Mouse', 'Apuntar'],
-  ['Clic izq.', 'Disparar (mantén para ráfaga)'],
+  ['Clic izq.', 'Disparar (también en tu base)'],
+  ['Clic der.', 'Construir en la casilla'],
 ]
 
 export function ControlsHelp({ mouseAim = false, touch = false }: { mouseAim?: boolean; touch?: boolean }) {
@@ -19,6 +21,8 @@ export function ControlsHelp({ mouseAim = false, touch = false }: { mouseAim?: b
         <span>Joystick izquierdo: mover</span>
         <span className="mx-2 text-ug-border-hi">|</span>
         <span>Joystick derecho: apuntar y disparar</span>
+        <span className="mx-2 text-ug-border-hi">|</span>
+        <span>Pared, trampa o torreta: toca tu base</span>
       </p>
     )
   }

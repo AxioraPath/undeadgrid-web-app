@@ -1,6 +1,6 @@
 import type { HudSnapshot } from '../hud'
 
-type HotbarSlot = 1 | 2 | 3 | 4 | 5
+type HotbarSlot = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 interface HotbarProps {
   hud: HudSnapshot
@@ -9,12 +9,15 @@ interface HotbarProps {
 
 export function Hotbar({ hud, onSelect }: HotbarProps) {
   const { me } = hud
-  const items: { slot: HotbarSlot; icon: string; label: string; value: string; active: boolean; kind: 'weapon' | 'use' | 'build' }[] = [
+  const items: { slot: HotbarSlot; icon: string; label: string; value: string; active: boolean; kind: 'weapon' | 'use' | 'build'; locked?: boolean }[] = [
     { slot: 1, icon: '/assets/game/iconos/pistola.png', label: 'Pistola', value: '∞', active: me.weapon === 'pistol', kind: 'weapon' },
     { slot: 2, icon: '/assets/game/iconos/escopeta.png', label: 'Escopeta', value: String(me.shells), active: me.weapon === 'shotgun', kind: 'weapon' },
     { slot: 3, icon: '/assets/game/iconos/botiquin.png', label: 'Botiquín', value: String(me.medkits), active: false, kind: 'use' },
     { slot: 4, icon: '/assets/game/construccion/pared-madera-h.png', label: 'Pared', value: '', active: me.build === 'wall', kind: 'build' },
     { slot: 5, icon: '/assets/game/construccion/trampa-puas.png', label: 'Trampa', value: '', active: me.build === 'trap', kind: 'build' },
+    // Solo de la caja de armamento del centro: en gris mientras no se tengan.
+    { slot: 6, icon: '/assets/game/iconos/metralleta.png', label: 'Metralleta', value: String(me.smgAmmo ?? 0), active: me.weapon === 'smg', kind: 'weapon', locked: !me.smgAmmo },
+    { slot: 7, icon: '/assets/game/iconos/torreta.png', label: 'Torreta', value: String(me.turrets ?? 0), active: me.build === 'turret', kind: 'build', locked: !me.turrets },
   ]
 
   return (
@@ -34,10 +37,10 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
               : 'border-ug-border bg-black/40 hover:border-ug-border-hi'
           }`}
         >
-          <img src={it.icon} alt="" className="pixelated h-[calc(var(--hb)*0.5)] w-[calc(var(--hb)*0.7)] object-contain" />
+          <img src={it.icon} alt="" className={`pixelated h-[calc(var(--hb)*0.5)] w-[calc(var(--hb)*0.7)] object-contain ${it.locked ? 'opacity-35 grayscale' : ''}`} />
           <span className="flex w-full items-center justify-between text-[clamp(0.75rem,2.6vmin,1rem)] leading-none short:text-xs">
             <span className="bg-ug-panel-2 px-0.5 sm:px-1">{it.slot}</span>
-            <span className={`truncate ${it.kind === 'build' ? 'short:hidden' : ''}`}>{it.kind === 'build' ? it.label : it.value}</span>
+            <span className={`truncate ${it.kind === 'build' && it.slot !== 7 ? 'short:hidden' : ''}`}>{it.kind === 'build' && it.slot !== 7 ? it.label : it.value}</span>
           </span>
         </button>
       ))}

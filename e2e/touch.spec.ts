@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { API, enterMatch, readPos, roomCodeFromUrl } from './helpers'
 
 // Runs only in the "mobile" projects (landscape touch emulation, hasTouch).
-type LastInput = { up: boolean; down: boolean; left: boolean; right: boolean; action: boolean; aim?: { x: number; y: number } } | null
+type LastInput = { up: boolean; down: boolean; left: boolean; right: boolean; action: boolean; fire?: boolean; aim?: { x: number; y: number } } | null
 
 const lastInput = async (page: Page): Promise<LastInput> =>
   ((await (await fetch(`${API}/__test/last-input?code=${roomCodeFromUrl(page)}`)).json()) as { input: LastInput }).input
@@ -56,7 +56,7 @@ test.describe('Flow 3 - Canvas (twin-stick touch controls)', () => {
       await touch('touchStart', [{ x: c.x, y: c.y, id: 1 }])
       await page.waitForTimeout(150)
       await touch('touchMove', [{ x: c.x - 30, y: c.y + 30, id: 1 }])
-      await expect.poll(async () => (await lastInput(page))?.action).toBe(true)
+      await expect.poll(async () => (await lastInput(page))?.fire).toBe(true)
       const held = (await lastInput(page))!
       expect(held.aim).toBeDefined()
       expect(held.aim!.x).toBeLessThan(-0.6)
@@ -66,11 +66,11 @@ test.describe('Flow 3 - Canvas (twin-stick touch controls)', () => {
       // Rotate to straight up.
       await touch('touchMove', [{ x: c.x, y: c.y - 40, id: 1 }])
       await expect.poll(async () => (await lastInput(page))?.aim?.y ?? 0).toBeLessThan(-0.9)
-      expect((await lastInput(page))?.action).toBe(true)
+      expect((await lastInput(page))?.fire).toBe(true)
 
-      // Release: no more action and no aim.
+      // Release: no more fire and no aim. (The right stick sends `fire`, so it also shoots inside your base.)
       await touch('touchEnd', [])
-      await expect.poll(async () => (await lastInput(page))?.action).toBe(false)
+      await expect.poll(async () => (await lastInput(page))?.fire).toBe(false)
       expect((await lastInput(page))?.aim).toBeUndefined()
     } finally {
       bot.disconnect()
@@ -95,14 +95,14 @@ test.describe('Flow 3 - Canvas (twin-stick touch controls)', () => {
         { x: aim.x, y: aim.y - 40, id: 2 },
       ])
       await expect.poll(async () => (await readPos(page)).x).toBeGreaterThan(start.x + 1)
-      await expect.poll(async () => (await lastInput(page))?.action).toBe(true)
+      await expect.poll(async () => (await lastInput(page))?.fire).toBe(true)
       const both = (await lastInput(page))!
       expect(both.right).toBe(true)
       expect(both.aim!.y).toBeLessThan(-0.9)
 
       // Lift both fingers: everything stops and the aim is cleared.
       await touch('touchEnd', [])
-      await expect.poll(async () => (await lastInput(page))?.action).toBe(false)
+      await expect.poll(async () => (await lastInput(page))?.fire).toBe(false)
       expect((await lastInput(page))?.right).toBe(false)
       expect((await lastInput(page))?.aim).toBeUndefined()
     } finally {

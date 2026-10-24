@@ -145,6 +145,8 @@ export interface PlayerInput {
   left: boolean
   right: boolean
   action: boolean
+  /** Disparar siempre (clic izquierdo / stick de apuntar), también dentro de la base. */
+  fire?: boolean
 }
 
 /** Direction from the local player to the mouse in world space (server normalizes it). Omitted when mouse aiming is off. */
@@ -153,7 +155,7 @@ export interface AimVector {
   y: number
 }
 
-export type HotbarSlot = 1 | 2 | 3 | 4 | 5
+export type HotbarSlot = 1 | 2 | 3 | 4 | 5 | 6 | 7
 
 export interface Stock {
   wood: number
@@ -162,7 +164,11 @@ export interface Stock {
   shells: number
 }
 
-export type GameCommand = { type: 'hotbar'; slot: HotbarSlot } | { type: 'crateTake'; item: keyof Stock }
+export type GameCommand =
+  | { type: 'hotbar'; slot: HotbarSlot }
+  | { type: 'crateTake'; item: keyof Stock }
+  /** Construir en una casilla de tu base (clic derecho / tocar la casilla). */
+  | { type: 'build'; x: number; y: number }
 
 export interface Point {
   x: number
@@ -176,7 +182,7 @@ export interface Rect extends Point {
 
 export interface MapObject {
   /** `lamp` es solo decoración (no bloquea). */
-  kind: 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water' | 'lamp'
+  kind: 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water' | 'lamp' | 'building'
   x: number
   y: number
   w: number
@@ -197,6 +203,8 @@ export interface GameMap {
   cores: Record<Slot, Point>
   crates: Record<Slot, Point>
   spawns: Point[]
+  /** Punto de la caja de armamento (centro de la plazoleta). */
+  armory?: Point
 }
 
 export interface BuildHint {
@@ -220,8 +228,11 @@ export interface GamePlayer {
   hp: number
   alive: boolean
   respawnIn: number | null
-  weapon: 'pistol' | 'shotgun'
-  build: 'wall' | 'trap'
+  weapon: 'pistol' | 'shotgun' | 'smg'
+  build: 'wall' | 'trap' | 'turret'
+  /** Balas de metralleta y torretas por colocar (caja de armamento); faltan en servidores viejos. */
+  smgAmmo?: number
+  turrets?: number
   wood: number
   metal: number
   medkits: number
@@ -255,6 +266,8 @@ export type GameEvent =
   | { type: 'rejected'; slot: Slot; reason: string }
   | { type: 'phase'; label: string }
   | { type: 'coreHit'; slot: Slot }
+  | { type: 'armoryOpened'; slot: Slot }
+  | { type: 'armoryReady' }
 
 export interface GameState {
   tick: number
@@ -267,6 +280,9 @@ export interface GameState {
   structures: StructureTuple[]
   cores: Record<Slot, number>
   crates: Record<Slot, Stock>
+  armory?: { available: boolean; openedBy: Slot | null; progress: Partial<Record<Slot, number>> }
+  /** Torretas: [casilla, aimX, aimY, tiros en el cargador, recargando (0/1)]. */
+  turrets?: [number, number, number, number, number][]
   events: GameEvent[]
   result: { winner: Slot | 0; reason: string; durationS: number; byTime: boolean } | null
 }
@@ -280,6 +296,8 @@ export interface GameSyncData {
 export const TILE = 32
 export const MATCH_DURATION = 240
 export const CORE_HP = 500
+/** Construir con clic/toque: casillas de distancia máxima (igual que el servidor). */
+export const BUILD_REACH = 4.5
 export const PLAYER_MAX_HP = 100
 
 /** Capa de colisión del mapa (mapgen del servidor). */
@@ -288,4 +306,20 @@ export const Tile = { GRASS: 0, BORDER: 1, BASE: 5, ROAD: 6, WATER: 7 } as const
 export const Ground = { GRASS: 0, DIRT: 1, ROAD: 2, BASE: 3, WATER: 4, GRAVEL: 5, BRIDGE: 6, PLAZA: 7 } as const
 
 export const ZOMBIE_KINDS: ZombieKind[] = ['normal', 'fast', 'tank']
-export const STRUCTURE_TYPES = ['wood', 'reinforced', 'trap'] as const
+export const STRUCTURE_TYPES = ['wood', 'reinforced', 'trap', 'turret'] as const
+
+/** Caja de armamento: segundos para abrirla (igual que el servidor). */
+export const ARMORY_OPEN_S = 5
+
+/** Estructuras del mapa (variant de `building`): sprite y casillas que ocupan (igual que el servidor). */
+export const BUILDINGS = [
+  { name: 'almacen', w: 3, h: 3 },
+  { name: 'tienda', w: 3, h: 2 },
+  { name: 'torre-vigilancia', w: 2, h: 3 },
+  { name: 'torre-agua', w: 2, h: 3 },
+  { name: 'generador', w: 2, h: 2 },
+  { name: 'tanque-combustible', w: 3, h: 2 },
+  { name: 'muro-piedra-h', w: 2, h: 1 },
+  { name: 'valla-madera', w: 2, h: 1 },
+  { name: 'sacos-h', w: 2, h: 1 },
+] as const

@@ -21,8 +21,8 @@ export interface PlayerView {
   moving: boolean
   alive: boolean
   hp: number
-  weapon: 'pistol' | 'shotgun'
-  build: 'wall' | 'trap'
+  weapon: 'pistol' | 'shotgun' | 'smg'
+  build: 'wall' | 'trap' | 'turret'
   shotAt: number
   hurtAt: number
 }
@@ -59,6 +59,9 @@ export interface View {
   bullets: { x: number; y: number; vx: number; vy: number }[]
   structures: Map<number, StructureView>
   cores: Record<Slot, number>
+  /** Torretas por casilla: hacia dónde apuntan y si están recargando. */
+  turrets: Map<number, { aimX: number; aimY: number; ammo: number; reloading: boolean }>
+  armory: { available: boolean; progress: Partial<Record<Slot, number>> } | null
 }
 
 interface Entry {
@@ -158,5 +161,9 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
   for (const [key, type, hp, maxHp, owner, orient] of b.structures)
     structures.set(key, { type: STRUCTURE_TYPES[type], hp, maxHp, owner, orient: orient === 'v' ? 'v' : 'h' })
 
-  return { time, map, players, zombies, bullets, structures, cores: b.cores }
+  const turrets = new Map<number, { aimX: number; aimY: number; ammo: number; reloading: boolean }>()
+  for (const [key, aimX, aimY, ammo, reloading] of b.turrets ?? []) turrets.set(key, { aimX, aimY, ammo, reloading: reloading === 1 })
+  const armory = b.armory ? { available: b.armory.available, progress: b.armory.progress } : null
+
+  return { time, map, players, zombies, bullets, structures, cores: b.cores, turrets, armory }
 }

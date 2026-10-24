@@ -1,4 +1,6 @@
 import {
+  ARMORY_OPEN_S,
+  BUILDINGS,
   CORE_HP,
   Ground,
   PLAYER_MAX_HP,
@@ -265,6 +267,13 @@ function drawObject(g: Ctx, sp: Sprites, o: MapObject) {
     case 'container':
       drawAnchored(g, sp[`contenedor-${o.variant ? 'azul' : 'rojo'}-${horizontal ? 'h' : 'v'}`], cx, bottom, 1)
       break
+    case 'building': {
+      // La colisión es justo lo que ocupa el sprite: se escala al ancho de sus casillas.
+      const b = BUILDINGS[o.variant % BUILDINGS.length]
+      const img = sp[b.name]
+      drawAnchored(g, img, cx, bottom, (o.w * T2) / img.width)
+      break
+    }
     case 'lamp':
       drawAnchored(g, sp['farol-poste'], cx, bottom, 0.85)
       break
@@ -438,6 +447,8 @@ export interface FrameOptions {
   fx: Fx
   /** Casilla que construiría el botón de acción (la calcula el servidor). */
   hint: BuildHint | null
+  /** Casilla bajo el mouse donde construiría el clic derecho (solo se dibuja). */
+  ghost?: { x: number; y: number; inReach: boolean } | null
   /** Preferencias del jugador (Ajustes). */
   zoom: ZoomTiles
   screenShake: boolean
@@ -497,8 +508,14 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     if (st.type === 'trap') continue
     const tx = key % map.w
     const ty = Math.floor(key / map.w)
+    if (st.type === 'turret') {
+      list.push({ y: ty + 1, draw: () => drawTurret(ctx, v, tx, ty, st.hp / st.maxHp, st.owner) })
+      continue
+    }
     list.push({ y: ty + 1, draw: () => drawWall(ctx, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp, st.orient, lookup) })
   }
+  const armoryAt = map.armory
+  if (armoryAt) list.push({ y: armoryAt.y + 0.5, draw: () => drawArmory(ctx, v, sp, armoryAt.x, armoryAt.y, o.meSlot, fx.clock) })
   for (const slot of [1, 2] as Slot[]) {
     const c = map.crates[slot]
     list.push({ y: c.y + 1, draw: () => drawAnchored(ctx, sp[slot === 1 ? 'caja-azul' : 'caja-roja'], (c.x + 0.5) * TILE, (c.y + 1) * TILE, ART * 1.05) })
@@ -551,6 +568,16 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   }
   ctx.globalAlpha = 1
 
+  // Casilla bajo el mouse (clic derecho = construir ahí)
+  if (o.ghost) {
+    const { x, y, inReach } = o.ghost
+    ctx.strokeStyle = inReach ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.35)'
+    ctx.lineWidth = 2
+    ctx.setLineDash([5, 4])
+    ctx.strokeRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
+    ctx.setLineDash([])
+  }
+
   // Casilla de enfrente al construir
   if (o.hint) {
     const { x, y, ok, orient } = o.hint
@@ -568,6 +595,67 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   }
 
   return cam
+}
+
+/** Torreta: base metálica con un cañón que gira hacia su objetivo; parpadea en ámbar al recargar. */
+function drawTurret(ctx: Ctx, v: View, tx: number, ty: number, pct: number, owner: Slot) {
+  const t = v.turrets.get(ty * v.map.w + tx)
+  const cx = (tx + 0.5) * TILE
+  const cy = (ty + 0.55) * TILE
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'
+  ctx.beginPath()
+  ctx.ellipse(cx, cy + 9, 13, 5, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#23262d'
+  ctx.fillRect(cx - 12, cy - 2, 24, 12)
+  ctx.fillStyle = SLOT_COLOR[owner].main
+  ctx.fillRect(cx - 12, cy + 8, 24, 2)
+  ctx.fillStyle = '#4e5460'
+  ctx.beginPath()
+  ctx.arc(cx, cy, 9, 0, Math.PI * 2)
+  ctx.fill()
+  const a = Math.atan2(t?.aimY ?? 1, t?.aimX ?? 0)
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.rotate(a)
+  ctx.fillStyle = '#1b1d22'
+  ctx.fillRect(2, -3, 15, 6)
+  ctx.fillStyle = '#8c939e'
+  ctx.fillRect(2, -3, 15, 2)
+  ctx.restore()
+  const reloading = t?.reloading
+  ctx.fillStyle = reloading ? (Math.floor(v.time * 6) % 2 ? '#ffb020' : '#5a3d08') : '#ff2a2f'
+  ctx.fillRect(cx - 2, cy - 2, 4, 4)
+  if (pct < 1) hpBar(ctx, cx, ty * TILE - 6, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
+}
+
+/** Caja de armamento del centro: cerrada cuando hay botín; anillo con el avance de quien la abre. */
+function drawArmory(ctx: Ctx, v: View, sp: Sprites, x: number, y: number, meSlot: Slot, clock: number) {
+  const cx = x * TILE
+  const cy = y * TILE
+  const available = v.armory?.available ?? false
+  if (available) {
+    const grd = ctx.createRadialGradient(cx, cy, 4, cx, cy, TILE * 1.8)
+    grd.addColorStop(0, `rgba(255, 210, 90, ${0.35 + Math.sin(clock * 4) * 0.12})`)
+    grd.addColorStop(1, 'rgba(255, 210, 90, 0)')
+    ctx.fillStyle = grd
+    ctx.fillRect(cx - TILE * 2, cy - TILE * 2, TILE * 4, TILE * 4)
+  }
+  drawAnchored(ctx, sp[available ? 'caja-suministros' : 'caja-suministros-abierta'], cx, cy + TILE * 0.5, ART * 1.1)
+  for (const slot of [1, 2] as Slot[]) {
+    const prog = v.armory?.progress[slot]
+    if (!available || prog === undefined) continue
+    const r = slot === meSlot ? 22 : 26
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'
+    ctx.lineWidth = 4
+    ctx.beginPath()
+    ctx.arc(cx, cy - 6, r, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.strokeStyle = SLOT_COLOR[slot].main
+    ctx.beginPath()
+    ctx.arc(cx, cy - 6, r, -Math.PI / 2, -Math.PI / 2 + (Math.min(prog, ARMORY_OPEN_S) / ARMORY_OPEN_S) * Math.PI * 2)
+    ctx.stroke()
+  }
 }
 
 function drawSheet(ctx: Ctx, sheet: HTMLImageElement, frame: number, feetX: number, feetY: number, flip = false) {

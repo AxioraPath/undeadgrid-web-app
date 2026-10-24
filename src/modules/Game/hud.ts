@@ -10,6 +10,7 @@ export interface HudSnapshot {
   zombies: number
   cores: Record<Slot, number>
   crate: Stock
+  armory: GameState['armory'] | null
   me: GamePlayer
   result: GameState['result']
   stats: Record<Slot, { kills: number; zombieKills: number; deaths: number; core: number }>
@@ -35,6 +36,7 @@ export function snapshotHud(s: GameState, meSlot: Slot): HudSnapshot | null {
     zombies: s.zombies.length,
     cores: { ...s.cores },
     crate: { ...s.crates[meSlot] },
+    armory: s.armory ?? null,
     me,
     result: s.result,
     stats,
