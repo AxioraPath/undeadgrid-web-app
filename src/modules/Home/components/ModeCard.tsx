@@ -12,7 +12,7 @@ export function ModeCard() {
       <section className="ug-panel p-1.5" data-testid="mode-card">
         <h2 className="ug-title-shadow px-2 py-1 text-3xl tracking-wide text-ug-accent">MODO PRINCIPAL</h2>
         <img
-          src="/assets/lobby/mode-preview.png"
+          src="/assets/home/mode-preview.png"
           alt="Vista del mapa: dos bases enfrentadas con zombis en medio"
           className="pixelated aspect-[406/210] w-full border-2 border-ug-border object-cover"
         />

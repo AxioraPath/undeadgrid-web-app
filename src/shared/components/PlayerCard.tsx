@@ -11,7 +11,7 @@ export function PlayerCard({ name, level, xp, xpToNext }: PlayerCardProps) {
   return (
     <div className="ug-panel flex items-center gap-3 p-2 pr-4" data-testid="player-card">
       <img
-        src="/assets/lobby/avatar.png"
+        src="/assets/home/avatar.png"
         alt=""
         className="pixelated size-12 border-2 border-ug-border object-cover sm:size-16"
       />

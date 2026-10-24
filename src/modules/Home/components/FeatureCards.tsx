@@ -1,16 +1,16 @@
 const FEATURES = [
   {
-    img: '/assets/lobby/card-build.png',
+    img: '/assets/home/card-build.png',
     title: 'CONSTRUYE',
     text: 'Usa los recursos de tu caja para crear y mejorar tu base.',
   },
   {
-    img: '/assets/lobby/card-survive.png',
+    img: '/assets/home/card-survive.png',
     title: 'SOBREVIVE',
     text: 'Enfrenta oleadas de zombis cada vez más fuertes.',
   },
   {
-    img: '/assets/lobby/card-destroy.png',
+    img: '/assets/home/card-destroy.png',
     title: 'DESTRUYE',
     text: 'Elimina al enemigo y destruye su núcleo para ganar.',
   },
