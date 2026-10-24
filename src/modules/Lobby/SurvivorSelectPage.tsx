@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Check } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
-import { StepIndicator } from './components/StepIndicator'
 import { RoomSummaryCard } from './components/RoomSummaryCard'
 import { SurvivorSelector } from './components/SurvivorSelector'
 import { SurvivorDetails } from './components/SurvivorDetails'
@@ -38,7 +37,6 @@ export function SurvivorSelectPage() {
 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <GameLogo size="sm" />
-        <StepIndicator current={1} onStep={(i) => i === 0 && backToRoom()} />
         <RoomSummaryCard code={room.code} map={room.map} />
       </header>
 
