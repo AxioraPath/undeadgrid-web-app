@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { createRoom, joinAsBot, serverState } from './helpers'
+import { createRoom, joinAsBot, login, serverState } from './helpers'
 
 test.describe('Flow 2 - Lobbies', () => {
   test('create a room, connect the socket, mark ready and see the rival join', async ({ page }) => {
@@ -31,5 +31,39 @@ test.describe('Flow 2 - Lobbies', () => {
     } finally {
       bot.disconnect()
     }
+  })
+  test('forms use custom validation (no native bubbles): room code, rename and chat', async ({ page }) => {
+    await login(page)
+    await page.getByTestId('menu-play').click()
+    const joinForm = page.getByTestId('room-code-input').locator('xpath=ancestor::form')
+    expect(await joinForm.evaluate((f) => (f as HTMLFormElement).noValidate)).toBe(true)
+    await page.getByTestId('join-room').click()
+    await expect(page.locator('#room-code-error')).toHaveText('Escribe el código de la sala')
+    await page.getByTestId('room-code-input').fill('ABC')
+    await page.getByTestId('join-room').click()
+    await expect(page.locator('#room-code-error')).toHaveText('El código debe tener 5 caracteres')
+    await page.getByTestId('room-code-input').fill('ABCDE')
+    await expect(page.locator('#room-code-error')).toHaveCount(0)
+
+    await page.getByTestId('create-room').click()
+    await expect(page.getByTestId('lobby')).toBeVisible()
+
+    const chat = page.getByLabel('Mensaje')
+    expect(await chat.evaluate((i) => (i as HTMLInputElement).form!.noValidate)).toBe(true)
+    await page.getByRole('button', { name: 'Enviar' }).click()
+    await expect(page.locator('#chat-error')).toHaveText('Escribe un mensaje')
+    await chat.fill('hola')
+    await expect(page.locator('#chat-error')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Cambiar nombre' }).click()
+    const name = page.getByLabel('Tu nombre')
+    expect(await name.evaluate((i) => (i as HTMLInputElement).form!.noValidate)).toBe(true)
+    await name.fill('   ')
+    await name.press('Enter')
+    await expect(page.locator('#rename-error')).toHaveText('Escribe tu nombre')
+    await name.fill('Nuevo')
+    await name.press('Enter')
+    // The mock server has no lobby:rename; we only assert the editor closes without errors.
+    await expect(page.getByLabel('Tu nombre')).toHaveCount(0)
   })
 })

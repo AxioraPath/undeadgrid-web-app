@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { CircleCheck, Clock, Crown, Pencil, Shirt } from 'lucide-react'
 import { getSurvivor } from '../data/catalog'
+import { NAME_MAX, validateDisplayName } from '../../../shared/lib/validation'
 import { SLOT_THEME, SPRITE_MASK } from '../data/slotTheme'
 import type { LobbyPlayer, Slot } from '../hooks/useLobbyRoom'
 
@@ -17,6 +18,7 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
   const t = SLOT_THEME[slot]
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const [nameError, setNameError] = useState<string | null>(null)
 
   if (!player) {
     return (
@@ -37,7 +39,18 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
 
   const submitName = (e: FormEvent) => {
     e.preventDefault()
-    onRename(draft)
+    const err = validateDisplayName(draft)
+    if (err) {
+      setNameError(err)
+      return
+    }
+    onRename(draft.trim())
+    setNameError(null)
+    setEditing(false)
+  }
+
+  const cancelRename = () => {
+    setNameError(null)
     setEditing(false)
   }
 
@@ -50,16 +63,28 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
       <div className="flex w-full min-w-0 items-center justify-center gap-2">
         {player.isHost && <Crown size={20} className="text-yellow-400" fill="currentColor" aria-label="Anfitrión" />}
         {editing ? (
-          <form onSubmit={submitName}>
+          <form onSubmit={submitName} noValidate className="flex flex-col items-center">
             <input
               autoFocus
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value.slice(0, NAME_MAX))
+                setNameError(null)
+              }}
               onBlur={submitName}
-              maxLength={16}
+              onKeyDown={(e) => e.key === 'Escape' && cancelRename()}
+              maxLength={NAME_MAX}
               aria-label="Tu nombre"
-              className="w-36 border-2 border-ug-border bg-black/60 px-2 text-center text-2xl outline-none focus:border-ug-accent"
+              aria-required="true"
+              aria-invalid={nameError ? true : undefined}
+              aria-describedby={nameError ? 'rename-error' : undefined}
+              className={`w-36 border-2 ${nameError ? 'border-ug-red-hi' : 'border-ug-border'} bg-black/60 px-2 text-center text-2xl outline-none focus:border-ug-accent`}
             />
+            {nameError && (
+              <p id="rename-error" role="alert" className="font-terminal text-base leading-tight text-ug-red-hi">
+                {nameError}
+              </p>
+            )}
           </form>
         ) : (
           <p className="ug-title-shadow truncate text-2xl leading-none sm:text-3xl">{player.name}</p>
@@ -70,6 +95,7 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
             aria-label="Cambiar nombre"
             onClick={() => {
               setDraft(player.name)
+              setNameError(null)
               setEditing(true)
             }}
             className="grid size-7 place-items-center border-2 border-ug-border bg-ug-panel-2 hover:border-ug-border-hi"

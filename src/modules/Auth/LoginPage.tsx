@@ -5,6 +5,7 @@ import { AuthLayout } from './components/AuthLayout'
 import { AuthField } from './components/AuthField'
 import { AuthButton } from './components/AuthButton'
 import { useAuth } from './context/authContext'
+import { focusFirstInvalid, validateEmail, validateLoginPassword, type FieldErrors } from '../../shared/lib/validation'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -15,13 +16,26 @@ export function LoginPage() {
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [touched, setTouched] = useState({ email: false, password: false })
+
+  const errors: FieldErrors<'email' | 'password'> = {
+    email: validateEmail(email) ?? undefined,
+    password: validateLoginPassword(password) ?? undefined,
+  }
+  const shown = (k: 'email' | 'password') => (touched[k] ? errors[k] : undefined)
+  const touch = (k: 'email' | 'password') => () => setTouched((t) => ({ ...t, [k]: true }))
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    setTouched({ email: true, password: true })
+    if (errors.email || errors.password) {
+      focusFirstInvalid(['email', 'password'], errors)
+      return
+    }
     setLoading(true)
     try {
-      await login(email, password)
+      await login(email.trim(), password)
       navigate(returnTo?.from ?? '/', { replace: true, state: returnTo?.fromState })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.')
@@ -32,14 +46,14 @@ export function LoginPage() {
 
   return (
     <AuthLayout>
-      <form onSubmit={submit} className="flex flex-col gap-4" data-testid="login">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-4" data-testid="login">
         <div>
           <h1 className="ug-title-shadow text-4xl leading-none tracking-wide">INICIAR SESIÓN</h1>
           <p className="mt-1 text-2xl text-ug-accent">Vuelve a defender tu base.</p>
         </div>
 
-        <AuthField id="email" label="Correo electrónico" type="email" icon={Mail} value={email} onChange={setEmail} placeholder="tu@correo.com" autoComplete="email" required />
-        <AuthField id="password" label="Contraseña" type="password" icon={Lock} value={password} onChange={setPassword} placeholder="••••••••" autoComplete="current-password" required />
+        <AuthField id="email" label="Correo electrónico" type="email" icon={Mail} value={email} onChange={setEmail} placeholder="tu@correo.com" autoComplete="email" required error={shown('email')} onBlur={touch('email')} />
+        <AuthField id="password" label="Contraseña" type="password" icon={Lock} value={password} onChange={setPassword} placeholder="••••••••" autoComplete="current-password" required error={shown('password')} onBlur={touch('password')} />
 
         <div className="flex items-center font-terminal text-lg">
           <label className="flex cursor-pointer items-center gap-2 text-ug-text">

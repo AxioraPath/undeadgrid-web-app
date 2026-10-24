@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { SendHorizontal } from 'lucide-react'
 import type { ChatMessage } from '../hooks/useLobbyRoom'
+import { CHAT_MAX, validateChatMessage } from '../../../shared/lib/validation'
 
 const AUTHOR_COLOR = { 1: 'text-[#4d9bff]', 2: 'text-ug-red-hi' } as const
 
@@ -11,6 +12,7 @@ interface RoomChatProps {
 
 export function RoomChat({ messages, onSend }: RoomChatProps) {
   const [text, setText] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
 
   useEffect(() => {
@@ -19,8 +21,15 @@ export function RoomChat({ messages, onSend }: RoomChatProps) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    onSend(text)
+    const err = validateChatMessage(text)
+    if (err) {
+      setError(err)
+      document.getElementById('chat-input')?.focus()
+      return
+    }
+    onSend(text.trim())
     setText('')
+    setError(null)
   }
 
   return (
@@ -34,14 +43,21 @@ export function RoomChat({ messages, onSend }: RoomChatProps) {
           </li>
         ))}
       </ul>
-      <form onSubmit={submit} className="flex gap-2">
+      <form onSubmit={submit} noValidate className="flex gap-2">
         <input
+          id="chat-input"
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          maxLength={120}
+          onChange={(e) => {
+            setText(e.target.value.slice(0, CHAT_MAX))
+            setError(null)
+          }}
+          maxLength={CHAT_MAX}
+          aria-required="true"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'chat-error' : undefined}
           placeholder="Escribe un mensaje..."
           aria-label="Mensaje"
-          className="min-w-0 flex-1 border-2 border-ug-border bg-black/50 px-3 py-1.5 font-terminal text-lg outline-none placeholder:text-ug-muted/60 focus:border-ug-accent"
+          className={`min-w-0 flex-1 border-2 ${error ? 'border-ug-red-hi' : 'border-ug-border'} bg-black/50 px-3 py-1.5 font-terminal text-lg outline-none placeholder:text-ug-muted/60 focus:border-ug-accent`}
         />
         <button
           type="submit"
@@ -51,6 +67,11 @@ export function RoomChat({ messages, onSend }: RoomChatProps) {
           <SendHorizontal size={20} />
         </button>
       </form>
+      {error && (
+        <p id="chat-error" role="alert" className="mt-1 font-terminal text-base leading-tight text-ug-red-hi">
+          {error}
+        </p>
+      )}
     </section>
   )
 }

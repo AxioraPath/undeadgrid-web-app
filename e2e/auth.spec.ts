@@ -45,4 +45,47 @@ test.describe('Flow 1 - Authentication', () => {
     // Joining a non-existent room is rejected by the server, but we must land on the room route.
     await expect(page).toHaveURL(/\/sala\/ABCDE/)
   })
+  test('login uses custom validation: empty submit shows inline errors and sends no request', async ({ page }) => {
+    const requests: string[] = []
+    page.on('request', (r) => r.url().includes('/api/auth/login') && requests.push(r.url()))
+    await page.goto('/login')
+    expect(await page.getByTestId('login').evaluate((f) => (f as HTMLFormElement).noValidate)).toBe(true)
+
+    await page.getByRole('button', { name: 'ENTRAR' }).click()
+    await expect(page.locator('#email-error')).toHaveText('Escribe tu correo')
+    await expect(page.locator('#password-error')).toHaveText('Escribe tu contraseña')
+    await expect(page.locator('#email')).toBeFocused()
+    await expect(page.locator('#email')).toHaveAttribute('aria-invalid', 'true')
+    expect(requests).toHaveLength(0)
+
+    await page.locator('#email').fill('not-an-email')
+    await expect(page.locator('#email-error')).toHaveText('Correo no válido')
+    await page.getByRole('button', { name: 'ENTRAR' }).click()
+    expect(requests).toHaveLength(0)
+
+    await page.locator('#email').fill(USER.email)
+    await expect(page.locator('#email-error')).toHaveCount(0)
+  })
+
+  test('register uses custom validation: short password and mismatched confirmation', async ({ page }) => {
+    await page.goto('/registro')
+    expect(await page.getByTestId('register').evaluate((f) => (f as HTMLFormElement).noValidate)).toBe(true)
+
+    await page.getByRole('button', { name: 'CREAR CUENTA' }).click()
+    await expect(page.locator('#name-error')).toHaveText('Escribe tu nombre')
+    await expect(page.locator('#name')).toBeFocused()
+
+    await page.locator('#name').fill('Tester')
+    await page.locator('#email').fill(USER.email)
+    await page.locator('#password').fill('short')
+    await page.locator('#confirm').fill('short')
+    await page.getByRole('button', { name: 'CREAR CUENTA' }).click()
+    await expect(page.locator('#password-error')).toContainText('al menos 12 caracteres')
+
+    await page.locator('#password').fill('correct-horse-battery')
+    await page.locator('#confirm').fill('different-password-1')
+    await page.getByRole('button', { name: 'CREAR CUENTA' }).click()
+    await expect(page.locator('#confirm-error')).toHaveText('Las contraseñas no coinciden')
+    await expect(page.locator('#confirm')).toBeFocused()
+  })
 })

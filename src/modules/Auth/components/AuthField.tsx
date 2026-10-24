@@ -11,6 +11,8 @@ interface AuthFieldProps {
   icon: ComponentType<LucideProps>
   autoComplete?: string
   required?: boolean
+  error?: string | null
+  onBlur?: () => void
 }
 
 /**
@@ -27,6 +29,8 @@ export function AuthField({
   icon: Icon,
   autoComplete,
   required,
+  error,
+  onBlur,
 }: AuthFieldProps) {
   const [show, setShow] = useState(false)
   const isPassword = type === 'password'
@@ -37,7 +41,7 @@ export function AuthField({
       <label htmlFor={id} className="mb-1.5 block text-xl leading-none tracking-wide">
         {label}
       </label>
-      <div className="flex items-center border-2 border-ug-border bg-black/40 focus-within:border-ug-accent">
+      <div className={`flex items-center border-2 bg-black/40 focus-within:border-ug-accent ${error ? 'border-ug-red-hi' : 'border-ug-border'}`}>
         <span className="grid size-12 shrink-0 place-items-center text-ug-muted">
           <Icon size={22} />
         </span>
@@ -48,7 +52,10 @@ export function AuthField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          required={required}
+          onBlur={onBlur}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
           className="min-w-0 flex-1 bg-transparent py-3 pr-3 font-terminal text-xl text-ug-text outline-none placeholder:text-ug-muted/50"
         />
         {isPassword && (
@@ -62,6 +69,11 @@ export function AuthField({
           </button>
         )}
       </div>
+      {error && (
+        <p id={`${id}-error`} role="alert" className="mt-1 font-terminal text-lg leading-tight text-ug-red-hi">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
