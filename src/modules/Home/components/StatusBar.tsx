@@ -1,5 +1,5 @@
 import { APP_VERSION } from '../../../shared/lib/api'
-import type { ServerStatus } from '../hooks/useServerStatus'
+import type { ServerStatus } from '../../../shared/hooks/useServerStatus'
 
 const STATUS_TEXT: Record<ServerStatus, string> = {
   checking: 'Conectando…',

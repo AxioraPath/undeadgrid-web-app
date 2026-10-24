@@ -1,0 +1,56 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { SendHorizontal } from 'lucide-react'
+import type { ChatMessage } from '../hooks/useLobbyRoom'
+
+const AUTHOR_COLOR = { 1: 'text-[#4d9bff]', 2: 'text-ug-red-hi' } as const
+
+interface RoomChatProps {
+  messages: ChatMessage[]
+  onSend: (text: string) => void
+}
+
+export function RoomChat({ messages, onSend }: RoomChatProps) {
+  const [text, setText] = useState('')
+  const listRef = useRef<HTMLUListElement>(null)
+
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight })
+  }, [messages])
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    onSend(text)
+    setText('')
+  }
+
+  return (
+    <section className="ug-panel flex flex-col p-3" aria-label="Chat de sala" data-testid="room-chat">
+      <h2 className="ug-title-shadow border-b-2 border-ug-border pb-2 text-xl tracking-wide">CHAT DE SALA</h2>
+      <ul ref={listRef} className="my-2 h-28 space-y-1 overflow-y-auto font-terminal text-lg leading-tight">
+        {messages.length === 0 && <li className="text-ug-muted">Aún no hay mensajes.</li>}
+        {messages.map((m) => (
+          <li key={m.id}>
+            <span className={AUTHOR_COLOR[m.slot]}>{m.author}:</span> {m.text}
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={submit} className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          maxLength={120}
+          placeholder="Escribe un mensaje..."
+          aria-label="Mensaje"
+          className="min-w-0 flex-1 border-2 border-ug-border bg-black/50 px-3 py-1.5 font-terminal text-lg outline-none placeholder:text-ug-muted/60 focus:border-ug-accent"
+        />
+        <button
+          type="submit"
+          aria-label="Enviar"
+          className="grid w-11 place-items-center border-2 border-ug-border bg-ug-panel-2 hover:border-ug-border-hi"
+        >
+          <SendHorizontal size={20} />
+        </button>
+      </form>
+    </section>
+  )
+}
