@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Map as MapIcon, Settings, UserRound, Users } from 'lucide-react'
+import { LogOut, Settings, Users } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
 import { MenuButton } from '../../shared/components/MenuButton'
 import { PlayerCard } from '../../shared/components/PlayerCard'
@@ -12,8 +12,6 @@ import { MapPanel } from './components/MapPanel'
 import { RoomChat } from './components/RoomChat'
 import { StartButton } from './components/StartButton'
 import { useRoom } from './context/roomContext'
-
-const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
 export function LobbyPage() {
   const navigate = useNavigate()
@@ -67,8 +65,6 @@ export function LobbyPage() {
       <aside className="hidden flex-col gap-3 lg:col-start-1 lg:row-start-2 lg:flex lg:self-start">
         <nav className="flex flex-col gap-3" aria-label="Menú de sala">
           <MenuButton primary size="sm" icon={Users} title="Sala" subtitle="Multijugador 1v1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-          <MenuButton size="sm" icon={UserRound} title="Personaje" subtitle="Elige tu superviviente" onClick={() => navigate('personaje')} />
-          <MenuButton size="sm" icon={MapIcon} title="Mapa" subtitle="Selecciona el escenario" onClick={() => scrollTo('lobby-map')} />
           <MenuButton size="sm" icon={Settings} title="Ajustes" subtitle="Audio y controles" onClick={() => setSettingsOpen(true)} />
           <MenuButton size="sm" icon={LogOut} title="Salir" subtitle="Volver al menú" onClick={() => navigate('/')} testId="leave-room" />
         </nav>

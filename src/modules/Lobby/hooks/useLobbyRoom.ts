@@ -32,7 +32,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   const [players, setPlayers] = useState<LobbyPlayer[]>([
     {
       id: ME_ID,
-      name: 'Jugador 1',
+      name: `Jugador ${isHost ? 1 : 2}`,
       slot: isHost ? 1 : 2,
       ready: false,
       survivor: UNLOCKED_SURVIVORS[isHost ? 0 : 1].id,
@@ -56,7 +56,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
           ...ps,
           {
             id: RIVAL_ID,
-            name: 'Jugador 2',
+            name: `Jugador ${rivalSlot}`,
             slot: rivalSlot,
             ready: false,
             survivor: UNLOCKED_SURVIVORS[isHost ? 1 : 0].id,
@@ -68,7 +68,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       window.setTimeout(() => patchRival({ survivorConfirmed: true }), 5000),
       window.setTimeout(() => {
         patchRival({ ready: true })
-        setMessages((ms) => [...ms, { id: Date.now(), slot: rivalSlot, author: 'Jugador 2', text: 'Listo, vamos!' }])
+        setMessages((ms) => [...ms, { id: Date.now(), slot: rivalSlot, author: `Jugador ${rivalSlot}`, text: 'Listo, vamos!' }])
       }, 6000),
     ]
     return () => timers.forEach((t) => window.clearTimeout(t))
