@@ -41,7 +41,7 @@ export function LoginPage() {
         <AuthField id="email" label="Correo electrónico" type="email" icon={Mail} value={email} onChange={setEmail} placeholder="tu@correo.com" autoComplete="email" required />
         <AuthField id="password" label="Contraseña" type="password" icon={Lock} value={password} onChange={setPassword} placeholder="••••••••" autoComplete="current-password" required />
 
-        <div className="flex items-center justify-between font-terminal text-lg">
+        <div className="flex items-center font-terminal text-lg">
           <label className="flex cursor-pointer items-center gap-2 text-ug-text">
             <input
               type="checkbox"
@@ -51,7 +51,6 @@ export function LoginPage() {
             />
             Recordarme
           </label>
-          <Link to="/recuperar" className="text-ug-accent hover:underline">¿Olvidaste tu contraseña?</Link>
         </div>
 
         {error && <p role="alert" className="font-terminal text-lg text-ug-red-hi">{error}</p>}

@@ -1,5 +1,5 @@
 // Minimal in-memory stand-in for service-undeadgrid used by the E2E suite.
-// REST: /health, /api/auth/{login,register,refresh,logout,forgot-password}, /api/me, /__test/state
+// REST: /health, /api/auth/{login,register,refresh,logout}, /api/me, /__test/state
 // Socket.IO: the lobby + game events the web app uses (see src/shared/lib/contracts.ts).
 // Simplifications vs the real server: lobby:start jumps straight to "combat" and the
 // simulation only moves players at constant speed according to game:input.
@@ -61,8 +61,6 @@ const http = createServer(async (req, res) => {
         return hasRefreshCookie(req) ? json(res, 200, { accessToken: 'mock-access-token' }) : json(res, 401, { message: 'Sin sesión' })
       case 'logout':
         return json(res, 200, { ok: true }, { 'Set-Cookie': 'refresh_token=; Path=/api/auth; Max-Age=0' })
-      case 'forgot-password':
-        return json(res, 200, { ok: true })
     }
   }
   json(res, 404, { message: 'Not found' })

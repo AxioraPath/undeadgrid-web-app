@@ -3,7 +3,7 @@ import { GameLogo } from '../../../shared/components/GameLogo'
 import { APP_VERSION } from '../../../shared/lib/api'
 
 /**
- * Layout de las pantallas de autenticación (login / registro / recuperar).
+ * Layout de las pantallas de autenticación (login / registro).
  * Fondo con el arte de la escena + panel a la derecha con borde azul neón,
  * fiel al diseño. En móvil el panel ocupa el ancho; en escritorio va a la derecha.
  */

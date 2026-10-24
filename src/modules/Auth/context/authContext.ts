@@ -12,7 +12,6 @@ export interface AuthContextValue {
   /** Crea una cuenta. Lanza Error con mensaje legible si falla. */
   register: (name: string, email: string, password: string) => Promise<void>
   /** Solicita el enlace de recuperación. */
-  requestReset: (email: string) => Promise<void>
   logout: () => void
 }
 

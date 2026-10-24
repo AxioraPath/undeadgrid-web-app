@@ -53,10 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(toUser(u))
   }, [])
 
-  const requestReset = useCallback(async (email: string) => {
-    await authApi.forgotPassword(email)
-  }, [])
-
   const logout = useCallback(() => {
     authApi.logout().catch(() => undefined)
     setAccessToken(null)
@@ -64,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, login, register, requestReset, logout }),
-    [user, login, register, requestReset, logout],
+    () => ({ user, login, register, logout }),
+    [user, login, register, logout],
   )
 
   // Evita parpadeo de "no logueado" mientras se rehidrata la sesión.

@@ -47,7 +47,4 @@ export const authApi = {
     post<AuthResponse>('/login', { email, password }),
   refresh: () => post<{ accessToken: string }>('/refresh'),
   logout: () => post<{ ok: boolean }>('/logout'),
-  forgotPassword: (email: string) => post<{ ok: boolean }>('/forgot-password', { email }),
-  resetPassword: (token: string, password: string) =>
-    post<{ ok: boolean }>('/reset-password', { token, password }),
 }
