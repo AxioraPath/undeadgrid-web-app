@@ -152,3 +152,9 @@ html.ug-no-scroll #root {
     animation: none;
   }
 }
+
+/* Pantallas del menú escaladas para caber en la ventana de PC (ver DesktopFit).
+   Dentro, el alto de "pantalla" es el del área escalada, no el de la ventana real. */
+.ug-fit .min-h-dvh {
+  min-height: calc(var(--ug-vh) * 100);
+}

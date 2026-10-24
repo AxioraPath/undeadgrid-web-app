@@ -8,19 +8,20 @@ import { AuthProvider } from './modules/Auth/context/AuthProvider'
 import { RequireAuth } from './modules/Auth/components/RequireAuth'
 import { LoginPage } from './modules/Auth/LoginPage'
 import { RegisterPage } from './modules/Auth/RegisterPage'
+import { DesktopFit } from './shared/components/DesktopFit'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/" element={<DesktopFit><HomePage /></DesktopFit>} />
+          <Route path="/login" element={<DesktopFit><LoginPage /></DesktopFit>} />
+          <Route path="/registro" element={<DesktopFit><RegisterPage /></DesktopFit>} />
           <Route element={<RequireAuth />}>
             <Route path="/sala/:code" element={<RoomProvider />}>
-              <Route index element={<LobbyPage />} />
-              <Route path="personaje" element={<SurvivorSelectPage />} />
+              <Route index element={<DesktopFit><LobbyPage /></DesktopFit>} />
+              <Route path="personaje" element={<DesktopFit><SurvivorSelectPage /></DesktopFit>} />
               <Route path="partida" element={<RoomGamePage />} />
             </Route>
           </Route>

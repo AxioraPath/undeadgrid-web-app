@@ -1,7 +1,7 @@
 // Logo en CSS mientras el diseñador exporta el PNG con transparencia (assets/logo.png).
 const SIZES = {
-  lg: { title: 'text-[clamp(3.5rem,9vw,8.5rem)]', subtitle: 'mt-2 text-[clamp(1.1rem,2.1vw,2rem)] tracking-[0.18em]' },
-  sm: { title: 'text-[clamp(2.5rem,4.6vw,4.75rem)]', subtitle: 'mt-1 text-[clamp(0.9rem,1.3vw,1.3rem)] tracking-[0.14em]' },
+  lg: { title: 'text-[clamp(3.5rem,calc(var(--ug-vw,1vw)*9),8.5rem)]', subtitle: 'mt-2 text-[clamp(1.1rem,calc(var(--ug-vw,1vw)*2.1),2rem)] tracking-[0.18em]' },
+  sm: { title: 'text-[clamp(2.5rem,calc(var(--ug-vw,1vw)*4.6),4.75rem)]', subtitle: 'mt-1 text-[clamp(0.9rem,calc(var(--ug-vw,1vw)*1.3),1.3rem)] tracking-[0.14em]' },
 }
 
 interface GameLogoProps {
