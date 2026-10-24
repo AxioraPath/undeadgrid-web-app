@@ -24,6 +24,7 @@ export interface Survivor {
 export interface GameMap {
   id: string
   name: string
+  biome: string
   description: string
   preview: string
 }
@@ -97,8 +98,23 @@ export const MAPS: GameMap[] = [
   {
     id: 'ciudad-abandonada',
     name: 'Ciudad Abandonada',
-    description: 'Una ciudad en ruinas dividida por una avenida. Recursos limitados y muchas rutas de ataque.',
-    preview: '/assets/lobby/map-ciudad.png',
+    biome: 'Urbano',
+    description: 'Una ciudad en ruinas cruzada por una avenida y un río. Puentes estrechos y autos abandonados como cobertura.',
+    preview: '/assets/maps/ciudad.jpg',
+  },
+  {
+    id: 'desierto-ferroviario',
+    name: 'Desierto Ferroviario',
+    biome: 'Desierto',
+    description: 'Una estación olvidada entre cañones y oasis. Las vías dividen el mapa y la torre central controla el paso.',
+    preview: '/assets/maps/desierto.jpg',
+  },
+  {
+    id: 'distrito-industrial',
+    name: 'Distrito Industrial',
+    biome: 'Industrial',
+    description: 'Fábricas, canales y un tren detenido. Muchas rutas cortas y callejones para emboscar al rival.',
+    preview: '/assets/maps/industrial.jpg',
   },
 ]
 

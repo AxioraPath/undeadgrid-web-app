@@ -1,11 +1,11 @@
-import { Castle, Mountain, Scale, Shuffle, TreePine } from 'lucide-react'
+import { Castle, Mountain, Shuffle, TreePine, Waves } from 'lucide-react'
 import type { GameMap } from '../data/catalog'
 
 const FEATURES = [
   { icon: Castle, label: '2 bases 8 × 8' },
   { icon: Mountain, label: 'Obstáculos dinámicos' },
-  { icon: TreePine, label: 'Spawns en las orillas' },
-  { icon: Scale, label: 'Terreno balanceado' },
+  { icon: TreePine, label: 'Spawns en las 4 orillas' },
+  { icon: Waves, label: 'Agua no transitable' },
 ]
 
 interface MapPanelProps {
@@ -18,12 +18,14 @@ export function MapPanel({ map, canEdit, onChangeMap }: MapPanelProps) {
   return (
     <section id="lobby-map" className="ug-panel flex flex-col p-4" data-testid="map-panel">
       <h2 className="ug-title-shadow text-3xl leading-none tracking-wide uppercase">{map.name}</h2>
+      <p className="font-terminal text-lg leading-tight text-ug-muted">Escenario {map.biome.toLowerCase()}</p>
       <img
         src={map.preview}
         alt={`Vista del mapa ${map.name}`}
-        className="pixelated mt-3 aspect-[346/236] w-full border-2 border-ug-border object-cover"
+        key={map.id}
+        className="pixelated mt-2 aspect-[4/3] w-full border-2 border-ug-border object-cover"
       />
-      <p className="mt-3 font-terminal text-lg leading-tight text-ug-muted">{map.description}</p>
+      <p className="mt-3 min-h-[3lh] font-terminal text-lg leading-tight text-ug-muted">{map.description}</p>
 
       <h3 className="ug-title-shadow mt-4 text-xl tracking-wide">CARACTERÍSTICAS</h3>
       <ul className="mt-2 grid grid-cols-4 gap-2">

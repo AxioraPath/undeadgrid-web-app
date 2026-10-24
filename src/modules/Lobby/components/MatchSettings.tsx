@@ -26,7 +26,7 @@ export function MatchSettings({ map, mapIndex, difficulty, canEdit, onCycleMap, 
             <ChevronLeft size={26} strokeWidth={3} />
           </button>
           <div className="flex-1 text-center">
-            <img src={map.preview} alt="" className="pixelated mx-auto aspect-[346/236] w-full max-w-40 object-cover" />
+            <img src={map.preview} alt="" className="pixelated mx-auto aspect-[4/3] w-full max-w-36 object-cover" />
             <p className="mt-1 font-terminal text-lg leading-none">{map.name}</p>
             <div className="mt-1 flex justify-center gap-1">
               {MAPS.map((m, i) => (
