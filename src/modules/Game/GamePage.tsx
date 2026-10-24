@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import type { GameCommand, GameMap, GameState, GameSyncData, MatchXp, PlayerInput, RoomStatus, Slot, Stock } from '../../shared/lib/contracts'
+import { CORE_HP, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { consumeEvents, createFx, createStaticLayer, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
@@ -15,7 +15,8 @@ import { Hotbar } from './components/Hotbar'
 import { ControlsHelp } from './components/ControlsHelp'
 import { MobileControls } from './components/MobileControls'
 import { CrateMenu } from './components/CrateMenu'
-import { MatchEndModal } from './components/MatchEndModal'
+import { MatchResultsScreen, type ResultsPlayer, type ResultsSummary } from './components/MatchResultsScreen'
+import type { MatchSummary } from '../Lobby/hooks/useLobbyRoom'
 
 const FRAME_MS = 1000 / 60
 const HUD_MS = 100
@@ -30,10 +31,24 @@ export interface GamePageProps {
   status: RoomStatus
   /** Resultado de la sala cuando la partida terminó fuera del motor (p. ej. abandono). */
   roomResult: { winner: Slot | null; reason: string } | null
-  exitLabel: string
-  onExit: () => void
+  /** Leaves the room (HUD button and the results screen's SALIR). */
+  onExit: () => void | Promise<void>
   /** XP gained per slot, when the server reports it. */
   xp?: MatchXp | null
+  /** Everything the end-of-match screen needs besides what the game itself knows. */
+  results: {
+    roomCode: string
+    mapId: string
+    mapName?: string
+    players: Partial<Record<Slot, ResultsPlayer>>
+    /** `match:over` payload data (null until it arrives). */
+    summary: MatchSummary | null
+    rivalPresent: boolean
+    rematchRequested: number[]
+    onRematch: () => void
+    onCancelRematch: () => void
+    onBackToLobby: () => void | Promise<void>
+  }
 }
 
 interface Toast {
@@ -44,17 +59,14 @@ interface Toast {
 const sameInput = (a: PlayerInput, b: PlayerInput) =>
   a.up === b.up && a.down === b.down && a.left === b.left && a.right === b.right && a.action === b.action
 
-const ROOM_REASON: Record<string, string> = {
-  opponent_left: 'El rival abandonó la partida',
-  core_destroyed: 'Núcleo rival destruido y enemigo eliminado',
-  time_out: 'Tiempo agotado',
-}
+const asReason = (r: string | undefined): MatchEndReason =>
+  r === 'opponent_left' || r === 'time_out' ? r : 'core_destroyed'
 
 /**
  * Partida: el servidor simula todo a 30 ticks/s. Aquí solo se mandan los controles
  * (game:input / game:command) y se dibuja lo que llega en game:state, interpolado.
  */
-export function GamePage({ mySlot, status, roomResult, exitLabel, onExit, xp }: GamePageProps) {
+export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: GamePageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const minimapRef = useRef<HTMLCanvasElement>(null)
   const posRef = useRef<HTMLDivElement>(null)
@@ -266,6 +278,41 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit, xp }: 
   const takeFromCrate = (item: keyof Stock) => sendCommand({ type: 'crateTake', item })
   const finished = status === 'results'
 
+  // Prefer the server's `match:over` data; until it arrives, fall back to what the game state knows.
+  const { summary: serverSummary, mapId, mapName } = results
+  const summary = useMemo<ResultsSummary | null>(() => {
+    if (serverSummary) {
+      const zero = { zombieKills: 0, structuresBuilt: 0, coreDamageDealt: 0, coreHpPct: 0 }
+      return {
+        winner: serverSummary.winner,
+        reason: serverSummary.reason,
+        durationS: serverSummary.durationS,
+        mapId,
+        mapName: serverSummary.mapName ?? mapName,
+        stats: { 1: serverSummary.stats[1] ?? zero, 2: serverSummary.stats[2] ?? zero },
+      }
+    }
+    if (!hud) return null
+    const side = (slot: Slot) => {
+      const other: Slot = slot === 1 ? 2 : 1
+      return {
+        zombieKills: hud.stats[slot].zombieKills,
+        structuresBuilt: 0,
+        coreDamageDealt: Math.max(0, CORE_HP - hud.cores[other]),
+        coreHpPct: Math.round((hud.cores[slot] / CORE_HP) * 100),
+      }
+    }
+    const winner = hud.result ? hud.result.winner : (roomResult?.winner ?? 0)
+    return {
+      winner: winner === 1 || winner === 2 ? winner : null,
+      reason: asReason(hud.result?.reason ?? roomResult?.reason),
+      durationS: hud.result?.durationS ?? 0,
+      mapId,
+      mapName,
+      stats: { 1: side(1), 2: side(2) },
+    }
+  }, [serverSummary, hud, roomResult, mapId, mapName])
+
   return (
     <div
       className="ug-game bg-ug-bg"
@@ -362,14 +409,19 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit, xp }: 
         </div>
       )}
 
-      {hud && finished && (
-        <MatchEndModal
-          hud={hud}
-          reasonOverride={hud.result ? undefined : roomResult ? ROOM_REASON[roomResult.reason] : undefined}
-          winnerOverride={hud.result ? undefined : (roomResult?.winner ?? 0)}
-          onExit={onExit}
-          exitLabel={exitLabel}
-          xp={xp}
+      {finished && summary && (
+        <MatchResultsScreen
+          mySlot={mySlot}
+          roomCode={results.roomCode}
+          players={results.players}
+          summary={summary}
+          xp={xp?.[mySlot]}
+          rivalPresent={results.rivalPresent}
+          rematchRequested={results.rematchRequested}
+          onRematch={results.onRematch}
+          onCancelRematch={results.onCancelRematch}
+          onBackToLobby={results.onBackToLobby}
+          onLeave={onExit}
         />
       )}
     </div>

@@ -63,12 +63,14 @@ function Instructions() {
 
 function Credits() {
   return (
-    <ul className="space-y-2 font-terminal text-xl text-ug-muted">
-      <li><b className="text-ug-text">Programación servidor</b> — Programador 1</li>
-      <li><b className="text-ug-text">Programación cliente</b> — Programador 2</li>
-      <li><b className="text-ug-text">Arte y diseño</b> — Diseñador</li>
-      <li className="pt-2 text-lg">Dirección de TI: Angel Gustavo Anaya Lopez</li>
-    </ul>
+    <div className="space-y-3 font-terminal text-xl text-ug-muted">
+      <p className="text-ug-text">Desarrolladores</p>
+      <ul className="space-y-2">
+        <li>Josseph Peralta</li>
+        <li>Sylvanna Cisneros</li>
+        <li>Angel Anaya</li>
+      </ul>
+    </div>
   )
 }
 

@@ -65,7 +65,30 @@ export interface RoomSnapshot {
 /** XP gained by each authenticated player of the match, keyed by slot. Absent for guests / old servers. */
 export type MatchXp = Partial<Record<number, number>>
 
-export type MatchOverPayload = RoomSnapshot & { xp?: MatchXp }
+/** Per-slot end-of-match stats reported by the server. */
+export interface MatchSlotStats {
+  zombieKills: number
+  structuresBuilt: number
+  /** HP of damage dealt to the rival core. */
+  coreDamageDealt: number
+  coreHpPct: number
+}
+
+export type MatchEndReason = 'core_destroyed' | 'time_out' | 'opponent_left'
+
+export type MatchOverPayload = RoomSnapshot & {
+  xp?: MatchXp
+  stats: { [slot: number]: MatchSlotStats }
+  durationS: number
+  winner: Slot | null
+  reason: MatchEndReason
+  mapName?: string
+}
+
+/** Slots that currently ask for a rematch. */
+export interface RematchState {
+  requested: number[]
+}
 
 export interface JoinedData {
   sessionId: string
@@ -85,6 +108,7 @@ export interface ServerToClientEvents {
   'combat:phase': (d: CombatSnapshot) => void
   'combat:tick': (d: CombatSnapshot) => void
   'match:over': (room: MatchOverPayload) => void
+  'match:rematchState': (state: RematchState) => void
   'game:state': (state: GameState) => void
 }
 
@@ -103,6 +127,9 @@ export interface ClientToServerEvents {
   'lobby:setMap': (p: { mapId: string }, ack: (r: Ack<RoomSnapshot>) => void) => void
   'lobby:setDifficulty': (p: { difficulty: string }, ack: (r: Ack<RoomSnapshot>) => void) => void
   'lobby:start': (ack: (r: Ack<RoomSnapshot>) => void) => void
+  'match:rematchRequest': (ack: (r: Ack) => void) => void
+  'match:rematchCancel': (ack: (r: Ack) => void) => void
+  'lobby:backToLobby': (ack: (r: Ack<RoomSnapshot>) => void) => void
   'chat:send': (p: { text: string }, ack: (r: Ack<ChatMessageSnapshot>) => void) => void
   'game:input': (p: { seq: number } & PlayerInput, ack?: (r: Ack) => void) => void
   'game:command': (p: GameCommand, ack?: (r: Ack) => void) => void

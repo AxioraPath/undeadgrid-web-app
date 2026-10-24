@@ -5,8 +5,11 @@ import { emitAck, getSocket } from '../../../shared/lib/socket'
 import type {
   ChatMessageSnapshot,
   JoinedData,
+  MatchEndReason,
   MatchOverPayload,
+  MatchSlotStats,
   MatchXp,
+  RematchState,
   PlayerSnapshot,
   RoomSnapshot,
   RoomStatus,
@@ -23,6 +26,7 @@ export interface LobbyPlayer {
   // true cuando el jugador confirmó su superviviente en la pantalla de selección
   survivorConfirmed: boolean
   isHost: boolean
+  connected: boolean
 }
 
 export interface ChatMessage {
@@ -30,6 +34,15 @@ export interface ChatMessage {
   slot: Slot
   author: string
   text: string
+}
+
+/** End-of-match data from `match:over` (everything except the room snapshot and XP). */
+export interface MatchSummary {
+  stats: { [slot: number]: MatchSlotStats }
+  durationS: number
+  winner: 1 | 2 | null
+  reason: MatchEndReason
+  mapName?: string
 }
 
 export const MAX_PLAYER_NAME = 16
@@ -50,6 +63,7 @@ const toLobbyPlayer = (p: PlayerSnapshot): LobbyPlayer => ({
   survivor: p.survivor,
   survivorConfirmed: p.survivorConfirmed,
   isHost: p.isHost,
+  connected: p.connected,
 })
 
 const toChatMessage = (m: ChatMessageSnapshot): ChatMessage => ({
@@ -68,6 +82,10 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   const [room, setRoom] = useState<RoomSnapshot | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [matchXp, setMatchXp] = useState<MatchXp | null>(null)
+  const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null)
+  const [rematchRequested, setRematchRequested] = useState<number[]>([])
+  // Bumped each time the room leaves `results`, so the match screen remounts clean for a rematch.
+  const [matchRound, setMatchRound] = useState(0)
   const [mySlot, setMySlot] = useState<Slot>(isHost ? 1 : 2)
 
   // Nombre y superviviente por defecto (editables luego con rename / confirmSurvivor).
@@ -135,7 +153,17 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       }
     }
 
-    const onState = (snapshot: RoomSnapshot) => setRoom(snapshot)
+    // Results state only lives while the room is in `results`; any other phase clears it.
+    const applySnapshot = (snapshot: RoomSnapshot) => {
+      setRoom(snapshot)
+      if (snapshot.status !== 'results') {
+        setMatchSummary(null)
+        setMatchXp(null)
+        setRematchRequested([])
+      }
+    }
+    const onState = (snapshot: RoomSnapshot) => applySnapshot(snapshot)
+    const onRematchState = (d: RematchState) => setRematchRequested(d.requested ?? [])
     const onChat = (msg: ChatMessageSnapshot) =>
       setMessages((ms) => (ms.some((m) => m.id === msg.id) ? ms : [...ms, toChatMessage(msg)]))
     const onClosed = (d: { reason: string }) => {
@@ -143,15 +171,18 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       setRoom((r) => (r ? { ...r, status: 'results' } : r))
     }
     const onMatchOver = (payload: MatchOverPayload) => {
-      const { xp, ...snapshot } = payload
+      const { xp, stats, durationS, winner, reason, mapName, ...snapshot } = payload
       setRoom(snapshot)
       setMatchXp(xp ?? null)
+      setMatchSummary({ stats: stats ?? {}, durationS, winner, reason, mapName })
+      setRematchRequested([])
     }
 
     socket.on('lobby:state', onState)
     socket.on('chat:message', onChat)
     socket.on('lobby:closed', onClosed)
     socket.on('match:over', onMatchOver)
+    socket.on('match:rematchState', onRematchState)
 
     if (joinedCodeRef.current !== code) void join()
 
@@ -161,10 +192,18 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       socket.off('chat:message', onChat)
       socket.off('lobby:closed', onClosed)
       socket.off('match:over', onMatchOver)
+      socket.off('match:rematchState', onRematchState)
     }
     // Solo depende de la identidad de la sala y el rol; defaults derivan de isHost.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, isHost])
+
+  const roomStatus = room?.status
+  const prevStatusRef = useRef<RoomStatus | undefined>(undefined)
+  useEffect(() => {
+    if (prevStatusRef.current === 'results' && roomStatus !== 'results') setMatchRound((n) => n + 1)
+    prevStatusRef.current = roomStatus
+  }, [roomStatus])
 
   const players = useMemo<LobbyPlayer[]>(
     () => (room ? room.players.map(toLobbyPlayer) : []),
@@ -184,6 +223,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       survivor: defaultSurvivor,
       survivorConfirmed: false,
       isHost,
+      connected: true,
     }
   }, [players, mySlot, defaultName, defaultSurvivor, isHost])
 
@@ -243,6 +283,31 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       // Si ya no estaba en la sala, no importa.
     }
   }, [room?.code, code])
+
+  const requestRematch = useCallback(() => {
+    emitAck('match:rematchRequest').catch((err) => console.error('[useLobbyRoom] rematchRequest falló', err))
+  }, [])
+
+  const cancelRematch = useCallback(() => {
+    emitAck('match:rematchCancel').catch((err) => console.error('[useLobbyRoom] rematchCancel falló', err))
+  }, [])
+
+  /** Results -> lobby for both players; the resulting lobby:state clears the results state. */
+  const backToLobby = useCallback(async () => {
+    try {
+      const snapshot = await emitAck<RoomSnapshot>('lobby:backToLobby')
+      if (snapshot) {
+        setRoom(snapshot)
+        if (snapshot.status !== 'results') {
+          setMatchSummary(null)
+          setMatchXp(null)
+          setRematchRequested([])
+        }
+      }
+    } catch (err) {
+      console.error('[useLobbyRoom] backToLobby falló', err)
+    }
+  }, [])
 
   const confirmSurvivor = useCallback(async (id: string) => {
     try {
@@ -313,6 +378,17 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     result: room?.result ?? null,
     /** XP gained per slot in the finished match (undefined when the server did not send it). */
     matchXp,
+    /** Stats / winner / duration of the finished match (null until `match:over` arrives). */
+    matchSummary,
+    /** Slots that currently request a rematch. */
+    rematchRequested,
+    /** Changes every time the room leaves `results`; use as a React key for the match screen. */
+    matchRound,
+    requestRematch,
+    cancelRematch,
+    backToLobby,
+    /** Display name of the room map from the catalog. */
+    mapName: MAPS[mapIndex].name,
   }
 }
 

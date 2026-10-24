@@ -1,6 +1,8 @@
 // Minimal in-memory stand-in for service-undeadgrid used by the E2E suite.
 // REST: /health, /api/auth/{login,register,refresh,logout}, /api/me, /api/me/missions(+/:key/claim), /__test/state
 // Socket.IO: the lobby + game events the web app uses (see src/shared/lib/contracts.ts).
+// Results flow: POST /__test/match-over?code=&winner=1|2|0&reason=&xp=1&left=1 ends the match deterministically
+// (emits match:over); match:rematchRequest/Cancel, match:rematchState and lobby:backToLobby behave like the real server.
 // Simplifications vs the real server: lobby:start jumps straight to "combat" and the
 // simulation only moves players at constant speed according to game:input.
 import { createServer } from 'node:http'
@@ -76,6 +78,29 @@ const http = createServer(async (req, res) => {
       sockets: io.engine.clientsCount,
       rooms: [...rooms.values()].map((r) => ({ code: r.code, status: r.status, players: r.players.length })),
     })
+  }
+  if (req.method === 'POST' && url.pathname === '/__test/match-over') {
+    const room = url.searchParams.get('code') ? rooms.get(url.searchParams.get('code')) : [...rooms.values()].at(-1)
+    if (!room) return json(res, 404, { message: 'No room' })
+    const winnerParam = Number(url.searchParams.get('winner') ?? 1)
+    const reason = url.searchParams.get('reason') ?? 'core_destroyed'
+    if (url.searchParams.get('left')) room.players = room.players.filter((p) => p.slot !== Number(url.searchParams.get('left')))
+    room.status = 'results'
+    room.rematch = new Set()
+    const payload = {
+      ...snapshot(room),
+      stats: {
+        1: { zombieKills: 47, structuresBuilt: 12, coreDamageDealt: 1000, coreHpPct: 100 },
+        2: { zombieKills: 39, structuresBuilt: 10, coreDamageDealt: 640, coreHpPct: 68 },
+      },
+      durationS: 240,
+      winner: winnerParam === 1 || winnerParam === 2 ? winnerParam : null,
+      reason,
+      mapName: 'Ciudad Abandonada',
+      ...(url.searchParams.get('xp') ? { xp: { 1: 40, 2: 25 } } : {}),
+    }
+    io.to(room.code).emit('match:over', payload)
+    return json(res, 200, { ok: true })
   }
   if (url.pathname === '/api/me') return json(res, 200, meBody())
   if (url.pathname === '/api/me/missions') return json(res, 200, { missions, dailyResetsAt: dailyResetsAt() })
@@ -243,6 +268,39 @@ io.on('connection', (socket) => {
     const room = roomOf()
     if (!room || room.players.length < 2 || !room.players.every((p) => p.ready)) return fail('NOT_READY', 'Faltan jugadores listos')
     room.status = 'combat'
+    broadcast(room)
+    return ok(snapshot(room))
+  })
+  handle('match:rematchRequest', () => {
+    const room = roomOf()
+    const player = me()
+    if (!room || !player || room.status !== 'results') return fail('INVALID_STATE', 'No hay resultados')
+    room.rematch ??= new Set()
+    room.rematch.add(player.slot)
+    io.to(room.code).emit('match:rematchState', { requested: [...room.rematch] })
+    if (room.players.length === 2 && room.players.every((p) => room.rematch.has(p.slot))) {
+      room.rematch.clear()
+      room.tick = 0
+      room.status = 'combat'
+      broadcast(room)
+    }
+    return ok(undefined)
+  })
+  handle('match:rematchCancel', () => {
+    const room = roomOf()
+    const player = me()
+    if (!room || !player) return fail('NOT_IN_ROOM', 'No estás en una sala')
+    room.rematch?.delete(player.slot)
+    io.to(room.code).emit('match:rematchState', { requested: [...(room.rematch ?? [])] })
+    return ok(undefined)
+  })
+  handle('lobby:backToLobby', () => {
+    const room = roomOf()
+    if (!room || room.status !== 'results') return fail('INVALID_STATE', 'No hay resultados')
+    room.status = 'lobby'
+    room.rematch = new Set()
+    for (const p of room.players) p.ready = false
+    io.to(room.code).emit('match:rematchState', { requested: [] })
     broadcast(room)
     return ok(snapshot(room))
   })
