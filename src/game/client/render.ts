@@ -297,10 +297,16 @@ export interface Camera {
   scale: number
 }
 
-export function computeCamera(map: GameMap, w: number, h: number, focusX: number, focusY: number): Camera {
+/** Casillas que caben a lo ancho (horizontal / vertical); lo elige el jugador en Ajustes. */
+export interface ZoomTiles {
+  landscape: number
+  portrait: number
+}
+
+export function computeCamera(map: GameMap, w: number, h: number, focusX: number, focusY: number, zoom: ZoomTiles): Camera {
   const worldW = map.w * TILE
   const worldH = map.h * TILE
-  const tilesAcross = w > h ? 22 : 11
+  const tilesAcross = w > h ? zoom.landscape : zoom.portrait
   let scale = w / (tilesAcross * TILE)
   scale = Math.max(scale, w / worldW, h / worldH)
   const viewW = w / scale
@@ -325,6 +331,10 @@ export interface FrameOptions {
   fx: Fx
   /** Casilla que construiría el botón de acción (la calcula el servidor). */
   hint: BuildHint | null
+  /** Preferencias del jugador (Ajustes). */
+  zoom: ZoomTiles
+  screenShake: boolean
+  effects: boolean
 }
 
 export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
@@ -333,8 +343,8 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   const fx = o.fx
   const map = v.map
   const me = v.players.find((p) => p.slot === o.meSlot)
-  const cam = computeCamera(map, o.width, o.height, me?.x ?? map.w / 2, me?.y ?? map.h / 2)
-  const shake = fx.shake > 0 ? (Math.random() - 0.5) * 24 * fx.shake : 0
+  const cam = computeCamera(map, o.width, o.height, me?.x ?? map.w / 2, me?.y ?? map.h / 2, o.zoom)
+  const shake = o.screenShake && fx.shake > 0 ? (Math.random() - 0.5) * 24 * fx.shake : 0
 
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.fillStyle = '#0b0f17'
@@ -346,7 +356,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   ctx.drawImage(o.staticLayer, 0, 0, map.w * TILE, map.h * TILE)
 
   // Sangre en el suelo
-  for (const d of fx.decals) {
+  for (const d of o.effects ? fx.decals : []) {
     ctx.fillStyle = `rgba(110, 10, 14, ${d.a})`
     ctx.beginPath()
     ctx.ellipse(d.x * TILE, d.y * TILE + 8, d.r * TILE, d.r * TILE * 0.55, 0, 0, Math.PI * 2)
@@ -424,7 +434,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     ctx.fillStyle = grd
     ctx.fillRect(m.x * TILE - 9, m.y * TILE - 9, 18, 18)
   }
-  for (const p of fx.particles) {
+  for (const p of o.effects ? fx.particles : []) {
     ctx.globalAlpha = p.life / p.max
     ctx.fillStyle = p.color
     ctx.fillRect(p.x * TILE - p.size / 2, p.y * TILE - p.size / 2, p.size, p.size)

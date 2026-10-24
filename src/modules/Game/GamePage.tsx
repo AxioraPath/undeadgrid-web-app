@@ -7,6 +7,7 @@ import { consumeEvents, createFx, createStaticLayer, drawFrame, drawMinimap, typ
 import { loadSprites, type Sprites } from '../../game/client/sprites'
 import { useGameInput } from './hooks/useGameInput'
 import { useIsTouch } from './hooks/useIsTouch'
+import { getSettings, useSettings, ZOOM_TILES } from '../../shared/lib/settings'
 import { snapshotHud, type HudSnapshot } from './hud'
 import { PlayerPanel } from './components/PlayerPanel'
 import { PhasePanel } from './components/PhasePanel'
@@ -64,7 +65,9 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
   const [loadError, setLoadError] = useState<string | null>(null)
   const bufferRef = useRef(new SnapshotBuffer())
   const fxRef = useRef(createFx())
-  const isTouch = useIsTouch()
+  const settings = useSettings()
+  const detectedTouch = useIsTouch()
+  const isTouch = settings.touchControls === 'auto' ? detectedTouch : settings.touchControls === 'on'
 
   const sendCommand = useCallback((cmd: GameCommand) => {
     getSocket().emit('game:command', cmd)
@@ -208,6 +211,7 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
       if (!view || !latest) return
       const meNow = latest.players.find((p) => p.slot === mySlot)
 
+      const prefs = getSettings()
       cam = drawFrame(ctx, view, {
         width: size.w,
         height: size.h,
@@ -218,6 +222,9 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
         sprites,
         fx,
         hint: meNow?.buildHint ?? null,
+        zoom: ZOOM_TILES[prefs.zoom],
+        screenShake: prefs.screenShake,
+        effects: prefs.effects,
       })
 
       // Posición para el E2E de Canvas (en casillas, según el servidor).
@@ -258,7 +265,12 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
   const finished = status === 'results'
 
   return (
-    <div className="ug-game bg-ug-bg" data-testid="game" data-touch={isTouch}>
+    <div
+      className="ug-game bg-ug-bg"
+      data-testid="game"
+      data-touch={isTouch}
+      style={settings.touchSize === 'large' ? ({ '--ug-ctl': 'clamp(8rem, 30vmin, 13.5rem)' } as React.CSSProperties) : undefined}
+    >
       <canvas ref={canvasRef} className="absolute inset-0 size-full" data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
 
@@ -281,12 +293,14 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
               <PhasePanel hud={hud} />
             </div>
             <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-              <span className="ug-panel px-2 py-1 font-terminal text-sm short:px-1 short:text-xs" data-testid="hud-fps">
-                {fps} FPS ·{' '}
-                <span className={pingMs !== null && pingMs < 100 ? 'text-ug-green' : 'text-yellow-400'} data-testid="hud-ping">
-                  {pingMs === null ? '-- ms' : `${pingMs} ms`}
+              {settings.showFps && (
+                <span className="ug-panel px-2 py-1 font-terminal text-sm short:px-1 short:text-xs" data-testid="hud-fps">
+                  {fps} FPS ·{' '}
+                  <span className={pingMs !== null && pingMs < 100 ? 'text-ug-green' : 'text-yellow-400'} data-testid="hud-ping">
+                    {pingMs === null ? '-- ms' : `${pingMs} ms`}
+                  </span>
                 </span>
-              </span>
+              )}
               <button type="button" onClick={onExit} aria-label="Salir" className="ug-panel grid size-9 place-items-center hover:border-ug-border-hi short:size-8">
                 <LogOut size={16} />
               </button>
@@ -337,7 +351,7 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
               <canvas ref={minimapRef} width={256} height={192} className="ug-panel hidden h-auto w-[clamp(7rem,22vmin,14rem)] md:block" />
             </div>
           )}
-          {!isTouch && (
+          {!isTouch && settings.keyHelp && (
             <div className="absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))]">
               <ControlsHelp />
             </div>

@@ -4,7 +4,7 @@ import { LogOut, Settings, Users } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
 import { MenuButton } from '../../shared/components/MenuButton'
 import { PlayerCard } from '../../shared/components/PlayerCard'
-import { PixelModal } from '../../shared/components/PixelModal'
+import { SettingsModal } from '../../shared/components/SettingsModal'
 import { RoomHeader } from './components/RoomHeader'
 import { PlayerSlot } from './components/PlayerSlot'
 import { MatchSettings } from './components/MatchSettings'
@@ -67,7 +67,7 @@ export function LobbyPage() {
       <aside className="hidden flex-col gap-3 lg:col-start-1 lg:row-start-2 lg:flex lg:self-start">
         <nav className="flex flex-col gap-3" aria-label="Menú de sala">
           <MenuButton primary size="sm" icon={Users} title="Sala" subtitle="Multijugador 1v1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-          <MenuButton size="sm" icon={Settings} title="Ajustes" subtitle="Audio y controles" onClick={() => setSettingsOpen(true)} />
+          <MenuButton size="sm" icon={Settings} title="Ajustes" subtitle="Controles y gráficos" onClick={() => setSettingsOpen(true)} />
           <MenuButton size="sm" icon={LogOut} title="Salir" subtitle="Volver al menú" onClick={leaveRoom} testId="leave-room" />
         </nav>
       </aside>
@@ -101,9 +101,7 @@ export function LobbyPage() {
         <RoomChat messages={room.messages} onSend={room.sendMessage} />
       </div>
 
-      <PixelModal open={settingsOpen} title="Ajustes" onClose={closeSettings}>
-        <p className="font-terminal text-xl text-ug-muted">Próximamente.</p>
-      </PixelModal>
+      <SettingsModal open={settingsOpen} onClose={closeSettings} />
     </div>
   )
 }
