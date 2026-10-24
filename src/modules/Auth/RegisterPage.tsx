@@ -60,10 +60,10 @@ export function RegisterPage() {
 
   return (
     <AuthLayout>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-3.5" data-testid="register">
-        <div>
-          <h1 className="ug-title-shadow text-4xl leading-none tracking-wide">CREAR CUENTA</h1>
-          <p className="mt-1 text-2xl text-ug-accent">Prepara tu superviviente.</p>
+      <form onSubmit={submit} noValidate className="flex flex-col gap-3.5 phone:grid phone:grid-cols-2 phone:gap-x-3 phone:gap-y-2" data-testid="register">
+        <div className="phone:col-span-2">
+          <h1 className="ug-title-shadow text-4xl phone:text-3xl leading-none tracking-wide">CREAR CUENTA</h1>
+          <p className="mt-1 text-2xl phone:text-xl text-ug-accent">Prepara tu superviviente.</p>
         </div>
 
         <AuthField id="name" label="Nombre del jugador" icon={User} value={name} onChange={setName} placeholder="Tu nombre" autoComplete="nickname" required error={shown('name')} onBlur={touch('name')} />
@@ -71,23 +71,23 @@ export function RegisterPage() {
         <AuthField id="password" label="Contraseña" type="password" icon={Lock} value={password} onChange={setPassword} placeholder="••••••••••••" autoComplete="new-password" required error={shown('password')} onBlur={touch('password')} />
         <div>
           <AuthField id="confirm" label="Confirmar contraseña" type="password" icon={Lock} value={confirm} onChange={setConfirm} placeholder="••••••••••••" autoComplete="new-password" required error={shown('confirm')} onBlur={touch('confirm')} />
-          <p className="mt-1.5 font-terminal text-base text-ug-muted">Usa una contraseña de al menos {PASSWORD_MIN} caracteres.</p>
+          <p className="mt-1.5 phone:mt-0.5 font-terminal text-base phone:text-sm text-ug-muted">Usa una contraseña de al menos {PASSWORD_MIN} caracteres.</p>
         </div>
 
-        {error && <p role="alert" className="font-terminal text-lg text-ug-red-hi">{error}</p>}
+        {error && <p role="alert" className="font-terminal text-lg text-ug-red-hi phone:col-span-2">{error}</p>}
 
         <AuthButton loading={loading}>CREAR CUENTA</AuthButton>
 
-        <p className="text-center font-terminal text-lg text-ug-muted">
+        <p className="text-center font-terminal text-lg phone:text-base text-ug-muted phone:order-last phone:col-span-2">
           ¿Ya tienes cuenta? <Link to="/login" className="text-ug-accent hover:underline" data-testid="go-login">INICIAR SESIÓN</Link>
         </p>
 
         <button
           type="button"
           onClick={() => navigate('/login')}
-          className="ug-panel flex items-center justify-center gap-2 px-4 py-2 text-xl hover:border-ug-border-hi"
+          className="ug-panel flex items-center justify-center gap-2 px-4 py-2 phone:py-1 text-xl hover:border-ug-border-hi"
         >
-          <ArrowLeft size={20} /> VOLVER
+          <ArrowLeft size="1.25rem" /> VOLVER
         </button>
       </form>
     </AuthLayout>

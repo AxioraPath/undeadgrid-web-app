@@ -23,7 +23,7 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
   if (!player) {
     return (
       <div
-        className={`flex min-h-[22rem] flex-col items-center justify-center gap-3 border-2 border-dashed ${t.border} bg-black/40 p-4 text-center`}
+        className={`flex min-h-[22rem] phone:min-h-0 phone:h-full flex-col items-center justify-center gap-3 border-2 border-dashed ${t.border} bg-black/40 p-4 text-center`}
         data-testid={`slot-${slot}`}
       >
         <span className="size-10 animate-spin rounded-full border-4 border-ug-border border-t-ug-text" />
@@ -56,12 +56,12 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
 
   return (
     <div
-      className={`relative flex flex-col items-center border-2 ${t.border} ${t.glow} bg-gradient-to-b from-[#0d1522]/95 via-[#0d1522]/70 to-transparent px-3 pt-3`}
+      className={`relative flex flex-col items-center border-2 ${t.border} ${t.glow} bg-gradient-to-b from-[#0d1522]/95 via-[#0d1522]/70 to-transparent px-3 pt-3 phone:px-1.5 phone:pt-1.5`}
       data-testid={`slot-${slot}`}
     >
       {/* Nombre */}
       <div className="flex w-full min-w-0 items-center justify-center gap-2">
-        {player.isHost && <Crown size={20} className="text-yellow-400" fill="currentColor" aria-label="Anfitrión" />}
+        {player.isHost && <Crown size="1.25rem" className="text-yellow-400" fill="currentColor" aria-label="Anfitrión" />}
         {editing ? (
           <form onSubmit={submitName} noValidate className="flex flex-col items-center">
             <input
@@ -100,7 +100,7 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
             }}
             className="grid size-7 place-items-center border-2 border-ug-border bg-ug-panel-2 hover:border-ug-border-hi"
           >
-            <Pencil size={14} />
+            <Pencil size="0.875rem" />
           </button>
         )}
       </div>
@@ -115,27 +115,27 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
         className="mt-1 flex items-center gap-2 text-2xl enabled:cursor-pointer enabled:hover:brightness-125"
       >
         {player.ready ? (
-          <CircleCheck size={22} className="text-ug-green" fill="currentColor" stroke="#0b0f17" />
+          <CircleCheck size="1.375rem" className="text-ug-green" fill="currentColor" stroke="#0b0f17" />
         ) : (
-          <Clock size={22} className="text-ug-muted" />
+          <Clock size="1.375rem" className="text-ug-muted" />
         )}
         <span className={player.ready ? '' : 'text-ug-muted'}>
           {player.ready ? 'Listo' : isMe ? 'Marcar listo' : 'No listo'}
         </span>
       </button>
 
-      <p className={`mt-1 font-terminal text-lg leading-none ${hidden ? 'text-ug-muted' : t.accent}`}>
+      <p className={`mt-1 font-terminal text-lg phone:text-base leading-none ${hidden ? 'text-ug-muted' : t.accent}`}>
         {hidden ? 'Eligiendo superviviente…' : survivor.name}
       </p>
-      <p className="font-terminal text-lg leading-tight text-ug-muted">{hidden ? ' ' : survivor.tagline}</p>
+      <p className="font-terminal text-lg leading-tight text-ug-muted phone:hidden">{hidden ? ' ' : survivor.tagline}</p>
 
       {/* Sprite: se cambia solo con el botón "Cambiar personaje" */}
-      <div className="relative mt-2 flex w-full justify-center">
-        <div className={`absolute bottom-0 h-8 w-4/5 rounded-[50%] bg-radial ${t.pedestal} to-transparent blur-sm`} />
+      <div className="relative mt-2 phone:mt-1 flex w-full justify-center">
+        <div className={`absolute bottom-0 h-8 phone:h-5 w-4/5 rounded-[50%] bg-radial ${t.pedestal} to-transparent blur-sm`} />
         <img
           src={survivor.sprite}
           alt={hidden ? 'Superviviente sin revelar' : survivor.name}
-          className={`pixelated relative h-40 object-contain xl:h-48 ${hidden ? 'opacity-70 brightness-0' : ''}`}
+          className={`pixelated relative h-40 phone:h-[5.25rem] object-contain xl:h-48 ${hidden ? 'opacity-70 brightness-0' : ''}`}
           style={{ maskImage: SPRITE_MASK, WebkitMaskImage: SPRITE_MASK }}
         />
       </div>
@@ -145,12 +145,12 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChan
           type="button"
           onClick={onChangeSurvivor}
           data-testid="change-survivor"
-          className={`relative -mb-4 flex items-center gap-2 border-2 px-3 py-1.5 font-terminal text-lg whitespace-nowrap sm:px-5 sm:text-xl ${t.button}`}
+          className={`relative -mb-4 phone:-mb-3 flex items-center gap-2 border-2 px-3 phone:px-2 py-1.5 phone:py-0.5 font-terminal text-lg whitespace-nowrap sm:px-5 sm:text-xl ${t.button}`}
         >
-          <Shirt size={20} fill="currentColor" /> Cambiar<span className="hidden sm:inline"> personaje</span>
+          <Shirt size="1.25rem" fill="currentColor" /> Cambiar<span className="hidden sm:inline"> personaje</span>
         </button>
       ) : (
-        <div className="h-5" />
+        <div className="h-5 phone:h-3" />
       )}
     </div>
   )

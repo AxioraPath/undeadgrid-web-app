@@ -13,9 +13,9 @@ export function IconButton({ icon: Icon, label, onClick }: IconButtonProps) {
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="ug-panel grid size-12 place-items-center text-ug-text transition hover:-translate-y-0.5 hover:border-ug-border-hi sm:size-14"
+      className="ug-panel grid size-12 place-items-center text-ug-text transition hover:-translate-y-0.5 hover:border-ug-border-hi sm:size-14 phone:size-10"
     >
-      <Icon size={26} />
+      <Icon size="1.625rem" />
     </button>
   )
 }

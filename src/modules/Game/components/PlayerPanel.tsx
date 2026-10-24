@@ -6,8 +6,8 @@ const SLOT_BADGE = { 1: 'bg-[#1d5fc4]', 2: 'bg-[#b3141a]' } as const
 function Resource({ icon, value, label }: { icon: string; value: number; label: string }) {
   return (
     <span className="flex items-center gap-1.5" title={label}>
-      <img src={icon} alt={label} className="pixelated h-5 w-6 object-contain" />
-      <span className="text-xl leading-none">{value}</span>
+      <img src={icon} alt={label} className="pixelated h-5 w-6 object-contain short:h-4 short:w-5" />
+      <span className="text-xl leading-none short:text-base">{value}</span>
     </span>
   )
 }
@@ -17,14 +17,14 @@ export function PlayerPanel({ hud, compact }: { hud: HudSnapshot; compact?: bool
   const survivor = getSurvivor(me.survivor)
 
   return (
-    <div className="ug-panel flex gap-2 p-2 pr-3 short:p-1 short:pr-2 sm:gap-3" data-testid="hud-player">
-      <img src={survivor.portrait} alt="" className="pixelated size-12 shrink-0 border-2 border-ug-border object-cover short:size-10 lg:size-16" />
+    <div className="ug-panel flex gap-2 p-2 pr-3 short:p-1 short:pr-2 short:gap-1.5 sm:gap-3" data-testid="hud-player">
+      <img src={survivor.portrait} alt="" className="pixelated size-12 shrink-0 border-2 border-ug-border object-cover short:size-9 lg:size-16" />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className={`px-1.5 text-lg leading-tight ${SLOT_BADGE[me.slot]}`}>J{me.slot}</span>
-          <div className="relative h-5 w-24 border-2 border-black/60 bg-black/60 sm:w-28 lg:w-40">
+          <span className={`px-1.5 text-lg leading-tight short:text-sm ${SLOT_BADGE[me.slot]}`}>J{me.slot}</span>
+          <div className="relative h-5 w-24 border-2 border-black/60 bg-black/60 short:h-4 short:w-20 sm:w-28 lg:w-40">
             <div className="h-full bg-ug-red-hi transition-[width]" style={{ width: `${me.hp}%` }} />
-            <span className="absolute inset-0 grid place-items-center text-base leading-none" data-testid="hud-hp">
+            <span className="absolute inset-0 grid place-items-center text-base leading-none short:text-xs" data-testid="hud-hp">
               {me.hp}/100
             </span>
           </div>

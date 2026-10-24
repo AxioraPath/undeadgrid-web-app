@@ -18,7 +18,7 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
   ]
 
   return (
-    <div className="ug-panel flex gap-1 p-1 [--hb:clamp(2.75rem,9vmin,5rem)] sm:gap-1.5 short:p-0.5" data-testid="hotbar">
+    <div className="ug-panel flex gap-1 p-1 [--hb:clamp(2.5rem,9vmin,5rem)] short:[--hb:2.5rem] sm:gap-1.5 short:p-0.5" data-testid="hotbar">
       {items.map((it) => (
         <button
           key={it.slot}
@@ -35,9 +35,9 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
           }`}
         >
           <img src={it.icon} alt="" className="pixelated h-[calc(var(--hb)*0.5)] w-[calc(var(--hb)*0.7)] object-contain" />
-          <span className="flex w-full items-center justify-between text-[clamp(0.75rem,2.6vmin,1rem)] leading-none">
+          <span className="flex w-full items-center justify-between text-[clamp(0.75rem,2.6vmin,1rem)] leading-none short:text-xs">
             <span className="bg-ug-panel-2 px-0.5 sm:px-1">{it.slot}</span>
-            <span className="truncate">{it.kind === 'build' ? it.label : it.value}</span>
+            <span className={`truncate ${it.kind === 'build' ? 'short:hidden' : ''}`}>{it.kind === 'build' ? it.label : it.value}</span>
           </span>
         </button>
       ))}

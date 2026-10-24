@@ -2,6 +2,9 @@
 
 /* Short viewports (landscape phones, small windows): HUD switches to its compact layout. */
 @custom-variant short (@media (max-height: 520px));
+/* Phones held in landscape (short AND narrow): menu screens switch to compact layouts.
+   Desktop windows that are merely short keep the PC layout (DesktopFit scales them). */
+@custom-variant phone (@media (max-height: 520px) and (max-width: 1023px));
 
 @theme {
   --font-pixel: 'Jersey 10', ui-monospace, monospace;
@@ -25,6 +28,14 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/* Phone landscape: every rem-based size (text, padding, icons) shrinks with the screen height so
+   menu screens look refined instead of chunky. The in-match screen opts out via html.ug-no-scroll. */
+@media (max-height: 520px) and (max-width: 1023px) {
+  html:not(.ug-no-scroll) {
+    font-size: clamp(10px, 3.1vmin, 14px);
+  }
 }
 
 body {
@@ -88,8 +99,8 @@ html.ug-no-scroll #root {
   --ug-safe-left: env(safe-area-inset-left, 0px);
   /* Edge gap + safe area, shared by every HUD block. */
   --ug-gap: clamp(0.375rem, 1.6vmin, 0.75rem);
-  /* Touch controls (D-pad / action button): bigger on tablets, comfortable on phones. */
-  --ug-ctl: clamp(6.5rem, 24vmin, 11rem);
+  /* Touch joystick base diameter: ~21vmin on landscape phones (84-120px), up to ~150px on tablets. */
+  --ug-ctl: clamp(84px, 21vmin, 120px);
   position: fixed;
   inset: 0;
   width: 100dvw;
@@ -116,6 +127,12 @@ html.ug-no-scroll #root {
 .ug-hud {
   padding: calc(var(--ug-safe-top) + var(--ug-gap)) calc(var(--ug-safe-right) + var(--ug-gap))
     calc(var(--ug-safe-bottom) + var(--ug-gap)) calc(var(--ug-safe-left) + var(--ug-gap));
+}
+
+@media (min-width: 900px) and (min-height: 600px) {
+  .ug-game {
+    --ug-ctl: clamp(110px, 18vmin, 150px);
+  }
 }
 
 /* Bottom-center dock (crate menu, build hint, hotbar). On touch portrait it sits above the controls. */
@@ -213,5 +230,25 @@ html.ug-no-scroll #root {
   .ug-results-in,
   .ug-pulse-ring {
     animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Rotate-device overlay (portrait phones): the phone icon turns to landscape and back.
+   --------------------------------------------------------------------------- */
+@keyframes ug-rotate-phone {
+  0%, 15% { transform: rotate(0deg); }
+  45%, 70% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.ug-rotate-icon {
+  animation: ug-rotate-phone 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ug-rotate-icon {
+    animation: none;
+    transform: rotate(-90deg);
   }
 }

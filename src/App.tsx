@@ -9,6 +9,7 @@ import { RequireAuth } from './modules/Auth/components/RequireAuth'
 import { LoginPage } from './modules/Auth/LoginPage'
 import { RegisterPage } from './modules/Auth/RegisterPage'
 import { DesktopFit } from './shared/components/DesktopFit'
+import { RotateDevice } from './shared/components/RotateDevice'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
+      <RotateDevice />
     </BrowserRouter>
   )
 }

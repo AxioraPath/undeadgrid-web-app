@@ -101,7 +101,7 @@ export function ProfileModal({ open, onClose }: ProfileModalProps) {
         data-testid="logout"
         className="mt-5 flex w-full items-center justify-center gap-2 border-2 border-ug-red-hi bg-ug-red-dark/60 py-2 text-2xl hover:bg-ug-red-dark"
       >
-        <LogOut size={20} /> Cerrar sesión
+        <LogOut size="1.25rem" /> Cerrar sesión
       </button>
     </PixelModal>
   )

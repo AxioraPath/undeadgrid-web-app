@@ -35,7 +35,7 @@ export function PlayModal({ open, onClose, onCreate, onJoin }: PlayModalProps) {
         data-testid="create-room"
         className="flex w-full items-center gap-3 border-2 border-ug-red-hi bg-gradient-to-b from-[#d0181f] to-[#8c0d12] px-4 py-3 text-left transition hover:brightness-110 active:translate-y-0.5"
       >
-        <Plus size={28} />
+        <Plus size="1.75rem" />
         <span>
           <span className="block text-2xl leading-none">CREAR SALA</span>
           <span className="font-terminal text-base leading-none text-white/85">Comparte el código con tu rival</span>
@@ -67,7 +67,7 @@ export function PlayModal({ open, onClose, onCreate, onJoin }: PlayModalProps) {
           data-testid="join-room"
           className="ug-panel flex items-center gap-2 px-4 text-xl hover:border-ug-border-hi"
         >
-          <DoorOpen size={22} /> UNIRSE
+          <DoorOpen size="1.375rem" /> UNIRSE
         </button>
       </form>
       {error && (

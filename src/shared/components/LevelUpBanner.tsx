@@ -8,7 +8,7 @@ export function LevelUpBanner({ level, floating }: { level: number; floating?: b
       data-testid="level-up"
       className="ug-panel flex items-center justify-center gap-2 border-yellow-400 px-4 py-2 text-yellow-400"
     >
-      <ChevronsUp size={26} />
+      <ChevronsUp size="1.625rem" />
       <span className="ug-title-shadow text-2xl leading-none">¡SUBISTE AL NIVEL {level}!</span>
     </div>
   )

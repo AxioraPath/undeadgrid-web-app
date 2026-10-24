@@ -58,27 +58,27 @@ export function HomePage() {
   const joinRoom = (code: string) => navigate(`/sala/${code}`)
 
   return (
-    <div className="relative isolate flex min-h-dvh flex-col px-4 pt-4 pb-3 sm:px-6 lg:px-8 lg:pt-5" data-testid="home">
+    <div className="relative isolate flex min-h-dvh flex-col px-4 pt-4 pb-3 sm:px-6 lg:px-8 lg:pt-5 phone:px-[max(1rem,env(safe-area-inset-left))] phone:pt-2 phone:pb-1.5" data-testid="home">
       <HomeBackground />
 
-      <div className="flex flex-1 flex-col gap-6 lg:grid lg:grid-cols-[minmax(340px,27%)_1fr_minmax(340px,25%)] lg:grid-rows-[auto_1fr_auto] lg:gap-x-6 lg:gap-y-4">
+      <div className="flex flex-1 flex-col gap-6 phone:grid phone:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] phone:grid-rows-[auto_1fr_auto] phone:gap-x-4 phone:gap-y-1.5 lg:grid lg:grid-cols-[minmax(340px,27%)_1fr_minmax(340px,25%)] lg:grid-rows-[auto_1fr_auto] lg:gap-x-6 lg:gap-y-4">
         {/* Logo */}
-        <header className="order-2 lg:order-none lg:col-span-2 lg:row-start-1">
+        <header className="order-2 phone:order-none phone:col-start-1 phone:row-start-1 lg:order-none lg:col-span-2 lg:row-start-1">
           <GameLogo />
         </header>
 
         {/* Perfil + accesos rápidos */}
-        <div className="order-1 flex items-start justify-between gap-3 lg:order-none lg:col-start-3 lg:row-start-1 lg:-ml-40 lg:justify-end">
+        <div className="order-1 flex items-start justify-between gap-3 phone:order-none phone:col-start-2 phone:row-start-1 phone:justify-end lg:order-none lg:col-start-3 lg:row-start-1 lg:-ml-40 lg:justify-end">
           <button type="button" onClick={openProfile} className="text-left transition hover:brightness-110" aria-label={user ? 'Tu perfil' : 'Iniciar sesión'} data-testid="go-auth">
             <PlayerCard name={user?.name ?? 'Invitado'} {...(user ? user.profile ?? {} : GUEST_PROFILE)} />
           </button>
-          <div className="hidden gap-3 sm:flex">
+          <div className="hidden gap-3 sm:flex phone:hidden">
             <IconButton icon={Settings} label="Ajustes" onClick={() => setSettingsOpen(true)} />
           </div>
         </div>
 
         {/* Menú principal */}
-        <nav className="order-3 flex max-w-md flex-col gap-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:max-w-none lg:self-center" aria-label="Menú principal">
+        <nav className="order-3 flex max-w-md flex-col gap-3 phone:order-none phone:col-start-1 phone:row-start-2 phone:max-w-none phone:grid phone:grid-cols-2 phone:gap-2 phone:self-center lg:order-none lg:col-start-1 lg:row-start-2 lg:max-w-none lg:self-center" aria-label="Menú principal">
           <MenuButton primary icon={Play} title="JUGAR" subtitle="Crear o unirse a una sala" onClick={() => setPlayOpen(true)} testId="menu-play" />
           <MenuButton icon={ScrollText} title="Misiones" subtitle="Gana XP y sube de nivel" onClick={openMissions} testId="menu-missions" badge={signedIn ? claimable : 0} />
           <MenuButton icon={BookOpen} title="Instrucciones" subtitle="Aprende a jugar" onClick={() => setInfo('instructions')} testId="menu-instructions" />
@@ -87,17 +87,17 @@ export function HomePage() {
         </nav>
 
         {/* Modo principal */}
-        <aside className="order-4 lg:order-none lg:col-start-3 lg:row-start-2 lg:self-start">
+        <aside className="order-4 phone:order-none phone:col-start-2 phone:row-start-2 phone:self-center lg:order-none lg:col-start-3 lg:row-start-2 lg:self-start">
           <ModeCard />
         </aside>
 
         {/* Tarjetas de mecánicas */}
-        <section className="order-5 lg:order-none lg:col-span-2 lg:col-start-2 lg:row-start-3" aria-label="Cómo se juega">
+        <section className="order-5 phone:hidden lg:order-none lg:col-span-2 lg:col-start-2 lg:row-start-3" aria-label="Cómo se juega">
           <FeatureCards />
         </section>
       </div>
 
-      <div className="mt-6 lg:mt-3">
+      <div className="mt-6 phone:mt-1 lg:mt-3">
         <StatusBar status={status} latencyMs={latencyMs} />
       </div>
 

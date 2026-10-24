@@ -53,7 +53,7 @@ function MissionRow({ mission, busy, onClaim }: { mission: MissionDto; busy: boo
             className="flex w-24 shrink-0 items-center justify-center gap-1 font-terminal text-lg text-ug-green"
             data-testid={`mission-${mission.key}-done`}
           >
-            <Check size={16} /> Hecha
+            <Check size="1rem" /> Hecha
           </span>
         ) : (
           <button

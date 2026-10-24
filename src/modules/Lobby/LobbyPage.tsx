@@ -34,7 +34,7 @@ export function LobbyPage() {
 
   return (
     <div
-      className="relative isolate min-h-dvh px-4 py-3 lg:grid lg:grid-cols-[250px_1fr_minmax(320px,24%)] lg:grid-rows-[auto_1fr] lg:gap-x-5 lg:gap-y-3"
+      className="relative isolate min-h-dvh px-4 py-3 phone:grid phone:grid-cols-[minmax(0,1fr)_minmax(0,17rem)] phone:content-start phone:gap-x-3 phone:gap-y-1.5 phone:px-3 phone:py-1.5 lg:grid lg:grid-cols-[250px_1fr_minmax(320px,24%)] lg:grid-rows-[auto_1fr] lg:gap-x-5 lg:gap-y-3"
       data-testid="lobby"
     >
       <div
@@ -44,19 +44,19 @@ export function LobbyPage() {
       />
 
       {/* Logo */}
-      <header className="mb-3 flex items-start justify-between lg:col-start-1 lg:row-start-1 lg:mb-0 lg:w-max lg:whitespace-nowrap">
+      <header className="mb-3 flex items-start justify-between phone:col-start-1 phone:row-start-1 phone:mb-0 phone:items-center phone:justify-start phone:gap-3 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:w-max lg:whitespace-nowrap">
         <GameLogo size="sm" />
         <button
           type="button"
           onClick={leaveRoom}
-          className="ug-panel flex items-center gap-2 px-3 py-2 font-terminal text-lg lg:hidden"
+          className="ug-panel flex items-center gap-2 px-3 py-2 font-terminal text-lg phone:px-2 phone:py-1 phone:text-base lg:hidden"
         >
-          <LogOut size={18} /> Salir
+          <LogOut size="1.125rem" /> Salir
         </button>
       </header>
 
       {/* Barra superior */}
-      <div className="mb-4 flex flex-wrap items-start justify-center gap-3 lg:col-span-2 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:justify-end">
+      <div className="mb-4 flex flex-wrap items-start justify-center gap-3 phone:col-start-2 phone:row-start-1 phone:mb-0 phone:justify-end phone:gap-2 lg:col-span-2 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:justify-end">
         <RoomHeader code={room.code} playerCount={room.playerCount} />
         <div className="hidden xl:block">
           <PlayerCard name={room.me.name} level={1} xp={0} xpToNext={100} />
@@ -73,12 +73,12 @@ export function LobbyPage() {
       </aside>
 
       {/* Centro: jugadores, configuración y comenzar */}
-      <main className="flex flex-col gap-4 lg:col-start-2 lg:row-start-2">
-        <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-4 sm:gap-10 lg:gap-24 lg:pt-2">
+      <main className="flex flex-col gap-4 phone:col-start-1 phone:row-start-2 phone:row-span-2 phone:gap-2 lg:col-start-2 lg:row-start-2">
+        <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-4 sm:gap-10 phone:gap-3 lg:gap-24 lg:pt-2">
           <div><PlayerSlot {...slotProps(1)} /></div>
           <div><PlayerSlot {...slotProps(2)} /></div>
         </div>
-        <div className="mt-2 lg:mt-auto">
+        <div className="mt-2 phone:mt-0 lg:mt-auto">
           <MatchSettings
             map={room.map}
             difficulty={room.difficulty}
@@ -91,12 +91,12 @@ export function LobbyPage() {
       </main>
 
       {/* Panel del mapa */}
-      <div className="mt-6 lg:col-start-3 lg:row-start-2 lg:mt-0">
+      <div className="mt-6 phone:col-start-2 phone:row-start-2 phone:mt-0 lg:col-start-3 lg:row-start-2 lg:mt-0">
         <MapPanel map={room.map} />
       </div>
 
       {/* Chat: al final en móvil, abajo del menú lateral en escritorio */}
-      <div className="mt-6 lg:col-start-1 lg:row-start-2 lg:mt-0 lg:self-end">
+      <div className="mt-6 phone:col-start-2 phone:row-start-3 phone:mt-0 lg:col-start-1 lg:row-start-2 lg:mt-0 lg:self-end">
         <RoomChat messages={room.messages} onSend={room.sendMessage} />
       </div>
 

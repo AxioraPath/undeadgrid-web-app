@@ -32,7 +32,7 @@ interface StatusBarProps {
 
 export function StatusBar({ status, latencyMs }: StatusBarProps) {
   return (
-    <footer className="flex flex-wrap items-center justify-between gap-2 font-terminal text-lg text-ug-muted">
+    <footer className="flex flex-wrap items-center justify-between gap-2 font-terminal text-lg text-ug-muted phone:text-base phone:leading-none">
       <span>
         {APP_VERSION} <span className="mx-2 opacity-50">|</span> CyberGrid: Breach &amp; Sync — Undead Grid
       </span>

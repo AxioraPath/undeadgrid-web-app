@@ -14,18 +14,18 @@ export function StartButton({ canStart, isHost, onStart }: StartButtonProps) {
       : 'El anfitrión iniciará la partida'
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-2 phone:gap-0.5">
       <button
         type="button"
         disabled={!canStart}
         onClick={onStart}
         data-testid="start-match"
-        className="flex items-center gap-5 border-2 border-ug-red-hi bg-gradient-to-b from-[#d0181f] to-[#8c0d12] px-6 py-2.5 sm:px-10 shadow-[0_0_24px_rgb(255_30_40/0.35),inset_0_0_0_2px_rgb(0_0_0/0.35),0_4px_0_rgb(0_0_0/0.55)] transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 enabled:active:translate-y-0.5 disabled:opacity-60 disabled:saturate-50"
+        className="flex items-center gap-5 border-2 border-ug-red-hi bg-gradient-to-b from-[#d0181f] to-[#8c0d12] px-6 py-2.5 phone:py-1.5 sm:px-10 shadow-[0_0_24px_rgb(255_30_40/0.35),inset_0_0_0_2px_rgb(0_0_0/0.35),0_4px_0_rgb(0_0_0/0.55)] transition enabled:hover:-translate-y-0.5 enabled:hover:brightness-110 enabled:active:translate-y-0.5 disabled:opacity-60 disabled:saturate-50"
       >
-        <Play size={32} fill="currentColor" className="shrink-0" />
-        <span className="ug-title-shadow text-3xl leading-none tracking-wide whitespace-nowrap sm:text-4xl">COMENZAR PARTIDA</span>
+        <Play size="2rem" fill="currentColor" className="shrink-0" />
+        <span className="ug-title-shadow text-3xl leading-none tracking-wide whitespace-nowrap sm:text-4xl phone:text-3xl">COMENZAR PARTIDA</span>
       </button>
-      <p className="font-terminal text-lg text-ug-muted">{hint}</p>
+      <p className="font-terminal text-lg phone:text-base phone:leading-none text-ug-muted">{hint}</p>
     </div>
   )
 }

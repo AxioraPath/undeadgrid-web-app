@@ -25,9 +25,9 @@ export function SurvivorDetails({ slot, survivor }: SurvivorDetailsProps) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Habilidades')
 
   return (
-    <section className="ug-panel grid gap-3 p-3 md:grid-cols-[1fr_auto]" aria-label="Detalles del superviviente">
+    <section className="ug-panel grid gap-3 p-3 phone:gap-1 phone:p-2 md:grid-cols-[1fr_auto]" aria-label="Detalles del superviviente">
       <div>
-        <h2 className="ug-title-shadow text-2xl tracking-wide">DETALLES DEL SUPERVIVIENTE</h2>
+        <h2 className="ug-title-shadow text-2xl phone:text-xl tracking-wide">DETALLES DEL SUPERVIVIENTE</h2>
         <div className="mt-2 grid grid-cols-3 gap-1" role="tablist">
           {TABS.map((name) => (
             <button
@@ -45,14 +45,14 @@ export function SurvivorDetails({ slot, survivor }: SurvivorDetailsProps) {
           ))}
         </div>
 
-        <div className="mt-2 min-h-24" role="tabpanel">
+        <div className="mt-2 min-h-24 phone:min-h-0 phone:mt-1" role="tabpanel">
           {tab === 'Habilidades' && (
             <ul className="grid grid-cols-3 gap-2">
               {survivor.skills?.map((s) => {
                 const Icon = SKILL_ICONS[s.icon]
                 return (
                   <li key={s.title} className="flex flex-col items-center border-2 border-ug-border bg-black/30 px-2 py-2 text-center">
-                    <Icon size={30} className={slot === 2 ? 'text-ug-red-hi' : 'text-ug-text'} />
+                    <Icon size="1.875rem" className={slot === 2 ? 'text-ug-red-hi' : 'text-ug-text'} />
                     <span className="mt-1 text-lg leading-none">{s.title}</span>
                     <span className="font-terminal text-sm leading-tight text-ug-muted">{s.text}</span>
                   </li>

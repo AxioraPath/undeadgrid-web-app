@@ -1,92 +1,118 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useRef, type PointerEvent, type ReactNode } from 'react'
 import { Crosshair, Hammer } from 'lucide-react'
 
-/** Knob travel as a fraction of the pad width (the pad scales with the viewport). */
-const RADIUS_RATIO = 0.36
+/** Knob travel as a fraction of the base diameter. */
+const TRAVEL_RATIO = 0.3
+/** Right stick: below this fraction of the travel nothing is aimed or fired. */
+export const AIM_DEAD_ZONE = 0.25
+
+interface StickProps {
+  testId: string
+  label: string
+  /** Fires on every change. (0, 0) means released. */
+  onChange: (nx: number, ny: number) => void
+  className: string
+  baseClassName?: string
+  knobClassName?: string
+  children?: ReactNode
+}
+
+/**
+ * Fixed-position virtual joystick. Tracks a single pointer by id (pointer capture), so the
+ * two sticks work at the same time with both thumbs. The knob moves through a ref (no re-render).
+ */
+function Stick({ testId, label, onChange, className, baseClassName = '', knobClassName = '', children }: StickProps) {
+  const baseRef = useRef<HTMLDivElement>(null)
+  const knobRef = useRef<HTMLSpanElement>(null)
+  const activeId = useRef<number | null>(null)
+
+  const track = (e: PointerEvent<HTMLDivElement>) => {
+    const r = baseRef.current!.getBoundingClientRect()
+    const travel = r.width * TRAVEL_RATIO
+    let dx = e.clientX - (r.left + r.width / 2)
+    let dy = e.clientY - (r.top + r.height / 2)
+    const len = Math.hypot(dx, dy)
+    if (len > travel) {
+      dx = (dx / len) * travel
+      dy = (dy / len) * travel
+    }
+    knobRef.current!.style.transform = `translate(${dx}px, ${dy}px)`
+    onChange(dx / travel, dy / travel)
+  }
+
+  const release = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== activeId.current) return
+    activeId.current = null
+    knobRef.current!.style.transform = ''
+    baseRef.current!.dataset.held = 'false'
+    onChange(0, 0)
+  }
+
+  return (
+    <div
+      data-testid={testId}
+      aria-label={label}
+      role="presentation"
+      // The zone is larger than the visible base so a thumb that drifts off it keeps control.
+      className={`pointer-events-auto absolute grid size-[calc(var(--ug-ctl)*1.35)] touch-none place-items-center select-none [-webkit-touch-callout:none] ${className}`}
+      onPointerDown={(e) => {
+        if (activeId.current !== null) return
+        activeId.current = e.pointerId
+        e.currentTarget.setPointerCapture(e.pointerId)
+        baseRef.current!.dataset.held = 'true'
+        track(e)
+      }}
+      onPointerMove={(e) => e.pointerId === activeId.current && track(e)}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onLostPointerCapture={release}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <div
+        ref={baseRef}
+        data-held="false"
+        className={`grid size-(--ug-ctl) place-items-center rounded-full border-2 bg-white/[0.06] data-[held=true]:bg-white/[0.12] ${baseClassName}`}
+      >
+        <span
+          ref={knobRef}
+          className={`grid size-[45%] place-items-center rounded-full border-2 will-change-transform ${knobClassName}`}
+        >
+          {children}
+        </span>
+      </div>
+    </div>
+  )
+}
 
 interface MobileControlsProps {
   inBase: boolean
   onDirection: (nx: number, ny: number) => void
-  onAction: (on: boolean) => void
+  /** Right stick vector in [-1, 1] (not normalised); (0, 0) = released. */
+  onAim: (nx: number, ny: number) => void
 }
 
-/** D-pad abajo a la izquierda y un único botón de acción abajo a la derecha (lo que pide el PDF). */
-export function MobileControls({ inBase, onDirection, onAction }: MobileControlsProps) {
-  const padRef = useRef<HTMLDivElement>(null)
-  const [knob, setKnob] = useState({ x: 0, y: 0 })
-  const [pressed, setPressed] = useState(false)
-
-  const movePad = (e: PointerEvent<HTMLDivElement>) => {
-    const r = padRef.current!.getBoundingClientRect()
-    const RADIUS = r.width * RADIUS_RATIO
-    let dx = e.clientX - (r.left + r.width / 2)
-    let dy = e.clientY - (r.top + r.height / 2)
-    const len = Math.hypot(dx, dy)
-    if (len > RADIUS) {
-      dx = (dx / len) * RADIUS
-      dy = (dy / len) * RADIUS
-    }
-    setKnob({ x: dx, y: dy })
-    onDirection(dx / RADIUS, dy / RADIUS)
-  }
-
-  const releasePad = () => {
-    setKnob({ x: 0, y: 0 })
-    onDirection(0, 0)
-  }
-
-  const setAction = (on: boolean) => {
-    onAction(on)
-    setPressed(on)
-  }
-
+/** Twin-stick touch controls: left stick moves, right stick aims in any angle and fires while held. */
+export function MobileControls({ inBase, onDirection, onAim }: MobileControlsProps) {
   return (
     <>
-      <div
-        ref={padRef}
-        data-testid="dpad"
-        className="pointer-events-auto absolute bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))] left-[calc(var(--ug-safe-left)+var(--ug-gap))] grid size-(--ug-ctl) touch-none place-items-center rounded-full border-2 border-white/25 bg-white/10 backdrop-blur-[1px] select-none [-webkit-touch-callout:none]"
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId)
-          movePad(e)
-        }}
-        onPointerMove={(e) => e.buttons > 0 && movePad(e)}
-        onPointerUp={releasePad}
-        onPointerCancel={releasePad}
+      <Stick
+        testId="move-stick"
+        label="Mover"
+        onChange={onDirection}
+        className="bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap)-var(--ug-ctl)*0.175)] left-[calc(var(--ug-safe-left)+var(--ug-gap)-var(--ug-ctl)*0.175)]"
+        baseClassName="border-white/25"
+        knobClassName="border-white/50 bg-white/40"
+      />
+      <Stick
+        testId="aim-stick"
+        label={inBase ? 'Construir' : 'Apuntar y disparar'}
+        onChange={onAim}
+        className="right-[calc(var(--ug-safe-right)+var(--ug-gap)-var(--ug-ctl)*0.175)] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap)-var(--ug-ctl)*0.175)]"
+        baseClassName={inBase ? 'border-ug-green/50 data-[held=true]:border-ug-green' : 'border-ug-red-hi/50 data-[held=true]:border-ug-red-hi'}
+        knobClassName={inBase ? 'border-ug-green/70 bg-ug-green/35 text-white' : 'border-ug-red-hi/70 bg-ug-red/40 text-white'}
       >
-        {['▲', '▼', '◀', '▶'].map((a, i) => (
-          <span
-            key={a}
-            className="absolute text-[clamp(0.625rem,2vmin,0.875rem)] text-white/50"
-            style={[{ top: 6 }, { bottom: 6 }, { left: 8 }, { right: 8 }][i]}
-          >
-            {a}
-          </span>
-        ))}
-        <span
-          className="size-[44%] rounded-full border-2 border-white/60 bg-white/70 shadow-lg"
-          style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
-        />
-      </div>
-
-      <button
-        type="button"
-        data-testid="action-button"
-        aria-label={inBase ? 'Construir' : 'Disparar'}
-        className={`pointer-events-auto absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))] flex size-[calc(var(--ug-ctl)*0.82)] touch-none flex-col items-center justify-center rounded-full border-4 select-none [-webkit-touch-callout:none] ${
-          inBase ? 'border-ug-green/80 bg-ug-green/25' : 'border-ug-red-hi/80 bg-ug-red/35'
-        } ${pressed ? 'scale-95 brightness-125' : ''}`}
-        onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture(e.pointerId)
-          setAction(true)
-        }}
-        onPointerUp={() => setAction(false)}
-        onPointerCancel={() => setAction(false)}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        {inBase ? <Hammer className="size-[38%]" /> : <Crosshair className="size-[38%]" />}
-        <span className="text-[clamp(0.875rem,2.8vmin,1.125rem)] leading-none">{inBase ? 'Construir' : 'Disparar'}</span>
-      </button>
+        {inBase ? <Hammer className="size-[50%]" /> : <Crosshair className="size-[50%]" />}
+      </Stick>
     </>
   )
 }

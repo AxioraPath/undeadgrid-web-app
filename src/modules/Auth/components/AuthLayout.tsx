@@ -28,14 +28,14 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <div aria-hidden className="absolute inset-0 -z-10 bg-ug-bg/55 lg:bg-gradient-to-r lg:from-transparent lg:via-ug-bg/30 lg:to-ug-bg/80" />
 
       {/* Logo */}
-      <header className="absolute left-4 top-4 z-10 lg:left-8 lg:top-7">
+      <header className="absolute left-4 top-4 z-10 phone:left-3 phone:top-2 lg:left-8 lg:top-7">
         <GameLogo size="sm" />
       </header>
 
       {/* Panel de autenticación */}
-      <main className="relative z-10 flex min-h-dvh items-center justify-center p-4 lg:justify-end lg:pr-[6%]">
+      <main className="relative z-10 flex min-h-dvh items-center justify-center p-4 phone:p-2 phone:justify-end phone:pr-[4%] lg:justify-end lg:pr-[6%]">
         <section
-          className="w-full max-w-md border-2 border-ug-accent/70 bg-gradient-to-b from-[#0e1726]/95 to-[#0a0f18]/95 p-6 sm:p-8"
+          className="w-full max-w-md phone:max-w-[38rem] border-2 border-ug-accent/70 bg-gradient-to-b from-[#0e1726]/95 to-[#0a0f18]/95 p-6 sm:p-8 phone:p-3.5"
           style={{
             boxShadow:
               '0 0 0 1px rgb(143 211 255 / 0.25), 0 0 24px rgb(143 211 255 / 0.22), inset 0 0 40px rgb(10 15 24 / 0.6)',
@@ -45,7 +45,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </section>
       </main>
 
-      <span className="absolute bottom-3 left-4 z-10 font-terminal text-sm text-ug-muted/80 lg:left-8">
+      <span className="absolute bottom-3 phone:bottom-1 left-4 z-10 font-terminal text-sm phone:text-xs text-ug-muted/80 lg:left-8">
         {APP_VERSION.replace('v1.0.0', 'v0.1.0')} &nbsp;|&nbsp; Undead Grid — CyberGrid: Breach &amp; Sync
       </span>
     </div>

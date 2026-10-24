@@ -21,9 +21,17 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /touch\.spec\.ts/ },
-    // Touch-enabled mobile emulation (Chromium) for the D-pad flow.
-    { name: 'mobile', use: { ...devices['Pixel 5'] }, testMatch: /touch\.spec\.ts/ },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /(touch|rotate)\.spec\.ts/ },
+    // Touch-enabled mobile emulation (Chromium) for the twin-stick flows.
+    { name: 'mobile', use: { ...devices['Pixel 5 landscape'] }, testMatch: /touch\.spec\.ts/ },
+    // Small landscape phone (667x375) with the same twin-stick flows (portrait shows the rotate overlay).
+    {
+      name: 'mobile-landscape',
+      use: { ...devices['Pixel 5 landscape'], viewport: { width: 667, height: 375 }, screen: { width: 667, height: 375 } },
+      testMatch: /touch\.spec\.ts/,
+    },
+    // Rotate-device overlay: touch phone emulation, each test sets its own viewport.
+    { name: 'phone-orientation', use: { ...devices['Pixel 5'] }, testMatch: /rotate\.spec\.ts/ },
   ],
   webServer: [
     {

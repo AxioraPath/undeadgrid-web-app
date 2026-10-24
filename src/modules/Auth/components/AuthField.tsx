@@ -38,12 +38,12 @@ export function AuthField({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-xl leading-none tracking-wide">
+      <label htmlFor={id} className="mb-1.5 phone:mb-1 block text-xl phone:text-lg leading-none tracking-wide">
         {label}
       </label>
       <div className={`flex items-center border-2 bg-black/40 focus-within:border-ug-accent ${error ? 'border-ug-red-hi' : 'border-ug-border'}`}>
-        <span className="grid size-12 shrink-0 place-items-center text-ug-muted">
-          <Icon size={22} />
+        <span className="grid size-12 phone:size-9 shrink-0 place-items-center text-ug-muted">
+          <Icon size="1.375rem" />
         </span>
         <input
           id={id}
@@ -56,21 +56,21 @@ export function AuthField({
           aria-required={required || undefined}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
-          className="min-w-0 flex-1 bg-transparent py-3 pr-3 font-terminal text-xl text-ug-text outline-none placeholder:text-ug-muted/50"
+          className="min-w-0 flex-1 bg-transparent py-3 phone:py-1.5 pr-3 font-terminal text-xl phone:text-lg text-ug-text outline-none placeholder:text-ug-muted/50"
         />
         {isPassword && (
           <button
             type="button"
             aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             onClick={() => setShow((s) => !s)}
-            className="grid size-12 shrink-0 place-items-center text-ug-muted hover:text-ug-accent"
+            className="grid size-12 phone:size-9 shrink-0 place-items-center text-ug-muted hover:text-ug-accent"
           >
-            {show ? <EyeOff size={22} /> : <Eye size={22} />}
+            {show ? <EyeOff size="1.375rem" /> : <Eye size="1.375rem" />}
           </button>
         )}
       </div>
       {error && (
-        <p id={`${id}-error`} role="alert" className="mt-1 font-terminal text-lg leading-tight text-ug-red-hi">
+        <p id={`${id}-error`} role="alert" className="mt-1 font-terminal text-lg phone:text-base leading-tight text-ug-red-hi">
           {error}
         </p>
       )}

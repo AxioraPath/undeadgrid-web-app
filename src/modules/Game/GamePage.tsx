@@ -4,6 +4,7 @@ import { CORE_HP, type GameCommand, type GameMap, type GameState, type GameSyncD
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
+import { drawAimLine } from '../../game/client/aimLine'
 import { loadSprites, type Sprites } from '../../game/client/sprites'
 import { useGameInput } from './hooks/useGameInput'
 import { useIsTouch } from './hooks/useIsTouch'
@@ -95,17 +96,19 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const sendCommand = useCallback((cmd: GameCommand) => {
     getSocket().emit('game:command', cmd)
   }, [])
-  const { read: readInput, setTouchDirection, setTouchAction, setMouseAction } = useGameInput(sendCommand)
+  const { read: readInput, setTouchDirection, setTouchAim, readTouchAim, setMouseAction } = useGameInput(sendCommand)
   const finished = status === 'results'
   const aimEnabled = settings.mouseAim && !isTouch
   const aimEnabledRef = useRef(aimEnabled)
+  const touchRef = useRef(isTouch)
   const finishedRef = useRef(finished)
   const mouseRef = useRef<{ x: number; y: number; known: boolean; over: boolean }>({ x: 0, y: 0, known: false, over: false })
   useEffect(() => {
     aimEnabledRef.current = aimEnabled
+    touchRef.current = isTouch
     finishedRef.current = finished
     if (!aimEnabled || finished) setMouseAction(false)
-  }, [aimEnabled, finished, setMouseAction])
+  }, [aimEnabled, isTouch, finished, setMouseAction])
 
   // Mouse aiming: pointer position (client coords) + left button as the fire flag. Mouse pointers only.
   useEffect(() => {
@@ -285,7 +288,9 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       // Aim = mouse (world) - player (interpolated), recomputed every frame so it follows the camera.
       let aim: Aim | null = null
       const mouse = mouseRef.current
-      if (aimEnabledRef.current && mouse.known && cam && mePos) {
+      const touchAim = touchRef.current ? readTouchAim() : null
+      if (touchAim) aim = touchAim
+      else if (aimEnabledRef.current && mouse.known && cam && mePos) {
         const rect = canvas.getBoundingClientRect()
         if (rect.width > 0 && rect.height > 0) {
           // Undo any CSS scale between layout size (what the camera uses) and the on-screen rect.
@@ -331,7 +336,9 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       })
       const meView = view.players.find((p) => p.slot === mySlot)
       mePos = meView ? { x: meView.x, y: meView.y } : null
-      if (aim && mouse.over && !finishedRef.current) {
+      if (touchAim && cam && mePos && !finishedRef.current) {
+        drawAimLine(ctx, cam, mePos.x, mePos.y, touchAim, size.dpr)
+      } else if (aim && mouse.over && !finishedRef.current) {
         const rect = canvas.getBoundingClientRect()
         drawCrosshair(ctx, (mouse.x - rect.left) * (size.w / rect.width), (mouse.y - rect.top) * (size.h / rect.height), size.dpr)
       }
@@ -368,7 +375,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       document.removeEventListener('fullscreenchange', resize)
       vv?.removeEventListener('resize', resize)
     }
-  }, [sprites, map, mySlot, readInput])
+  }, [sprites, map, mySlot, readInput, readTouchAim])
 
   const takeFromCrate = (item: keyof Stock) => sendCommand({ type: 'crateTake', item })
 
@@ -412,7 +419,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       className="ug-game bg-ug-bg"
       data-testid="game"
       data-touch={isTouch}
-      style={settings.touchSize === 'large' ? ({ '--ug-ctl': 'clamp(8rem, 30vmin, 13.5rem)' } as React.CSSProperties) : undefined}
+      style={settings.touchSize === 'large' ? ({ '--ug-ctl': 'clamp(6.5rem, 27vmin, 11rem)' } as React.CSSProperties) : undefined}
     >
       <canvas ref={canvasRef} className={`absolute inset-0 size-full ${aimEnabled ? 'cursor-none' : ''}`} data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
@@ -454,7 +461,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
               ref={minimapRef}
               width={192}
               height={144}
-              className="ug-panel pointer-events-auto absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] top-[calc(var(--ug-safe-top)+var(--ug-gap)+3rem)] h-auto w-[clamp(6rem,20vmin,10rem)] max-sm:portrait:top-[calc(var(--ug-safe-top)+13rem)]"
+              className="ug-panel pointer-events-auto absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] top-[calc(var(--ug-safe-top)+var(--ug-gap)+3rem)] h-auto w-[clamp(5.5rem,20vmin,10rem)] short:w-24 max-sm:portrait:top-[calc(var(--ug-safe-top)+13rem)]"
             />
           )}
 
@@ -480,6 +487,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
           {/* Abajo: caja + pista de construcción + hotbar, apilados al centro */}
           <div className="ug-dock pointer-events-none absolute inset-x-0 flex flex-col items-center gap-1 px-2">
             {hud.me.onCrate && !finished && <CrateMenu stock={hud.crate} onTake={takeFromCrate} />}
+            {isTouch && settings.keyHelp && <ControlsHelp touch />}
             {hud.me.inBase && hud.me.buildHint && (
               <p className={`text-center text-[clamp(1rem,3vmin,1.125rem)] leading-none ${hud.me.buildHint.ok ? 'text-ug-green' : 'text-ug-red-hi'}`} data-testid="build-hint">
                 {isTouch ? 'Botón' : 'Espacio'}: {hud.me.buildHint.label}
@@ -499,7 +507,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
               <ControlsHelp mouseAim={aimEnabled} />
             </div>
           )}
-          {isTouch && <MobileControls inBase={hud.me.inBase} onDirection={setTouchDirection} onAction={setTouchAction} />}
+          {isTouch && <MobileControls inBase={hud.me.inBase} onDirection={setTouchDirection} onAim={(x, y) => setTouchAim(x, y)} />}
         </div>
       )}
 

@@ -12,7 +12,16 @@ const MOUSE_ROWS = [
   ['Clic izq.', 'Disparar (mantén para ráfaga)'],
 ]
 
-export function ControlsHelp({ mouseAim = false }: { mouseAim?: boolean }) {
+export function ControlsHelp({ mouseAim = false, touch = false }: { mouseAim?: boolean; touch?: boolean }) {
+  if (touch) {
+    return (
+      <p className="ug-panel hidden px-2 py-1 text-center font-terminal text-sm leading-tight text-ug-muted [@media(min-height:600px)]:block" data-testid="controls-help">
+        <span>Joystick izquierdo: mover</span>
+        <span className="mx-2 text-ug-border-hi">|</span>
+        <span>Joystick derecho: apuntar y disparar</span>
+      </p>
+    )
+  }
   const rows = mouseAim ? [ROWS[0], ...MOUSE_ROWS, ...ROWS.slice(1)] : ROWS
   return (
     <div className="ug-panel hidden max-w-72 space-y-1 p-2 lg:block short:hidden" data-testid="controls-help">

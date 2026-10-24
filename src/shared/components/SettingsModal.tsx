@@ -9,9 +9,9 @@ interface SettingsModalProps {
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-ug-border py-2 last:border-b-0">
+    <div className="flex items-center justify-between gap-3 border-b border-ug-border py-2 phone:py-1 last:border-b-0">
       <div className="min-w-0">
-        <p className="text-xl leading-none">{label}</p>
+        <p className="text-xl phone:text-lg leading-none">{label}</p>
         {hint && <p className="font-terminal text-sm leading-tight text-ug-muted">{hint}</p>}
       </div>
       {children}
@@ -27,9 +27,9 @@ function Toggle({ value, onChange, testId }: { value: boolean; onChange: (v: boo
       aria-checked={value}
       onClick={() => onChange(!value)}
       data-testid={testId}
-      className={`relative h-7 w-14 shrink-0 border-2 transition ${value ? 'border-ug-green bg-ug-green/30' : 'border-ug-border bg-black/40'}`}
+      className={`relative h-7 w-14 phone:h-6 phone:w-12 shrink-0 border-2 transition ${value ? 'border-ug-green bg-ug-green/30' : 'border-ug-border bg-black/40'}`}
     >
-      <span className={`absolute top-0.5 size-5 transition-[left] ${value ? 'left-7 bg-ug-green' : 'left-0.5 bg-ug-muted'}`} />
+      <span className={`absolute top-0.5 size-5 phone:size-4 transition-[left] ${value ? 'left-7 phone:left-6 bg-ug-green' : 'left-0.5 bg-ug-muted'}`} />
     </button>
   )
 }
@@ -95,7 +95,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         <Toggle value={s.showFps} onChange={set('showFps')} testId="setting-fps" />
       </Row>
 
-      <h3 className="ug-title-shadow mt-4 mb-1 text-lg tracking-wide text-ug-accent">CONTROLES</h3>
+      <h3 className="ug-title-shadow mt-4 phone:mt-2 mb-1 text-lg tracking-wide text-ug-accent">CONTROLES</h3>
       <Row label="Controles táctiles" hint="D-pad y botón de acción">
         <Choice
           value={s.touchControls}
@@ -129,10 +129,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       <button
         type="button"
         onClick={resetSettings}
-        className="mt-4 flex items-center gap-2 font-terminal text-base text-ug-muted hover:text-ug-text"
+        className="mt-4 phone:mt-2 flex items-center gap-2 font-terminal text-base text-ug-muted hover:text-ug-text"
         data-testid="settings-reset"
       >
-        <RotateCcw size={16} /> Restablecer valores
+        <RotateCcw size="1rem" /> Restablecer valores
       </button>
     </PixelModal>
   )
