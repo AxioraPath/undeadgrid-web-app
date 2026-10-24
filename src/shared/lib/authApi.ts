@@ -40,7 +40,42 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return data as T
 }
 
+export interface PlayerStatsDto {
+  matchesPlayed: number
+  wins: number
+  losses: number
+  draws: number
+  coresDestroyed: number
+  zombiesKilled: number
+  playerKills: number
+  deaths: number
+  structuresBuilt: number
+  totalPlaytimeS: number
+  bestStreak: number
+  currentStreak: number
+}
+
+export interface MeDto {
+  id: string
+  email: string
+  displayName: string
+  createdAt: string
+  profile: { level: number; xp: number; preferredSurvivor: string } | null
+  stats: PlayerStatsDto | null
+}
+
+/** Perfil y estadísticas del jugador con sesión (requiere el access token). */
+async function me(): Promise<MeDto> {
+  const res = await fetch(`${API_URL}/api/me`, {
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('No se pudo cargar tu perfil.')
+  return (await res.json()) as MeDto
+}
+
 export const authApi = {
+  me,
   register: (displayName: string, email: string, password: string) =>
     post<AuthResponse>('/register', { displayName, email, password }),
   login: (email: string, password: string) =>

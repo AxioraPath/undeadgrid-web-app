@@ -10,6 +10,7 @@ import { FeatureCards } from './components/FeatureCards'
 import { StatusBar } from './components/StatusBar'
 import { PlayModal } from './components/PlayModal'
 import { InfoModals, type InfoModalKind } from './components/InfoModals'
+import { ProfileModal } from './components/ProfileModal'
 import { HomeBackground } from './components/HomeBackground'
 import { useServerStatus } from '../../shared/hooks/useServerStatus'
 import { randomRoomCode } from '../Lobby/data/catalog'
@@ -21,9 +22,14 @@ export function HomePage() {
   const { user } = useAuth()
   const [playOpen, setPlayOpen] = useState(false)
   const [info, setInfo] = useState<InfoModalKind | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   const closePlay = useCallback(() => setPlayOpen(false), [])
   const closeInfo = useCallback(() => setInfo(null), [])
+  const closeProfile = useCallback(() => setProfileOpen(false), [])
+
+  // Con sesión, el perfil y las estadísticas se ven aquí mismo; sin sesión, se pide iniciarla.
+  const openProfile = () => (user ? setProfileOpen(true) : navigate('/login'))
 
   // TODO: emitir lobby:create / lobby:join por socket cuando exista el servidor.
   const createRoom = () => navigate(`/sala/${randomRoomCode()}`, { state: { isHost: true } })
@@ -41,12 +47,12 @@ export function HomePage() {
 
         {/* Perfil + accesos rápidos */}
         <div className="order-1 flex items-start justify-between gap-3 lg:order-none lg:col-start-3 lg:row-start-1 lg:-ml-40 lg:justify-end">
-          <button type="button" onClick={() => navigate('/login')} className="text-left transition hover:brightness-110" aria-label={user ? 'Tu cuenta' : 'Iniciar sesión'} data-testid="go-auth">
-                      <PlayerCard name={user?.name ?? 'Invitado'} level={1} xp={0} xpToNext={100} />
-                    </button>
+          <button type="button" onClick={openProfile} className="text-left transition hover:brightness-110" aria-label={user ? 'Tu perfil' : 'Iniciar sesión'} data-testid="go-auth">
+            <PlayerCard name={user?.name ?? 'Invitado'} level={1} xp={0} xpToNext={100} />
+          </button>
           <div className="hidden gap-3 sm:flex">
             <IconButton icon={Users} label="Amigos" onClick={() => setInfo('friends')} />
-            <IconButton icon={ChartNoAxesColumn} label="Estadísticas" onClick={() => setInfo('stats')} />
+            <IconButton icon={ChartNoAxesColumn} label="Estadísticas" onClick={openProfile} />
             <IconButton icon={Settings} label="Ajustes" onClick={() => setInfo('settings')} />
           </div>
         </div>
@@ -56,7 +62,7 @@ export function HomePage() {
           <MenuButton primary icon={Play} title="JUGAR" subtitle="Crear o unirse a una sala" onClick={() => setPlayOpen(true)} testId="menu-play" />
           <MenuButton icon={BookOpen} title="Instrucciones" subtitle="Aprende a jugar" onClick={() => setInfo('instructions')} testId="menu-instructions" />
           <MenuButton icon={Settings} title="Ajustes" subtitle="Audio, controles y gráficos" onClick={() => setInfo('settings')} testId="menu-settings" />
-          <MenuButton icon={Trophy} title="Estadísticas" subtitle="Tu progreso y partidas" onClick={() => setInfo('stats')} testId="menu-stats" />
+          <MenuButton icon={Trophy} title="Estadísticas" subtitle="Tu progreso y partidas" onClick={openProfile} testId="menu-stats" />
           <MenuButton icon={Users} title="Créditos" subtitle="Equipo del proyecto" onClick={() => setInfo('credits')} testId="menu-credits" />
         </nav>
 
@@ -77,6 +83,7 @@ export function HomePage() {
 
       <PlayModal open={playOpen} onClose={closePlay} onCreate={createRoom} onJoin={joinRoom} />
       <InfoModals kind={info} onClose={closeInfo} />
+      <ProfileModal open={profileOpen} onClose={closeProfile} />
     </div>
   )
 }
