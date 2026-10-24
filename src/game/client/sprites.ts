@@ -17,7 +17,7 @@ export interface Animation {
 
 export const sheetAnimations = (sheet: SheetName) => animations.sheets[sheet].animations as Record<string, Animation>
 
-const FLOOR_FAMILIES = ['pasto', 'tierra', 'grava', 'asfalto', 'metal', 'concreto', 'agua', 'barro'] as const
+const FLOOR_FAMILIES = ['pasto', 'tierra', 'grava', 'asfalto', 'metal', 'concreto', 'agua', 'barro', 'madera'] as const
 const ROADS = [
   'camino-cruce', 'camino-recta-h', 'camino-recta-v',
   'camino-curva-es', 'camino-curva-ne', 'camino-curva-sw', 'camino-curva-wn',
@@ -31,6 +31,7 @@ const OBJECTS = [
   'auto-rojo-h', 'auto-rojo-v', 'auto-destruido-h', 'auto-destruido-v', 'furgoneta-h', 'furgoneta-v',
   'contenedor-rojo-h', 'contenedor-rojo-v', 'contenedor-azul-h', 'contenedor-azul-v',
   'barrera-concreto', 'barrera-obra',
+  'puente-madera-h', 'puente-madera-v', 'farol-poste',
   'caja-azul', 'caja-roja',
   'nucleo-azul', 'nucleo-azul-danado', 'nucleo-azul-destruido', 'nucleo-rojo', 'nucleo-rojo-danado', 'nucleo-rojo-destruido',
 ]

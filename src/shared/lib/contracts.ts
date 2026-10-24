@@ -169,7 +169,8 @@ export interface Rect extends Point {
 }
 
 export interface MapObject {
-  kind: 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water'
+  /** `lamp` es solo decoración (no bloquea). */
+  kind: 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water' | 'lamp'
   x: number
   y: number
   w: number
@@ -276,7 +277,7 @@ export const PLAYER_MAX_HP = 100
 /** Capa de colisión del mapa (mapgen del servidor). */
 export const Tile = { GRASS: 0, BORDER: 1, BASE: 5, ROAD: 6, WATER: 7 } as const
 /** Capa de suelo del mapa (mapgen del servidor). */
-export const Ground = { GRASS: 0, DIRT: 1, ROAD: 2, BASE: 3, WATER: 4, GRAVEL: 5 } as const
+export const Ground = { GRASS: 0, DIRT: 1, ROAD: 2, BASE: 3, WATER: 4, GRAVEL: 5, BRIDGE: 6, PLAZA: 7 } as const
 
 export const ZOMBIE_KINDS: ZombieKind[] = ['normal', 'fast', 'tank']
 export const STRUCTURE_TYPES = ['wood', 'reinforced', 'trap'] as const

@@ -62,13 +62,33 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
       const gk = map.ground[y * MAP_W + x]
       let tex: string
       if (gk === Ground.ROAD) tex = roadPiece(map, x, y)
-      else if (gk === Ground.WATER) tex = waterPiece(groundAt, x, y, v())
+      else if (gk === Ground.WATER || gk === Ground.BRIDGE) tex = waterPiece(groundAt, x, y, v())
+      else if (gk === Ground.PLAZA) tex = `concreto-${v()}`
       else if (gk === Ground.BASE) tex = `metal-${v()}`
       else if (gk === Ground.GRAVEL) tex = `grava-${v()}`
       else if (gk === Ground.DIRT) tex = rng.next() < 0.7 ? `tierra-${v()}` : `barro-${v()}`
       else tex = `pasto-${v()}`
       g.drawImage(sp[tex], x * T2, y * T2, T2, T2)
     }
+  }
+
+  // Puentes: tablones de madera continuos con barandal a los lados (sobre el agua ya dibujada)
+  const isPath = (x: number, y: number) => [Ground.ROAD, Ground.BRIDGE, Ground.PLAZA].includes(groundAt(x, y) as 2 | 6 | 7)
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      if (map.ground[y * MAP_W + x] !== Ground.BRIDGE) continue
+      drawBridge(g, sp, x, y, isPath(x, y - 1) || isPath(x, y + 1), (x * 7 + y * 3) % 4 + 1)
+    }
+
+  // Luz de los faroles en el suelo
+  for (const o of map.objects.filter((o) => o.kind === 'lamp')) {
+    const cx = (o.x + 0.5) * T2
+    const cy = (o.y + 0.7) * T2
+    const grd = g.createRadialGradient(cx, cy, 2, cx, cy, T2 * 1.8)
+    grd.addColorStop(0, 'rgba(255, 196, 92, 0.32)')
+    grd.addColorStop(1, 'rgba(255, 196, 92, 0)')
+    g.fillStyle = grd
+    g.fillRect(cx - T2 * 2, cy - T2 * 2, T2 * 4, T2 * 4)
   }
 
   // Bases: tinte del equipo y borde
@@ -123,6 +143,46 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
   return c
 }
 
+/** Una casilla de puente: tablones (textura de madera) y barandal oscuro en los dos lados largos. */
+function drawBridge(g: Ctx, sp: Sprites, x: number, y: number, vertical: boolean, variant: number) {
+  const px = x * T2
+  const py = y * T2
+  const inset = 6
+  g.save()
+  if (vertical) {
+    g.drawImage(sp[`madera-${variant}`], px + inset, py, T2 - inset * 2, T2)
+  } else {
+    // La madera viene en tablones verticales: se gira para el puente horizontal.
+    g.translate(px + T2 / 2, py + T2 / 2)
+    g.rotate(Math.PI / 2)
+    g.drawImage(sp[`madera-${variant}`], -T2 / 2 + inset, -T2 / 2, T2 - inset * 2, T2)
+  }
+  g.restore()
+  g.fillStyle = 'rgba(0, 0, 0, 0.35)'
+  if (vertical) {
+    g.fillRect(px + inset, py, 3, T2)
+    g.fillRect(px + T2 - inset - 3, py, 3, T2)
+  } else {
+    g.fillRect(px, py + inset, T2, 3)
+    g.fillRect(px, py + T2 - inset - 3, T2, 3)
+  }
+  // Barandal con postes
+  g.fillStyle = '#3d2614'
+  if (vertical) {
+    g.fillRect(px + 1, py, 5, T2)
+    g.fillRect(px + T2 - 6, py, 5, T2)
+    g.fillStyle = '#6e4a2a'
+    g.fillRect(px, py + 4, 7, 7)
+    g.fillRect(px + T2 - 7, py + 4, 7, 7)
+  } else {
+    g.fillRect(px, py + 1, T2, 5)
+    g.fillRect(px, py + T2 - 6, T2, 5)
+    g.fillStyle = '#6e4a2a'
+    g.fillRect(px + 4, py, 7, 7)
+    g.fillRect(px + 4, py + T2 - 7, 7, 7)
+  }
+}
+
 /** Pieza de camino según con qué lados conecta (n/e/s/w). La base y el borde del mapa cuentan como conexión. */
 function roadPiece(map: GameMap, x: number, y: number) {
   const MAP_W = map.w
@@ -132,7 +192,7 @@ function roadPiece(map: GameMap, x: number, y: number) {
     const ny = y + dy
     if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return true
     const gk = map.ground[ny * MAP_W + nx]
-    return gk === Ground.ROAD || gk === Ground.BASE || map.tiles[ny * MAP_W + nx] === Tile.BORDER
+    return gk === Ground.ROAD || gk === Ground.BRIDGE || gk === Ground.PLAZA || gk === Ground.BASE || map.tiles[ny * MAP_W + nx] === Tile.BORDER
   }
   const n = links(0, -1)
   const e = links(1, 0)
@@ -158,7 +218,11 @@ function roadPiece(map: GameMap, x: number, y: number) {
 
 /** Orillas: el nombre indica de qué lado está la tierra. */
 function waterPiece(groundAt: (x: number, y: number) => number, x: number, y: number, variant: number) {
-  const land = (dx: number, dy: number) => groundAt(x + dx, y + dy) !== Ground.WATER
+  // Bajo los puentes sigue habiendo agua: no cuentan como orilla.
+  const land = (dx: number, dy: number) => {
+    const g = groundAt(x + dx, y + dy)
+    return g !== Ground.WATER && g !== Ground.BRIDGE
+  }
   const n = land(0, -1)
   const e = land(1, 0)
   const s = land(0, 1)
@@ -199,6 +263,9 @@ function drawObject(g: Ctx, sp: Sprites, o: MapObject) {
       break
     case 'container':
       drawAnchored(g, sp[`contenedor-${o.variant ? 'azul' : 'rojo'}-${horizontal ? 'h' : 'v'}`], cx, bottom, 1)
+      break
+    case 'lamp':
+      drawAnchored(g, sp['farol-poste'], cx, bottom, 0.85)
       break
     case 'car':
       drawAnchored(g, sp[`auto-${o.variant % 2 ? 'destruido' : 'rojo'}-${horizontal ? 'h' : 'v'}`], cx, bottom, 1)
