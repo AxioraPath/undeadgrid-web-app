@@ -26,7 +26,6 @@ export function LobbyPage() {
     isMe: room.bySlot[slot]?.id === room.me.id,
     onToggleReady: room.toggleReady,
     onRename: room.rename,
-    onCycleSurvivor: room.cycleSurvivor,
     onChangeSurvivor: () => navigate('personaje'),
   })
 

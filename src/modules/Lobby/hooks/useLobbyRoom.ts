@@ -85,8 +85,6 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     [players],
   )
 
-  const survivorIndex = UNLOCKED_SURVIVORS.findIndex((s) => s.id === me.survivor)
-
   return {
     code,
     me,
@@ -100,8 +98,6 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     canStart: me.isHost && players.length === 2 && players.every((p) => p.ready),
     toggleReady: () => updateMe({ ready: !me.ready }),
     rename: (name: string) => updateMe({ name: name.trim().slice(0, 16) || me.name }),
-    cycleSurvivor: (dir: 1 | -1) =>
-      updateMe({ survivor: UNLOCKED_SURVIVORS[cycle(survivorIndex, dir, UNLOCKED_SURVIVORS.length)].id }),
     confirmSurvivor: (id: string) => updateMe({ survivor: id, survivorConfirmed: true }),
     cycleMap: (dir: 1 | -1) => setMapIndex((i) => cycle(i, dir, MAPS.length)),
     cycleDifficulty: () => setDifficultyIndex((i) => cycle(i, 1, DIFFICULTIES.length)),

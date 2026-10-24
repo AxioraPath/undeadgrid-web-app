@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ChevronLeft, ChevronRight, CircleCheck, Clock, Crown, Pencil, Shirt } from 'lucide-react'
+import { CircleCheck, Clock, Crown, Pencil, Shirt } from 'lucide-react'
 import { getSurvivor } from '../data/catalog'
 import { SLOT_THEME, SPRITE_MASK } from '../data/slotTheme'
 import type { LobbyPlayer, Slot } from '../hooks/useLobbyRoom'
@@ -10,11 +10,10 @@ interface PlayerSlotProps {
   isMe: boolean
   onToggleReady: () => void
   onRename: (name: string) => void
-  onCycleSurvivor: (dir: 1 | -1) => void
   onChangeSurvivor: () => void
 }
 
-export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onCycleSurvivor, onChangeSurvivor }: PlayerSlotProps) {
+export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onChangeSurvivor }: PlayerSlotProps) {
   const t = SLOT_THEME[slot]
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -104,31 +103,15 @@ export function PlayerSlot({ slot, player, isMe, onToggleReady, onRename, onCycl
       </p>
       <p className="font-terminal text-lg leading-tight text-ug-muted">{hidden ? ' ' : survivor.tagline}</p>
 
-      {/* Sprite; solo tu tarjeta tiene controles para cambiarlo */}
-      <div className="relative mt-2 flex w-full items-center justify-between">
-        {isMe ? (
-          <button type="button" aria-label="Personaje anterior" onClick={() => onCycleSurvivor(-1)} className="z-10 p-1 text-ug-text hover:scale-110">
-            <ChevronLeft size={34} strokeWidth={3} />
-          </button>
-        ) : (
-          <span className="w-[42px]" />
-        )}
-        <div className="relative flex flex-1 justify-center">
-          <div className={`absolute bottom-0 h-8 w-4/5 rounded-[50%] bg-radial ${t.pedestal} to-transparent blur-sm`} />
-          <img
-            src={survivor.sprite}
-            alt={hidden ? 'Superviviente sin revelar' : survivor.name}
-            className={`pixelated relative h-40 object-contain xl:h-48 ${hidden ? 'opacity-70 brightness-0' : ''}`}
-            style={{ maskImage: SPRITE_MASK, WebkitMaskImage: SPRITE_MASK }}
-          />
-        </div>
-        {isMe ? (
-          <button type="button" aria-label="Personaje siguiente" onClick={() => onCycleSurvivor(1)} className="z-10 p-1 text-ug-text hover:scale-110">
-            <ChevronRight size={34} strokeWidth={3} />
-          </button>
-        ) : (
-          <span className="w-[42px]" />
-        )}
+      {/* Sprite: se cambia solo con el botón "Cambiar personaje" */}
+      <div className="relative mt-2 flex w-full justify-center">
+        <div className={`absolute bottom-0 h-8 w-4/5 rounded-[50%] bg-radial ${t.pedestal} to-transparent blur-sm`} />
+        <img
+          src={survivor.sprite}
+          alt={hidden ? 'Superviviente sin revelar' : survivor.name}
+          className={`pixelated relative h-40 object-contain xl:h-48 ${hidden ? 'opacity-70 brightness-0' : ''}`}
+          style={{ maskImage: SPRITE_MASK, WebkitMaskImage: SPRITE_MASK }}
+        />
       </div>
 
       {isMe ? (
