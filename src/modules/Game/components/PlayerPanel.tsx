@@ -32,13 +32,13 @@ export function PlayerPanel({ hud, compact }: { hud: HudSnapshot; compact?: bool
         <div className="mt-1.5 flex items-center gap-3 sm:gap-4">
           {!compact && (
             <span className="flex items-center gap-1.5" title="Arma">
-              <img src={me.weapon === 'pistol' ? '/assets/sprites/item-pistol.png' : '/assets/sprites/item-shotgun.png'} alt="" className="pixelated h-5 w-7 object-contain" />
+              <img src={me.weapon === 'pistol' ? '/assets/game/iconos/pistola.png' : '/assets/game/iconos/escopeta.png'} alt="" className="pixelated h-5 w-7 object-contain" />
               <span className="text-xl leading-none">{me.weapon === 'pistol' ? '∞' : me.shells}</span>
             </span>
           )}
-          <Resource icon="/assets/sprites/item-wood.png" value={me.wood} label="Madera" />
-          <Resource icon="/assets/sprites/item-metal.png" value={me.metal} label="Metal" />
-          <Resource icon="/assets/sprites/item-medkit.png" value={me.medkits} label="Botiquines" />
+          <Resource icon="/assets/game/iconos/madera.png" value={me.wood} label="Madera" />
+          <Resource icon="/assets/game/iconos/metal.png" value={me.metal} label="Metal" />
+          <Resource icon="/assets/game/iconos/botiquin.png" value={me.medkits} label="Botiquines" />
         </div>
       </div>
     </div>

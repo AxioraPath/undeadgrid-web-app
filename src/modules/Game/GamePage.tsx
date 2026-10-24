@@ -144,7 +144,6 @@ export function GamePage(props: GamePageProps) {
         sprites,
         fx,
         preview,
-        time: now / 1000,
       })
 
       // Posición para el E2E de Canvas (en casillas).

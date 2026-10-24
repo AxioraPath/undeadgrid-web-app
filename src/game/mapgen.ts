@@ -14,6 +14,7 @@ export const Tile = {
   TREE: 8,
   CONTAINER: 9,
   BARREL: 10,
+  BARRIER: 11,
 } as const
 
 export type TileKind = (typeof Tile)[keyof typeof Tile]
@@ -25,9 +26,10 @@ export const Ground = {
   ROAD: 2,
   BASE: 3,
   WATER: 4,
+  GRAVEL: 5,
 } as const
 
-export type ObjectKind = 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'water'
+export type ObjectKind = 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water'
 
 export interface MapObject {
   kind: ObjectKind
@@ -62,10 +64,11 @@ export interface GameMapData {
   cores: Record<Slot, Point>
   crates: Record<Slot, Point>
   spawns: Point[]
-  roads: { rows: number[]; cols: number[] }
 }
 
-const SOLID_TILES = new Set<number>([Tile.BORDER, Tile.ROCK, Tile.CAR, Tile.DEBRIS, Tile.WATER, Tile.TREE, Tile.CONTAINER, Tile.BARREL])
+const SOLID_TILES = new Set<number>([
+  Tile.BORDER, Tile.ROCK, Tile.CAR, Tile.DEBRIS, Tile.WATER, Tile.TREE, Tile.CONTAINER, Tile.BARREL, Tile.BARRIER,
+])
 
 export const isSolidTileKind = (k: number) => SOLID_TILES.has(k)
 
@@ -109,8 +112,15 @@ const OBJECT_TILE: Record<ObjectKind, TileKind> = {
   debris: Tile.DEBRIS,
   barrel: Tile.BARREL,
   tires: Tile.BARREL,
+  barrier: Tile.BARRIER,
   water: Tile.WATER,
 }
+
+/** Punto simétrico (rotación de 180°): lo que hay en un lado del mapa aparece igual en el otro. */
+const mirror = (x: number, y: number): Point => ({ x: MAP_W - 1 - x, y: MAP_H - 1 - y })
+
+// Anillo de carretera alrededor del centro, simétrico por sí mismo.
+const RING = { x0: 10, x1: MAP_W - 1 - 10, y0: 5, y1: MAP_H - 1 - 5 }
 
 function buildMap(seed: number): GameMapData {
   const rng = createRng(seed)
@@ -122,15 +132,6 @@ function buildMap(seed: number): GameMapData {
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++)
       tiles[idx(x, y)] = x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1 ? Tile.BORDER : Tile.GRASS
-
-  // Avenidas en cruz por el centro: llevan de cada orilla a las bases.
-  const roads = { rows: [MAP_H / 2 - 1, MAP_H / 2], cols: [MAP_W / 2 - 1, MAP_W / 2] }
-  for (let y = 1; y < MAP_H - 1; y++)
-    for (let x = 1; x < MAP_W - 1; x++)
-      if (roads.rows.includes(y) || roads.cols.includes(x)) {
-        tiles[idx(x, y)] = Tile.ROAD
-        ground[idx(x, y)] = Ground.ROAD
-      }
 
   // 2. Bases 8 × 8 en esquinas opuestas, con núcleo al centro y caja al lado.
   const bases: Record<Slot, Rect> = {
@@ -155,26 +156,46 @@ function buildMap(seed: number): GameMapData {
       }
   }
 
-  // 4. Puntos de aparición de zombis al final de cada avenida.
-  const spawns: Point[] = [
-    { x: roads.cols[0], y: 1 },
-    { x: roads.cols[1], y: MAP_H - 2 },
-    { x: 1, y: roads.rows[1] },
-    { x: MAP_W - 2, y: roads.rows[0] },
-  ]
+  // Carreteras: anillo central, salida de cada base y ramales hacia las orillas (donde salen zombis).
+  const road = (x: number, y: number) => {
+    for (const p of [{ x, y }, mirror(x, y)]) {
+      tiles[idx(p.x, p.y)] = Tile.ROAD
+      ground[idx(p.x, p.y)] = Ground.ROAD
+    }
+  }
+  for (let x = RING.x0; x <= RING.x1; x++) road(x, RING.y0)
+  for (let y = RING.y0; y <= RING.y1; y++) road(RING.x0, y)
+  for (let x = bases[1].x + bases[1].w; x < RING.x0; x++) road(x, RING.y0) // base 1 → anillo
+  const topSpur = Math.floor(MAP_W / 2) - 1
+  const sideSpur = Math.floor(MAP_H / 2) - 1
+  for (let y = 1; y < RING.y0; y++) road(topSpur, y)
+  for (let x = 1; x < RING.x0; x++) road(x, sideSpur)
 
-  // 3. Obstáculos en espejo (punto central) para que el mapa sea justo.
+  // Grava a los lados de la carretera.
+  for (let y = 1; y < MAP_H - 1; y++)
+    for (let x = 1; x < MAP_W - 1; x++) {
+      if (tiles[idx(x, y)] !== Tile.GRASS) continue
+      const nearRoad = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => tiles[idx(x + dx, y + dy)] === Tile.ROAD)
+      if (nearRoad) ground[idx(x, y)] = Ground.GRAVEL
+    }
+
+  // 4. Puntos de aparición de zombis: al final de cada ramal.
+  const spawns: Point[] = [{ x: topSpur, y: 1 }, mirror(topSpur, 1), { x: 1, y: sideSpur }, mirror(1, sideSpur)]
+
+  // 3. Obstáculos en espejo para que el mapa sea justo.
   const reserved = (x: number, y: number) =>
     ([1, 2] as Slot[]).some((s) => {
       const b = bases[s]
       return x >= b.x - 1 && x <= b.x + b.w && y >= b.y - 1 && y <= b.y + b.h
     }) || spawns.some((p) => Math.abs(p.x - x) <= 2 && Math.abs(p.y - y) <= 2)
 
-  const fits = (x: number, y: number, w: number, h: number, allowed: number) => {
+  const fits = (x: number, y: number, w: number, h: number, on: number) => {
     for (let yy = y; yy < y + h; yy++)
       for (let xx = x; xx < x + w; xx++) {
         if (xx <= 0 || yy <= 0 || xx >= MAP_W - 1 || yy >= MAP_H - 1) return false
-        if (reserved(xx, yy) || tiles[idx(xx, yy)] !== allowed) return false
+        if (reserved(xx, yy) || tiles[idx(xx, yy)] !== on) return false
+        // No tapar cruces de carretera ni dejar el agua pegada a otra cosa.
+        if (on === Tile.ROAD && roadNeighbors(tiles, xx, yy) > 2) return false
       }
     return true
   }
@@ -200,18 +221,23 @@ function buildMap(seed: number): GameMapData {
     for (let i = 0; i < attempts && placed < times; i++) if (fn(rng)) placed++
   }
 
-  // Autos abandonados sobre un carril (el otro queda libre).
-  tryPlace(2, 40, (r) =>
+  // Vehículos abandonados sobre la carretera del anillo.
+  tryPlace(2, 60, (r) =>
     r.next() < 0.5
-      ? place('car', r.int(3, MAP_W / 2 - 4), roads.rows[0], 2, 1, r.int(0, 3), Tile.ROAD)
-      : place('car', roads.cols[0], r.int(3, MAP_H / 2 - 4), 1, 2, r.int(0, 3), Tile.ROAD),
+      ? place('car', r.int(RING.x0 + 1, RING.x1 - 2), RING.y0, 2, 1, r.int(0, 3), Tile.ROAD)
+      : place('car', RING.x0, r.int(RING.y0 + 1, RING.y1 - 2), 1, 2, r.int(0, 3), Tile.ROAD),
   )
-  tryPlace(1, 40, (r) => place('water', r.int(2, MAP_W - 5), r.int(2, MAP_H / 2 - 3), r.int(2, 3), 2, 0))
-  tryPlace(2, 60, (r) => (r.next() < 0.5 ? place('container', r.int(2, MAP_W - 4), r.int(2, MAP_H - 3), 2, 1, r.int(0, 1)) : place('container', r.int(2, MAP_W - 3), r.int(2, MAP_H - 4), 1, 2, r.int(0, 1))))
-  tryPlace(4, 60, (r) => place('rock', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 1)))
-  tryPlace(6, 80, (r) => place('tree', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 2)))
-  tryPlace(3, 60, (r) => place('debris', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 1)))
-  tryPlace(2, 60, (r) => place(r.next() < 0.5 ? 'barrel' : 'tires', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, 0))
+  // Lagos (2 × 2 a 3 × 3) dentro del anillo o en los lados.
+  tryPlace(1, 60, (r) => place('water', r.int(RING.x0 + 2, RING.x1 - 4), r.int(RING.y0 + 2, RING.y1 - 4), r.int(2, 3), r.int(2, 3), 0))
+  tryPlace(1, 60, (r) => place('water', r.int(2, MAP_W - 5), r.int(2, MAP_H - 5), 2, 2, 0))
+  tryPlace(2, 80, (r) =>
+    r.next() < 0.5 ? place('container', r.int(2, MAP_W - 4), r.int(2, MAP_H - 3), 2, 1, r.int(0, 1)) : place('container', r.int(2, MAP_W - 3), r.int(2, MAP_H - 4), 1, 2, r.int(0, 1)),
+  )
+  tryPlace(1, 60, (r) => place('barrier', r.int(2, MAP_W - 4), r.int(2, MAP_H - 3), 2, 1, r.int(0, 1)))
+  tryPlace(4, 80, (r) => place('rock', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 1)))
+  tryPlace(6, 100, (r) => place('tree', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 2)))
+  tryPlace(3, 80, (r) => place('debris', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, r.int(0, 1)))
+  tryPlace(3, 80, (r) => place(r.next() < 0.5 ? 'barrel' : 'tires', r.int(2, MAP_W - 3), r.int(2, MAP_H - 3), 1, 1, 0))
 
   // Parches de tierra (solo visual, se puede caminar).
   for (let i = 0; i < 6; i++) {
@@ -222,7 +248,11 @@ function buildMap(seed: number): GameMapData {
         for (let xx = ox; xx < ox + 2; xx++) if (tiles[idx(xx, yy)] === Tile.GRASS && ground[idx(xx, yy)] === Ground.GRASS) ground[idx(xx, yy)] = Ground.DIRT
   }
 
-  return { seed, w: MAP_W, h: MAP_H, tiles, ground, objects, bases, cores, crates, spawns, roads }
+  return { seed, w: MAP_W, h: MAP_H, tiles, ground, objects, bases, cores, crates, spawns }
+}
+
+function roadNeighbors(tiles: Uint8Array, x: number, y: number) {
+  return [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => tiles[idx(x + dx, y + dy)] === Tile.ROAD).length
 }
 
 /** Genera un mapa válido; si el BFS falla, prueba con la siguiente semilla. */

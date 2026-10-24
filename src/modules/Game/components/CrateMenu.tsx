@@ -1,10 +1,10 @@
 import type { Stock } from '../../../game/constants'
 
 const ITEMS: { key: keyof Stock; label: string; icon: string }[] = [
-  { key: 'wood', label: 'Madera', icon: '/assets/sprites/item-wood.png' },
-  { key: 'metal', label: 'Metal', icon: '/assets/sprites/item-metal.png' },
-  { key: 'medkits', label: 'Botiquines', icon: '/assets/sprites/item-medkit.png' },
-  { key: 'shells', label: 'Cartuchos', icon: '/assets/sprites/item-ammo.png' },
+  { key: 'wood', label: 'Madera', icon: '/assets/game/iconos/madera.png' },
+  { key: 'metal', label: 'Metal', icon: '/assets/game/iconos/metal.png' },
+  { key: 'medkits', label: 'Botiquines', icon: '/assets/game/iconos/botiquin.png' },
+  { key: 'shells', label: 'Cartuchos', icon: '/assets/game/iconos/municion.png' },
 ]
 
 interface CrateMenuProps {

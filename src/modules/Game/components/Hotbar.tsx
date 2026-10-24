@@ -10,11 +10,11 @@ interface HotbarProps {
 export function Hotbar({ hud, onSelect }: HotbarProps) {
   const { me } = hud
   const items: { slot: HotbarSlot; icon: string; label: string; value: string; active: boolean; kind: 'weapon' | 'use' | 'build' }[] = [
-    { slot: 1, icon: '/assets/sprites/item-pistol.png', label: 'Pistola', value: '∞', active: me.weapon === 'pistol', kind: 'weapon' },
-    { slot: 2, icon: '/assets/sprites/item-shotgun.png', label: 'Escopeta', value: String(me.shells), active: me.weapon === 'shotgun', kind: 'weapon' },
-    { slot: 3, icon: '/assets/sprites/item-medkit.png', label: 'Botiquín', value: String(me.medkits), active: false, kind: 'use' },
-    { slot: 4, icon: '/assets/sprites/wall-wood-h.png', label: 'Pared', value: '', active: me.build === 'wall', kind: 'build' },
-    { slot: 5, icon: '/assets/sprites/trap.png', label: 'Trampa', value: '', active: me.build === 'trap', kind: 'build' },
+    { slot: 1, icon: '/assets/game/iconos/pistola.png', label: 'Pistola', value: '∞', active: me.weapon === 'pistol', kind: 'weapon' },
+    { slot: 2, icon: '/assets/game/iconos/escopeta.png', label: 'Escopeta', value: String(me.shells), active: me.weapon === 'shotgun', kind: 'weapon' },
+    { slot: 3, icon: '/assets/game/iconos/botiquin.png', label: 'Botiquín', value: String(me.medkits), active: false, kind: 'use' },
+    { slot: 4, icon: '/assets/game/construccion/pared-madera-h.png', label: 'Pared', value: '', active: me.build === 'wall', kind: 'build' },
+    { slot: 5, icon: '/assets/game/construccion/trampa-puas.png', label: 'Trampa', value: '', active: me.build === 'trap', kind: 'build' },
   ]
 
   return (

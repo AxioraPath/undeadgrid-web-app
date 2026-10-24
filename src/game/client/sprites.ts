@@ -1,42 +1,84 @@
-// Sprites recortados de las hojas del diseñador con tools/extract_sprites.py.
+// Recursos del paquete UndeadGrid_Texturas (Disenos/Export) copiados a public/assets/game.
+import animations from './art/animaciones.json'
 
-export const SPRITE_NAMES = [
-  'ground-grass', 'ground-grass-dense', 'ground-dirt', 'ground-mud', 'ground-gravel',
-  'ground-asphalt', 'ground-asphalt-cracked', 'ground-asphalt-grass', 'ground-tiles-dark', 'ground-pavers', 'ground-water',
-  'tree', 'tree-autumn', 'tree-dead', 'bush', 'bush-dry', 'grass-tuft', 'rock', 'rocks', 'debris', 'bricks',
-  'car-red-v', 'car-wreck-v', 'van-v', 'truck-v',
-  'container-red-h', 'container-red-v', 'container-blue-h', 'container-blue-v',
-  'barrel', 'tires', 'cone',
-  'wall-wood-h', 'wall-wood-v', 'wall-metal-h', 'wall-metal-v', 'wall-wood-broken', 'wall-metal-broken', 'trap',
-  'crate-blue', 'crate-red',
-  'core-blue', 'core-red', 'core-blue-damaged', 'core-red-damaged', 'core-blue-destroyed', 'core-red-destroyed',
-  'p1-front', 'p1-back', 'p1-side', 'p1-side-shotgun', 'p1-dead',
-  'p2-front', 'p2-back', 'p2-side', 'p2-side-shotgun', 'p2-dead',
-  'zombie-normal-0', 'zombie-normal-1', 'zombie-normal-2', 'zombie-normal-3',
-  'zombie-fast-0', 'zombie-fast-1', 'zombie-fast-2', 'zombie-fast-3',
-  'zombie-normal-dead',
-] as const
+const BASE = '/assets/game/'
 
-export type SpriteName = (typeof SPRITE_NAMES)[number]
-export type Sprites = Record<SpriteName, HTMLImageElement>
+export const FRAME = animations.frameWidth
+export const COLUMNS = animations.columns
+export const PIVOT = animations.pivot
+
+export type SheetName = keyof typeof animations.sheets
+
+export interface Animation {
+  frames: number[]
+  fps: number
+  loop: boolean
+}
+
+export const sheetAnimations = (sheet: SheetName) => animations.sheets[sheet].animations as Record<string, Animation>
+
+const FLOOR_FAMILIES = ['pasto', 'tierra', 'grava', 'asfalto', 'metal', 'concreto', 'agua', 'barro'] as const
+const ROADS = [
+  'camino-cruce', 'camino-recta-h', 'camino-recta-v',
+  'camino-curva-es', 'camino-curva-ne', 'camino-curva-sw', 'camino-curva-wn',
+  'camino-t-esw', 'camino-t-nes', 'camino-t-new', 'camino-t-nsw',
+  'camino-fin-e', 'camino-fin-n', 'camino-fin-s', 'camino-fin-w',
+]
+const SHORES = ['agua-orilla-n', 'agua-orilla-e', 'agua-orilla-s', 'agua-orilla-w', 'agua-esquina-ne', 'agua-esquina-es', 'agua-esquina-sw', 'agua-esquina-wn']
+const OBJECTS = [
+  'arbol-1', 'arbol-2', 'arbol-seco', 'arbusto-1', 'arbusto-seco', 'hierba-alta', 'juncos',
+  'roca-1', 'rocas-2', 'escombros-1', 'escombros-2', 'barril-explosivo', 'neumaticos', 'cono',
+  'auto-rojo-h', 'auto-rojo-v', 'auto-destruido-h', 'auto-destruido-v', 'furgoneta-h', 'furgoneta-v',
+  'contenedor-rojo-h', 'contenedor-rojo-v', 'contenedor-azul-h', 'contenedor-azul-v',
+  'barrera-concreto', 'barrera-obra',
+  'caja-azul', 'caja-roja',
+  'nucleo-azul', 'nucleo-azul-danado', 'nucleo-azul-destruido', 'nucleo-rojo', 'nucleo-rojo-danado', 'nucleo-rojo-destruido',
+]
+const CONSTRUCTION = [
+  'pared-madera-h', 'pared-madera-h-danada', 'pared-madera-h-destruida', 'pared-madera-v', 'pared-madera-v-danada', 'pared-madera-v-destruida',
+  'pared-metal-h', 'pared-metal-h-danada', 'pared-metal-h-destruida', 'pared-metal-v', 'pared-metal-v-danada', 'pared-metal-v-destruida',
+  'trampa-puas',
+]
+
+const FILES: Record<string, string> = {}
+for (const f of FLOOR_FAMILIES) for (let i = 1; i <= 4; i++) FILES[`${f}-${i}`] = `suelos/${f}-${i}.png`
+for (const n of [...ROADS, ...SHORES]) FILES[n] = `suelos/${n}.png`
+for (const n of OBJECTS) FILES[n] = `objetos/${n}.png`
+for (const n of CONSTRUCTION) FILES[n] = `construccion/${n}.png`
+for (const [name, sheet] of Object.entries(animations.sheets)) FILES[`sheet-${name}`] = sheet.file
+
+export type Sprites = Record<string, HTMLImageElement>
 
 let cache: Promise<Sprites> | null = null
 
 /** Carga todas las imágenes una sola vez por sesión. */
 export function loadSprites(): Promise<Sprites> {
   cache ??= Promise.all(
-    SPRITE_NAMES.map(
-      (name) =>
-        new Promise<[SpriteName, HTMLImageElement]>((resolve, reject) => {
+    Object.entries(FILES).map(
+      ([name, file]) =>
+        new Promise<[string, HTMLImageElement]>((resolve, reject) => {
           const img = new Image()
           img.onload = () => resolve([name, img])
-          img.onerror = () => reject(new Error(`No se pudo cargar el sprite ${name}`))
-          img.src = `/assets/sprites/${name}.png`
+          img.onerror = () => reject(new Error(`No se pudo cargar ${file}`))
+          img.src = BASE + file
         }),
     ),
-  ).then((entries) => Object.fromEntries(entries) as Sprites)
+  ).then((entries) => Object.fromEntries(entries))
   return cache
 }
 
-/** Superviviente → prefijo de sus sprites. */
-export const survivorSprite = (survivor: string) => (survivor === 'mecanica' ? 'p2' : 'p1')
+/** Superviviente → hoja de animación. */
+export const survivorSheet = (survivor: string): SheetName => (survivor === 'mecanica' ? 'mecanica' : 'explorador')
+
+/** Índice de cuadro para una animación según el tiempo transcurrido (s). */
+export function frameAt(anim: Animation, elapsed: number) {
+  const tick = Math.floor(Math.max(0, elapsed) * anim.fps)
+  return anim.frames[anim.loop ? tick % anim.frames.length : Math.min(tick, anim.frames.length - 1)]
+}
+
+/** Dibuja un cuadro de una hoja con el punto de apoyo (pivote) en (feetX, feetY). */
+export function drawFrame(ctx: CanvasRenderingContext2D, sheet: HTMLImageElement, frame: number, feetX: number, feetY: number, scale: number) {
+  const sx = (frame % COLUMNS) * FRAME
+  const sy = Math.floor(frame / COLUMNS) * FRAME
+  ctx.drawImage(sheet, sx, sy, FRAME, FRAME, feetX - PIVOT.x * scale, feetY - PIVOT.y * scale, FRAME * scale, FRAME * scale)
+}

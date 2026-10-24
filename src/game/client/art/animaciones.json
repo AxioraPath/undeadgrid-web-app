@@ -1,0 +1,724 @@
+{
+  "version": 1,
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "columns": 8,
+  "spacing": 0,
+  "margin": 0,
+  "pivot": {
+    "x": 32,
+    "y": 54
+  },
+  "directionOrder": [
+    "down",
+    "up",
+    "left",
+    "right"
+  ],
+  "sheets": {
+    "explorador": {
+      "file": "personajes/explorador.png",
+      "rows": 9,
+      "animations": {
+        "idle_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_down": {
+          "frames": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_up": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_up": {
+          "frames": [
+            16,
+            17,
+            18,
+            19
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_left": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_left": {
+          "frames": [
+            24,
+            25,
+            26,
+            27
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_right": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_right": {
+          "frames": [
+            32,
+            33,
+            34,
+            35
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "pistol_down": {
+          "frames": [
+            40,
+            41
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_down": {
+          "frames": [
+            48,
+            49
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "pistol_up": {
+          "frames": [
+            42,
+            43
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_up": {
+          "frames": [
+            50,
+            51
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "pistol_left": {
+          "frames": [
+            44,
+            45
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_left": {
+          "frames": [
+            52,
+            53
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "pistol_right": {
+          "frames": [
+            46,
+            47
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_right": {
+          "frames": [
+            54,
+            55
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "hurt": {
+          "frames": [
+            56,
+            57
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "frames": [
+            64,
+            65,
+            66,
+            67
+          ],
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "mecanica": {
+      "file": "personajes/mecanica.png",
+      "rows": 9,
+      "animations": {
+        "idle_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_down": {
+          "frames": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_up": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_up": {
+          "frames": [
+            16,
+            17,
+            18,
+            19
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_left": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_left": {
+          "frames": [
+            24,
+            25,
+            26,
+            27
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_right": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_right": {
+          "frames": [
+            32,
+            33,
+            34,
+            35
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "pistol_down": {
+          "frames": [
+            40,
+            41
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_down": {
+          "frames": [
+            48,
+            49
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "pistol_up": {
+          "frames": [
+            42,
+            43
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_up": {
+          "frames": [
+            50,
+            51
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "pistol_left": {
+          "frames": [
+            44,
+            45
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_left": {
+          "frames": [
+            52,
+            53
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "pistol_right": {
+          "frames": [
+            46,
+            47
+          ],
+          "fps": 10,
+          "loop": false
+        },
+        "shotgun_right": {
+          "frames": [
+            54,
+            55
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "hurt": {
+          "frames": [
+            56,
+            57
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "frames": [
+            64,
+            65,
+            66,
+            67
+          ],
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "normal": {
+      "file": "zombis/normal.png",
+      "rows": 8,
+      "animations": {
+        "idle_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_down": {
+          "frames": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_up": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_up": {
+          "frames": [
+            16,
+            17,
+            18,
+            19
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_left": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_left": {
+          "frames": [
+            24,
+            25,
+            26,
+            27
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_right": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_right": {
+          "frames": [
+            32,
+            33,
+            34,
+            35
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "attack_down": {
+          "frames": [
+            40,
+            41
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_up": {
+          "frames": [
+            42,
+            43
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_left": {
+          "frames": [
+            44,
+            45
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_right": {
+          "frames": [
+            46,
+            47
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "hurt": {
+          "frames": [
+            48,
+            49
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "frames": [
+            56,
+            57,
+            58,
+            59
+          ],
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "rapido": {
+      "file": "zombis/rapido.png",
+      "rows": 8,
+      "animations": {
+        "idle_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_down": {
+          "frames": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "idle_up": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_up": {
+          "frames": [
+            16,
+            17,
+            18,
+            19
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "idle_left": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_left": {
+          "frames": [
+            24,
+            25,
+            26,
+            27
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "idle_right": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_right": {
+          "frames": [
+            32,
+            33,
+            34,
+            35
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "attack_down": {
+          "frames": [
+            40,
+            41
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_up": {
+          "frames": [
+            42,
+            43
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_left": {
+          "frames": [
+            44,
+            45
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_right": {
+          "frames": [
+            46,
+            47
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "hurt": {
+          "frames": [
+            48,
+            49
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "frames": [
+            56,
+            57,
+            58,
+            59
+          ],
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "tanque": {
+      "file": "zombis/tanque.png",
+      "rows": 8,
+      "animations": {
+        "idle_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_down": {
+          "frames": [
+            8,
+            9,
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_up": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_up": {
+          "frames": [
+            16,
+            17,
+            18,
+            19
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_left": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_left": {
+          "frames": [
+            24,
+            25,
+            26,
+            27
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "idle_right": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 3,
+          "loop": true
+        },
+        "walk_right": {
+          "frames": [
+            32,
+            33,
+            34,
+            35
+          ],
+          "fps": 8,
+          "loop": true
+        },
+        "attack_down": {
+          "frames": [
+            40,
+            41
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_up": {
+          "frames": [
+            42,
+            43
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_left": {
+          "frames": [
+            44,
+            45
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "attack_right": {
+          "frames": [
+            46,
+            47
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "hurt": {
+          "frames": [
+            48,
+            49
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "frames": [
+            56,
+            57,
+            58,
+            59
+          ],
+          "fps": 7,
+          "loop": false
+        }
+      }
+    }
+  }
+}

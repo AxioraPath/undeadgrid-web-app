@@ -64,7 +64,12 @@ export interface Player {
   timeAlive: number
   /** Fracciones de daño de trampa acumuladas (8/s se redondea hacia abajo por golpe). */
   trapAcc: number
+  /** Solo visual: momento del último disparo y del último daño (tiempo de partida). */
+  shotAt: number
+  hurtAt: number
 }
+
+export type ZombieKind = 'normal' | 'fast' | 'tank'
 
 export interface Zombie {
   id: number
@@ -79,7 +84,9 @@ export interface Zombie {
   retargetAt: number
   trapAcc: number
   /** Solo visual: el sprite depende de la oleada. */
-  kind: 'normal' | 'fast'
+  kind: ZombieKind
+  attackAt: number
+  hurtAt: number
   target: { kind: 'player'; id: string } | { kind: 'core'; slot: Slot } | null
 }
 
@@ -112,7 +119,7 @@ export interface Core {
 export type GameEvent =
   | { type: 'shot'; x: number; y: number; dirX: number; dirY: number; slot: Slot }
   | { type: 'hit'; x: number; y: number }
-  | { type: 'zombieDied'; x: number; y: number }
+  | { type: 'zombieDied'; x: number; y: number; kind: ZombieKind }
   | { type: 'playerDied'; slot: Slot; x: number; y: number }
   | { type: 'built'; x: number; y: number; what: string }
   | { type: 'rejected'; slot: Slot; reason: string }
@@ -193,6 +200,8 @@ export function createMatch({ seed, players }: CreateMatchOptions): MatchState {
         prevAction: false,
         timeAlive: 0,
         trapAcc: 0,
+        shotAt: -1,
+        hurtAt: -1,
       }
     }),
     zombies: [],
@@ -371,6 +380,7 @@ function shoot(s: MatchState, p: Player) {
     p.shells--
   }
   p.fireCd = 1 / w.rate
+  p.shotAt = s.time
   const len = Math.hypot(p.dirX, p.dirY) || 1
   const base = Math.atan2(p.dirY / len, p.dirX / len)
   for (let i = 0; i < w.pellets; i++) {
@@ -398,6 +408,7 @@ function killPlayer(s: MatchState, p: Player, killerSlot: Slot | null) {
 
 function damagePlayer(s: MatchState, p: Player, dmg: number, sourceSlot: Slot | null) {
   if (!p.alive) return
+  p.hurtAt = s.time
   p.hp = applyDamage(p.hp, dmg)
   if (p.hp <= 0) killPlayer(s, p, sourceSlot)
 }
@@ -461,6 +472,7 @@ function updateBullets(s: MatchState, dt: number) {
       for (const z of s.zombies) {
         if (z.hp > 0 && Math.abs(z.x - b.x) < 0.45 && Math.abs(z.y - b.y) < 0.45) {
           z.hp = applyDamage(z.hp, b.damage)
+          z.hurtAt = s.time
           s.events.push({ type: 'hit', x: b.x, y: b.y })
           if (z.hp <= 0) rewardZombieKill(s, b.ownerSlot)
           return false
@@ -495,6 +507,13 @@ function updateBullets(s: MatchState, dt: number) {
   })
 }
 
+/** Solo visual (mismas reglas): oleada 1 normales, oleada 2 rápidos, horda final mezclada con tanques. */
+function zombieKindFor(wave: number, n: number): ZombieKind {
+  if (wave === 1) return 'normal'
+  if (wave === 2) return n % 3 === 0 ? 'normal' : 'fast'
+  return (['normal', 'fast', 'tank'] as const)[n % 3]
+}
+
 function spawnZombies(s: MatchState) {
   const sp = s.spawn
   while (sp.remaining > 0 && s.time >= sp.nextAt && s.zombies.length < ZOMBIE.maxAlive) {
@@ -502,7 +521,7 @@ function spawnZombies(s: MatchState) {
     const x = point.x + 0.5 + (s.rng.next() - 0.5) * 0.6
     const y = point.y + 0.5 + (s.rng.next() - 0.5) * 0.6
     const hp = zombieHp(sp.wave)
-    s.zombies.push({ id: s.nextId++, x, y, px: x, py: y, hp, maxHp: hp, damage: zombieDamage(sp.wave), attackCd: 0, retargetAt: 0, trapAcc: 0, target: null, kind: sp.wave === 1 || (sp.wave === 3 && sp.cursor % 2 === 0) ? 'normal' : 'fast' })
+    s.zombies.push({ id: s.nextId++, x, y, px: x, py: y, hp, maxHp: hp, damage: zombieDamage(sp.wave), attackCd: 0, retargetAt: 0, trapAcc: 0, target: null, kind: zombieKindFor(sp.wave, sp.cursor), attackAt: -1, hurtAt: -1 })
     sp.remaining--
     sp.nextAt += sp.interval
   }
@@ -557,6 +576,7 @@ function updateZombies(s: MatchState, dt: number) {
     if (dist <= reach) {
       if (z.attackCd <= 0) {
         z.attackCd = 1 / ZOMBIE.attackRate
+        z.attackAt = s.time
         if (z.target.kind === 'core') {
           const core = s.cores[z.target.slot]
           core.hp = applyDamage(core.hp, z.damage)
@@ -577,6 +597,7 @@ function updateZombies(s: MatchState, dt: number) {
       const wall = wallAt(s, hit.x, hit.y)
       if (wall && z.attackCd <= 0) {
         z.attackCd = 1 / ZOMBIE.attackRate
+        z.attackAt = s.time
         wall.hp = applyDamage(wall.hp, z.damage)
         s.events.push({ type: 'hit', x: hit.x + 0.5, y: hit.y + 0.5 })
         if (wall.hp <= 0) s.structures.delete(tileIndex(hit.x, hit.y))
@@ -607,7 +628,7 @@ function updateZombies(s: MatchState, dt: number) {
       }
     }
 
-  for (const z of s.zombies) if (z.hp <= 0) s.events.push({ type: 'zombieDied', x: z.x, y: z.y })
+  for (const z of s.zombies) if (z.hp <= 0) s.events.push({ type: 'zombieDied', x: z.x, y: z.y, kind: z.kind })
   s.zombies = s.zombies.filter((z) => z.hp > 0)
 }
 
@@ -629,6 +650,7 @@ function updateTraps(s: MatchState, dt: number) {
       const d = tick(z)
       if (d > 0 && z.hp > 0) {
         z.hp = applyDamage(z.hp, d)
+        z.hurtAt = s.time
         if (z.hp <= 0) rewardZombieKill(s, st.owner)
       }
     }
@@ -740,6 +762,7 @@ export function step(s: MatchState, inputs: Record<string, PlayerInput>, command
   spawnZombies(s)
   updateZombies(s, dt)
   updateTraps(s, dt)
+  for (const z of s.zombies) if (z.hp <= 0) s.events.push({ type: 'zombieDied', x: z.x, y: z.y, kind: z.kind })
   s.zombies = s.zombies.filter((z) => z.hp > 0)
 
   checkVictory(s)
