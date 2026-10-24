@@ -9,7 +9,7 @@ const ROWS = [
 
 export function ControlsHelp() {
   return (
-    <div className="ug-panel hidden max-w-72 space-y-1 p-2 lg:block" data-testid="controls-help">
+    <div className="ug-panel hidden max-w-72 space-y-1 p-2 lg:block short:hidden" data-testid="controls-help">
       {ROWS.map(([key, text]) => (
         <p key={key} className="flex items-center gap-2 font-terminal text-sm leading-tight">
           <kbd className="min-w-14 border-2 border-ug-border bg-ug-panel-2 px-1 text-center font-pixel text-base leading-tight">{key}</kbd>

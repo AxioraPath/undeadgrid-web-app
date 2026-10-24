@@ -18,7 +18,7 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
   ]
 
   return (
-    <div className="ug-panel flex gap-1 p-1 sm:gap-1.5 sm:p-1.5" data-testid="hotbar">
+    <div className="ug-panel flex gap-1 p-1 [--hb:clamp(2.75rem,9vmin,5rem)] sm:gap-1.5 short:p-0.5" data-testid="hotbar">
       {items.map((it) => (
         <button
           key={it.slot}
@@ -26,7 +26,7 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
           onClick={() => onSelect(it.slot)}
           title={`${it.slot} · ${it.label}`}
           aria-pressed={it.active}
-          className={`relative flex w-14 flex-col items-center border-2 px-1 pt-1 pb-0.5 sm:w-20 ${
+          className={`relative flex w-(--hb) flex-col items-center border-2 px-0.5 pt-1 pb-0.5 short:pt-0.5 ${
             it.active
               ? it.kind === 'build'
                 ? 'border-ug-green bg-ug-green/10 shadow-[0_0_10px_rgb(46_232_106/0.4)]'
@@ -34,9 +34,9 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
               : 'border-ug-border bg-black/40 hover:border-ug-border-hi'
           }`}
         >
-          <img src={it.icon} alt="" className="pixelated h-7 w-10 object-contain sm:h-9 sm:w-14" />
-          <span className="flex w-full items-center justify-between text-sm leading-none sm:text-base">
-            <span className="bg-ug-panel-2 px-1">{it.slot}</span>
+          <img src={it.icon} alt="" className="pixelated h-[calc(var(--hb)*0.5)] w-[calc(var(--hb)*0.7)] object-contain" />
+          <span className="flex w-full items-center justify-between text-[clamp(0.75rem,2.6vmin,1rem)] leading-none">
+            <span className="bg-ug-panel-2 px-0.5 sm:px-1">{it.slot}</span>
             <span className="truncate">{it.kind === 'build' ? it.label : it.value}</span>
           </span>
         </button>

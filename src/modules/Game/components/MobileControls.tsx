@@ -1,7 +1,8 @@
 import { useRef, useState, type PointerEvent } from 'react'
 import { Crosshair, Hammer } from 'lucide-react'
 
-const RADIUS = 56
+/** Knob travel as a fraction of the pad width (the pad scales with the viewport). */
+const RADIUS_RATIO = 0.36
 
 interface MobileControlsProps {
   inBase: boolean
@@ -17,6 +18,7 @@ export function MobileControls({ inBase, onDirection, onAction }: MobileControls
 
   const movePad = (e: PointerEvent<HTMLDivElement>) => {
     const r = padRef.current!.getBoundingClientRect()
+    const RADIUS = r.width * RADIUS_RATIO
     let dx = e.clientX - (r.left + r.width / 2)
     let dy = e.clientY - (r.top + r.height / 2)
     const len = Math.hypot(dx, dy)
@@ -43,7 +45,7 @@ export function MobileControls({ inBase, onDirection, onAction }: MobileControls
       <div
         ref={padRef}
         data-testid="dpad"
-        className="pointer-events-auto absolute bottom-6 left-6 grid size-36 touch-none place-items-center rounded-full border-2 border-white/25 bg-white/10 backdrop-blur-[1px] select-none"
+        className="pointer-events-auto absolute bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))] left-[calc(var(--ug-safe-left)+var(--ug-gap))] grid size-(--ug-ctl) touch-none place-items-center rounded-full border-2 border-white/25 bg-white/10 backdrop-blur-[1px] select-none [-webkit-touch-callout:none]"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId)
           movePad(e)
@@ -55,14 +57,14 @@ export function MobileControls({ inBase, onDirection, onAction }: MobileControls
         {['▲', '▼', '◀', '▶'].map((a, i) => (
           <span
             key={a}
-            className="absolute text-sm text-white/50"
+            className="absolute text-[clamp(0.625rem,2vmin,0.875rem)] text-white/50"
             style={[{ top: 6 }, { bottom: 6 }, { left: 8 }, { right: 8 }][i]}
           >
             {a}
           </span>
         ))}
         <span
-          className="size-16 rounded-full border-2 border-white/60 bg-white/70 shadow-lg"
+          className="size-[44%] rounded-full border-2 border-white/60 bg-white/70 shadow-lg"
           style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
         />
       </div>
@@ -71,7 +73,7 @@ export function MobileControls({ inBase, onDirection, onAction }: MobileControls
         type="button"
         data-testid="action-button"
         aria-label={inBase ? 'Construir' : 'Disparar'}
-        className={`pointer-events-auto absolute right-6 bottom-6 grid size-28 touch-none place-items-center rounded-full border-4 select-none ${
+        className={`pointer-events-auto absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))] flex size-[calc(var(--ug-ctl)*0.82)] touch-none flex-col items-center justify-center rounded-full border-4 select-none [-webkit-touch-callout:none] ${
           inBase ? 'border-ug-green/80 bg-ug-green/25' : 'border-ug-red-hi/80 bg-ug-red/35'
         } ${pressed ? 'scale-95 brightness-125' : ''}`}
         onPointerDown={(e) => {
@@ -82,8 +84,8 @@ export function MobileControls({ inBase, onDirection, onAction }: MobileControls
         onPointerCancel={() => setAction(false)}
         onContextMenu={(e) => e.preventDefault()}
       >
-        {inBase ? <Hammer size={44} /> : <Crosshair size={44} />}
-        <span className="absolute -bottom-6 text-lg">{inBase ? 'Construir' : 'Disparar'}</span>
+        {inBase ? <Hammer className="size-[38%]" /> : <Crosshair className="size-[38%]" />}
+        <span className="text-[clamp(0.875rem,2.8vmin,1.125rem)] leading-none">{inBase ? 'Construir' : 'Disparar'}</span>
       </button>
     </>
   )

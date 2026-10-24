@@ -17,19 +17,19 @@ export function PlayerPanel({ hud, compact }: { hud: HudSnapshot; compact?: bool
   const survivor = getSurvivor(me.survivor)
 
   return (
-    <div className="ug-panel flex gap-3 p-2 pr-3" data-testid="hud-player">
-      <img src={survivor.portrait} alt="" className="pixelated size-12 border-2 border-ug-border object-cover lg:size-16" />
+    <div className="ug-panel flex gap-2 p-2 pr-3 short:p-1 short:pr-2 sm:gap-3" data-testid="hud-player">
+      <img src={survivor.portrait} alt="" className="pixelated size-12 shrink-0 border-2 border-ug-border object-cover short:size-10 lg:size-16" />
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span className={`px-1.5 text-lg leading-tight ${SLOT_BADGE[me.slot]}`}>J{me.slot}</span>
-          <div className="relative h-5 w-28 border-2 border-black/60 bg-black/60 lg:w-40">
+          <div className="relative h-5 w-24 border-2 border-black/60 bg-black/60 sm:w-28 lg:w-40">
             <div className="h-full bg-ug-red-hi transition-[width]" style={{ width: `${me.hp}%` }} />
             <span className="absolute inset-0 grid place-items-center text-base leading-none" data-testid="hud-hp">
               {me.hp}/100
             </span>
           </div>
         </div>
-        <div className="mt-1.5 flex items-center gap-3 sm:gap-4">
+        <div className="mt-1.5 flex items-center gap-2 short:mt-0.5 sm:gap-4">
           {!compact && (
             <span className="flex items-center gap-1.5" title="Arma">
               <img src={me.weapon === 'pistol' ? '/assets/game/iconos/pistola.png' : '/assets/game/iconos/escopeta.png'} alt="" className="pixelated h-5 w-7 object-contain" />

@@ -77,6 +77,13 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
     window.setTimeout(() => setToasts((ts) => ts.filter((t) => t.id !== id)), 1800)
   }, [])
 
+  // The match screen never scrolls: lock <html>/<body> for as long as it is mounted.
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.add('ug-no-scroll')
+    return () => root.classList.remove('ug-no-scroll')
+  }, [])
+
   useEffect(() => {
     loadSprites()
       .then(setSprites)
@@ -159,16 +166,26 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
     let lastSent: PlayerInput | null = null
     let lastSentAt = 0
 
+    // The canvas fills the fixed container; the camera scales the map to cover it (see computeCamera).
+    // Re-fit on any size change: window resize, fullscreen toggle, rotation, mobile toolbar show/hide.
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const w = canvas.clientWidth
       const h = canvas.clientHeight
-      canvas.width = Math.round(w * dpr)
-      canvas.height = Math.round(h * dpr)
+      const pw = Math.round(w * dpr)
+      const ph = Math.round(h * dpr)
+      if (canvas.width !== pw) canvas.width = pw
+      if (canvas.height !== ph) canvas.height = ph
       size = { w, h, dpr }
     }
     resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(canvas)
+    const vv = window.visualViewport
     window.addEventListener('resize', resize)
+    window.addEventListener('orientationchange', resize)
+    document.addEventListener('fullscreenchange', resize)
+    vv?.addEventListener('resize', resize)
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame)
@@ -229,7 +246,11 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
 
     return () => {
       cancelAnimationFrame(raf)
+      observer.disconnect()
       window.removeEventListener('resize', resize)
+      window.removeEventListener('orientationchange', resize)
+      document.removeEventListener('fullscreenchange', resize)
+      vv?.removeEventListener('resize', resize)
     }
   }, [sprites, map, mySlot, readInput])
 
@@ -237,48 +258,53 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
   const finished = status === 'results'
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-ug-bg select-none" data-testid="game">
+    <div className="ug-game bg-ug-bg" data-testid="game" data-touch={isTouch}>
       <canvas ref={canvasRef} className="absolute inset-0 size-full" data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
 
       {(!sprites || !map) && (
-        <div className="absolute inset-0 grid place-items-center">
-          <p className="ug-title-shadow text-3xl text-ug-muted" data-testid="game-loading">
+        <div className="absolute inset-0 grid place-items-center p-4 text-center">
+          <p className="ug-title-shadow text-[clamp(1.25rem,5vmin,1.875rem)] text-ug-muted" data-testid="game-loading">
             {loadError ?? (status === 'preparation' ? 'La partida comienza en unos segundos…' : 'Cargando mapa…')}
           </p>
         </div>
       )}
 
       {hud && (
-        <div className="pointer-events-none absolute inset-0 p-2 sm:p-3">
+        <div className="ug-hud pointer-events-none absolute inset-0 overflow-hidden">
           {/* Arriba */}
           <div className="flex items-start justify-between gap-2">
-            <div className="pointer-events-auto">
+            <div className="pointer-events-auto min-w-0">
               <PlayerPanel hud={hud} compact={isTouch} />
             </div>
-            <div className="absolute left-1/2 -translate-x-1/2 max-sm:top-24">
+            <div className="absolute left-1/2 -translate-x-1/2 max-sm:top-[calc(var(--ug-safe-top)+4.75rem)]">
               <PhasePanel hud={hud} />
             </div>
-            <div className="pointer-events-auto flex flex-col items-end gap-2">
-              <div className="flex items-center gap-2">
-                <span className="ug-panel px-2 py-1 font-terminal text-sm" data-testid="hud-fps">
-                  {fps} FPS ·{' '}
-                  <span className={pingMs !== null && pingMs < 100 ? 'text-ug-green' : 'text-yellow-400'} data-testid="hud-ping">
-                    {pingMs === null ? '-- ms' : `${pingMs} ms`}
-                  </span>
+            <div className="pointer-events-auto flex shrink-0 items-center gap-2">
+              <span className="ug-panel px-2 py-1 font-terminal text-sm short:px-1 short:text-xs" data-testid="hud-fps">
+                {fps} FPS ·{' '}
+                <span className={pingMs !== null && pingMs < 100 ? 'text-ug-green' : 'text-yellow-400'} data-testid="hud-ping">
+                  {pingMs === null ? '-- ms' : `${pingMs} ms`}
                 </span>
-                <button type="button" onClick={onExit} aria-label="Salir" className="ug-panel grid size-8 place-items-center hover:border-ug-border-hi">
-                  <LogOut size={16} />
-                </button>
-              </div>
-              {isTouch && <canvas ref={minimapRef} width={192} height={144} className="ug-panel size-auto w-40" />}
+              </span>
+              <button type="button" onClick={onExit} aria-label="Salir" className="ug-panel grid size-9 place-items-center hover:border-ug-border-hi short:size-8">
+                <LogOut size={16} />
+              </button>
             </div>
           </div>
+          {isTouch && (
+            <canvas
+              ref={minimapRef}
+              width={192}
+              height={144}
+              className="ug-panel pointer-events-auto absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] top-[calc(var(--ug-safe-top)+var(--ug-gap)+3rem)] h-auto w-[clamp(6rem,20vmin,10rem)] max-sm:portrait:top-[calc(var(--ug-safe-top)+13rem)]"
+            />
+          )}
 
           {/* Toasts */}
           <div className="absolute top-1/3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
             {toasts.map((t) => (
-              <p key={t.id} className="ug-title-shadow bg-black/60 px-3 py-1 text-xl" data-testid="toast">
+              <p key={t.id} className="ug-title-shadow bg-black/60 px-3 py-1 text-[clamp(1rem,3.5vmin,1.25rem)]" data-testid="toast">
                 {t.text}
               </p>
             ))}
@@ -286,37 +312,33 @@ export function GamePage({ mySlot, status, roomResult, exitLabel, onExit }: Game
 
           {/* Muerto / reapareciendo */}
           {!hud.me.alive && !finished && (
-            <div className="absolute inset-x-0 top-[42%] text-center">
-              <p className="ug-title-shadow text-5xl text-ug-red-hi">HAS MUERTO</p>
-              <p className="ug-title-shadow text-2xl">
+            <div className="absolute inset-x-0 top-[42%] px-2 text-center">
+              <p className="ug-title-shadow text-[clamp(2rem,9vmin,3rem)] leading-none text-ug-red-hi">HAS MUERTO</p>
+              <p className="ug-title-shadow text-[clamp(1.125rem,4vmin,1.5rem)]">
                 {hud.me.respawnIn !== null ? `Reapareces en ${Math.ceil(hud.me.respawnIn)}…` : 'Tu núcleo fue destruido: ya no reapareces'}
               </p>
             </div>
           )}
 
-          {/* Caja */}
-          {hud.me.onCrate && !finished && (
-            <div className="absolute inset-x-0 bottom-28 flex justify-center sm:bottom-32">
-              <CrateMenu stock={hud.crate} onTake={takeFromCrate} />
-            </div>
-          )}
-
-          {/* Abajo */}
-          {!isTouch && (
-            <div className="pointer-events-auto absolute bottom-3 left-3">
-              <canvas ref={minimapRef} width={256} height={192} className="ug-panel hidden w-56 md:block" />
-            </div>
-          )}
-          <div className="pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2 sm:bottom-3">
+          {/* Abajo: caja + pista de construcción + hotbar, apilados al centro */}
+          <div className="ug-dock pointer-events-none absolute inset-x-0 flex flex-col items-center gap-1 px-2">
+            {hud.me.onCrate && !finished && <CrateMenu stock={hud.crate} onTake={takeFromCrate} />}
             {hud.me.inBase && hud.me.buildHint && (
-              <p className={`mb-1 text-center text-lg ${hud.me.buildHint.ok ? 'text-ug-green' : 'text-ug-red-hi'}`} data-testid="build-hint">
+              <p className={`text-center text-[clamp(1rem,3vmin,1.125rem)] leading-none ${hud.me.buildHint.ok ? 'text-ug-green' : 'text-ug-red-hi'}`} data-testid="build-hint">
                 {isTouch ? 'Botón' : 'Espacio'}: {hud.me.buildHint.label}
               </p>
             )}
-            <Hotbar hud={hud} onSelect={(slot) => sendCommand({ type: 'hotbar', slot })} />
+            <div className="pointer-events-auto">
+              <Hotbar hud={hud} onSelect={(slot) => sendCommand({ type: 'hotbar', slot })} />
+            </div>
           </div>
           {!isTouch && (
-            <div className="absolute right-3 bottom-3">
+            <div className="pointer-events-auto absolute bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))] left-[calc(var(--ug-safe-left)+var(--ug-gap))]">
+              <canvas ref={minimapRef} width={256} height={192} className="ug-panel hidden h-auto w-[clamp(7rem,22vmin,14rem)] md:block" />
+            </div>
+          )}
+          {!isTouch && (
+            <div className="absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))]">
               <ControlsHelp />
             </div>
           )}

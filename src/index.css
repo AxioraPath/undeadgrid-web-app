@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Short viewports (landscape phones, small windows): HUD switches to its compact layout. */
+@custom-variant short (@media (max-height: 520px));
+
 @theme {
   --font-pixel: 'Jersey 10', ui-monospace, monospace;
   --font-terminal: 'Jersey 10', ui-monospace, monospace;
@@ -63,4 +66,65 @@ img.pixelated {
 @keyframes ug-drip {
   from { transform: translateY(-2px); }
   to { transform: translateY(2px); }
+}
+
+/* ---------------------------------------------------------------------------
+   In-match screen: locked to the dynamic viewport, never scrolls.
+   --------------------------------------------------------------------------- */
+
+/* Applied to <html> by GamePage while it is mounted, so other screens keep scrolling. */
+html.ug-no-scroll,
+html.ug-no-scroll body,
+html.ug-no-scroll #root {
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.ug-game {
+  --ug-safe-top: env(safe-area-inset-top, 0px);
+  --ug-safe-right: env(safe-area-inset-right, 0px);
+  --ug-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ug-safe-left: env(safe-area-inset-left, 0px);
+  /* Edge gap + safe area, shared by every HUD block. */
+  --ug-gap: clamp(0.375rem, 1.6vmin, 0.75rem);
+  /* Touch controls (D-pad / action button): bigger on tablets, comfortable on phones. */
+  --ug-ctl: clamp(6.5rem, 24vmin, 11rem);
+  position: fixed;
+  inset: 0;
+  width: 100dvw;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ug-game canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.ug-game img {
+  -webkit-user-drag: none;
+}
+
+/* HUD layer, padded by the notch / rounded corners. */
+.ug-hud {
+  padding: calc(var(--ug-safe-top) + var(--ug-gap)) calc(var(--ug-safe-right) + var(--ug-gap))
+    calc(var(--ug-safe-bottom) + var(--ug-gap)) calc(var(--ug-safe-left) + var(--ug-gap));
+}
+
+/* Bottom-center dock (crate menu, build hint, hotbar). On touch portrait it sits above the controls. */
+.ug-dock {
+  bottom: calc(var(--ug-safe-bottom) + var(--ug-gap));
+}
+
+@media (orientation: portrait) {
+  .ug-game[data-touch='true'] .ug-dock {
+    bottom: calc(var(--ug-safe-bottom) + var(--ug-gap) * 2 + var(--ug-ctl));
+  }
 }
