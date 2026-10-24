@@ -7,6 +7,8 @@ test.describe('Flow 2 - Lobbies', () => {
 
     // Socket connection: the room only exists because lobby:create round-tripped over Socket.IO.
     await expect(page.getByTestId('player-count')).toHaveText('1 / 2')
+    // The local player slot shows the logged-in account's display name.
+    await expect(page.getByTestId('slot-1')).toContainText('Tester')
     const state = await serverState()
     expect(state.sockets).toBeGreaterThanOrEqual(1)
     expect(state.rooms.find((r) => r.code === code)?.players).toBe(1)

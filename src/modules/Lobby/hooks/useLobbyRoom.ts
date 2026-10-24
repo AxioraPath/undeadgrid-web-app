@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DIFFICULTIES, MAPS, UNLOCKED_SURVIVORS } from '../data/catalog'
+import { useAuth } from '../../Auth/context/authContext'
 import { emitAck, getSocket } from '../../../shared/lib/socket'
 import type {
   ChatMessageSnapshot,
@@ -28,6 +29,12 @@ export interface ChatMessage {
   author: string
   text: string
 }
+
+export const MAX_PLAYER_NAME = 16
+
+/** Account name trimmed and capped to the lobby name limit; falls back to "Jugador N" when empty. */
+export const resolvePlayerName = (accountName: string | undefined, fallbackSlot: Slot) =>
+  accountName?.trim().slice(0, MAX_PLAYER_NAME).trim() || `Jugador ${fallbackSlot}`
 
 const cycle = (i: number, dir: 1 | -1, len: number) => (i + dir + len) % len
 
@@ -61,7 +68,8 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   const [mySlot, setMySlot] = useState<Slot>(isHost ? 1 : 2)
 
   // Nombre y superviviente por defecto (editables luego con rename / confirmSurvivor).
-  const defaultName = `Jugador ${isHost ? 1 : 2}`
+  const { user } = useAuth()
+  const defaultName = resolvePlayerName(user?.name, isHost ? 1 : 2)
   const defaultSurvivor = UNLOCKED_SURVIVORS[isHost ? 0 : 1].id
 
   // Slot efectivo del cliente en una ref para que los listeners lean el valor vigente.
@@ -195,7 +203,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   }, [me.ready])
 
   const rename = useCallback((name: string) => {
-    const clean = name.trim().slice(0, 16)
+    const clean = name.trim().slice(0, MAX_PLAYER_NAME)
     if (!clean) return
     emitAck('lobby:rename', { name: clean }).catch((err) =>
       console.error('[useLobbyRoom] lobby:rename falló', err),
