@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DIFFICULTIES, MAPS, UNLOCKED_SURVIVORS } from '../data/catalog'
+import { emitAck, getSocket } from '../../../shared/lib/socket'
+import type {
+  ChatMessageSnapshot,
+  JoinedData,
+  PlayerSnapshot,
+  RoomSnapshot,
+  RoomStatus,
+} from '../../../shared/lib/contracts'
 
 export type Slot = 1 | 2
 
@@ -21,91 +29,249 @@ export interface ChatMessage {
   text: string
 }
 
-const ME_ID = 'me'
-const RIVAL_ID = 'rival'
-
 const cycle = (i: number, dir: 1 | -1, len: number) => (i + dir + len) % len
 
-// MOCK: estado local de la sala. Se reemplaza por lobby:state / lobby:ready del socket
-// cuando el servidor esté listo; la interfaz que devuelve se mantiene igual.
+const sessionKey = (code: string) => `undeadgrid:session:${code}`
+
+const toLobbyPlayer = (p: PlayerSnapshot): LobbyPlayer => ({
+  id: p.id,
+  name: p.name,
+  slot: p.slot,
+  ready: p.ready,
+  survivor: p.survivor,
+  survivorConfirmed: p.survivorConfirmed,
+  isHost: p.isHost,
+})
+
+const toChatMessage = (m: ChatMessageSnapshot): ChatMessage => ({
+  id: m.id,
+  slot: m.slot,
+  author: m.author,
+  text: m.text,
+})
+
+/**
+ * Hook de sala conectado al backend real por Socket.IO. Mantiene el último
+ * RoomSnapshot recibido y la lista de mensajes de chat en estado local, y
+ * expone la misma interfaz que consumían las pantallas con el mock.
+ */
 export function useLobbyRoom(code: string, isHost: boolean) {
-  const [players, setPlayers] = useState<LobbyPlayer[]>([
-    {
-      id: ME_ID,
-      name: `Jugador ${isHost ? 1 : 2}`,
-      slot: isHost ? 1 : 2,
+  const [room, setRoom] = useState<RoomSnapshot | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [mySlot, setMySlot] = useState<Slot>(isHost ? 1 : 2)
+
+  // Nombre y superviviente por defecto (editables luego con rename / confirmSurvivor).
+  const defaultName = `Jugador ${isHost ? 1 : 2}`
+  const defaultSurvivor = UNLOCKED_SURVIVORS[isHost ? 0 : 1].id
+
+  // Slot efectivo del cliente en una ref para que los listeners lean el valor vigente.
+  const mySlotRef = useRef<Slot>(mySlot)
+  mySlotRef.current = mySlot
+
+  // Conexión + join/create al montar. Registra y limpia los listeners del servidor.
+  useEffect(() => {
+    const socket = getSocket()
+    let cancelled = false
+
+    const storedSessionId = (() => {
+      try {
+        return sessionStorage.getItem(sessionKey(code)) ?? undefined
+      } catch {
+        return undefined
+      }
+    })()
+
+    const persist = (joined: JoinedData) => {
+      try {
+        // Clave por el code real que devuelve el servidor para permitir reconexión.
+        sessionStorage.setItem(sessionKey(joined.room.code), joined.sessionId)
+        if (joined.room.code !== code) {
+          sessionStorage.setItem(sessionKey(code), joined.sessionId)
+        }
+      } catch {
+        // sessionStorage puede no estar disponible; no es crítico.
+      }
+    }
+
+        const applyJoined = (joined: JoinedData) => {
+          if (cancelled) return
+          setMySlot(joined.slot as Slot)
+          setRoom(joined.room)
+          persist(joined)
+          // Al crear sala, el servidor asigna el código real. Reflejarlo en la URL
+          // (sin recargar) para que sea compartible con el rival.
+          if (joined.room.code !== code) {
+            try {
+              window.history.replaceState(window.history.state, '', `/sala/${joined.room.code}`)
+            } catch {
+              // history puede no estar disponible (SSR/tests); no es crítico.
+            }
+          }
+        }
+
+    const join = async () => {
+      try {
+        if (isHost) {
+          const joined = await emitAck<JoinedData>('lobby:create', {
+            name: defaultName,
+            survivor: defaultSurvivor,
+          })
+          applyJoined(joined)
+        } else {
+          const joined = await emitAck<JoinedData>('lobby:join', {
+            code,
+            name: defaultName,
+            survivor: defaultSurvivor,
+            sessionId: storedSessionId,
+          })
+          applyJoined(joined)
+        }
+      } catch (err) {
+        console.error('[useLobbyRoom] join/create falló', err)
+      }
+    }
+
+    const onState = (snapshot: RoomSnapshot) => setRoom(snapshot)
+    const onChat = (msg: ChatMessageSnapshot) =>
+      setMessages((ms) => (ms.some((m) => m.id === msg.id) ? ms : [...ms, toChatMessage(msg)]))
+    const onClosed = (d: { reason: string }) => {
+      console.error('[useLobbyRoom] sala cerrada', d.reason)
+      setRoom((r) => (r ? { ...r, status: 'results' } : r))
+    }
+    const onMatchOver = (snapshot: RoomSnapshot) => setRoom(snapshot)
+
+    socket.on('lobby:state', onState)
+    socket.on('chat:message', onChat)
+    socket.on('lobby:closed', onClosed)
+    socket.on('match:over', onMatchOver)
+
+    void join()
+
+    return () => {
+      cancelled = true
+      socket.off('lobby:state', onState)
+      socket.off('chat:message', onChat)
+      socket.off('lobby:closed', onClosed)
+      socket.off('match:over', onMatchOver)
+    }
+    // Solo depende de la identidad de la sala y el rol; defaults derivan de isHost.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, isHost])
+
+  const players = useMemo<LobbyPlayer[]>(
+    () => (room ? room.players.map(toLobbyPlayer) : []),
+    [room],
+  )
+
+  // "me" es el jugador con el slot asignado al cliente; rival es el otro.
+  const me = useMemo<LobbyPlayer>(() => {
+    const found = players.find((p) => p.slot === mySlot)
+    if (found) return found
+    // Fallback mientras llega el primer snapshot: jugador placeholder coherente.
+    return {
+      id: 'me',
+      name: defaultName,
+      slot: mySlot,
       ready: false,
-      survivor: UNLOCKED_SURVIVORS[isHost ? 0 : 1].id,
+      survivor: defaultSurvivor,
       survivorConfirmed: false,
       isHost,
-    },
-  ])
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [mapIndex, setMapIndex] = useState(0)
-  const [difficultyIndex, setDifficultyIndex] = useState(0)
+    }
+  }, [players, mySlot, defaultName, defaultSurvivor, isHost])
 
-  // MOCK: simula que el rival entra, elige superviviente y se marca listo.
-  useEffect(() => {
-    const rivalSlot: Slot = isHost ? 2 : 1
-    const patchRival = (patch: Partial<LobbyPlayer>) =>
-      setPlayers((ps) => ps.map((p) => (p.id === RIVAL_ID ? { ...p, ...patch } : p)))
+  const rival = useMemo(() => players.find((p) => p.slot !== mySlot), [players, mySlot])
 
-    const timers = [
-      window.setTimeout(() => {
-        setPlayers((ps) => [
-          ...ps,
-          {
-            id: RIVAL_ID,
-            name: `Jugador ${rivalSlot}`,
-            slot: rivalSlot,
-            ready: false,
-            survivor: UNLOCKED_SURVIVORS[isHost ? 1 : 0].id,
-            survivorConfirmed: false,
-            isHost: !isHost,
-          },
-        ])
-      }, 1500),
-      window.setTimeout(() => patchRival({ survivorConfirmed: true }), 5000),
-      window.setTimeout(() => {
-        patchRival({ ready: true })
-        setMessages((ms) => [...ms, { id: Date.now(), slot: rivalSlot, author: `Jugador ${rivalSlot}`, text: 'Listo, vamos!' }])
-      }, 6000),
-    ]
-    return () => timers.forEach((t) => window.clearTimeout(t))
-  }, [isHost])
-
-  const updateMe = useCallback((patch: Partial<LobbyPlayer>) => {
-    setPlayers((ps) => ps.map((p) => (p.id === ME_ID ? { ...p, ...patch } : p)))
-  }, [])
-
-  const me = players.find((p) => p.id === ME_ID)!
-  const rival = players.find((p) => p.id === RIVAL_ID)
   const bySlot = useMemo(
-    () => ({ 1: players.find((p) => p.slot === 1), 2: players.find((p) => p.slot === 2) }),
+    () => ({
+      1: players.find((p) => p.slot === 1),
+      2: players.find((p) => p.slot === 2),
+    }),
     [players],
   )
 
+  const mapId = room?.mapId
+  const mapIndex = useMemo(() => {
+    const idx = MAPS.findIndex((m) => m.id === mapId)
+    return idx >= 0 ? idx : 0
+  }, [mapId])
+
+  const toggleReady = useCallback(() => {
+    emitAck('lobby:ready', { ready: !me.ready }).catch((err) =>
+      console.error('[useLobbyRoom] lobby:ready falló', err),
+    )
+  }, [me.ready])
+
+  const rename = useCallback((name: string) => {
+    const clean = name.trim().slice(0, 16)
+    if (!clean) return
+    emitAck('lobby:rename', { name: clean }).catch((err) =>
+      console.error('[useLobbyRoom] lobby:rename falló', err),
+    )
+  }, [])
+
+  const confirmSurvivor = useCallback(async (id: string) => {
+    try {
+      await emitAck('lobby:selectSurvivor', { survivor: id })
+      await emitAck('lobby:confirmSurvivor')
+    } catch (err) {
+      console.error('[useLobbyRoom] confirmSurvivor falló', err)
+    }
+  }, [])
+
+  const cycleMap = useCallback(
+    (dir: 1 | -1) => {
+      if (!me.isHost) return
+      const nextId = MAPS[cycle(mapIndex, dir, MAPS.length)].id
+      emitAck('lobby:setMap', { mapId: nextId }).catch((err) =>
+        console.error('[useLobbyRoom] lobby:setMap falló', err),
+      )
+    },
+    [me.isHost, mapIndex],
+  )
+
+  const cycleDifficulty = useCallback(() => {
+    if (!me.isHost) return
+    const current = room?.difficulty ?? DIFFICULTIES[0]
+    const idx = DIFFICULTIES.indexOf(current as (typeof DIFFICULTIES)[number])
+    const next = DIFFICULTIES[cycle(idx >= 0 ? idx : 0, 1, DIFFICULTIES.length)]
+    emitAck('lobby:setDifficulty', { difficulty: next }).catch((err) =>
+      console.error('[useLobbyRoom] lobby:setDifficulty falló', err),
+    )
+  }, [me.isHost, room?.difficulty])
+
+  const sendMessage = useCallback((text: string) => {
+    const clean = text.trim().slice(0, 120)
+    if (!clean) return
+    emitAck('chat:send', { text: clean }).catch((err) =>
+      console.error('[useLobbyRoom] chat:send falló', err),
+    )
+  }, [])
+
+  const playerCount = players.length
+  const status: RoomStatus = room?.status ?? 'lobby'
+  const seed = room?.seed ?? 0
+
   return {
-    code,
+    // Fuente de verdad interna: el code real del snapshot (la URL puede mostrar un placeholder).
+    code: room?.code ?? code,
     me,
     rival,
     bySlot,
-    playerCount: players.length,
+    playerCount,
     messages,
     map: MAPS[mapIndex],
     mapIndex,
-    difficulty: DIFFICULTIES[difficultyIndex],
-    canStart: me.isHost && players.length === 2 && players.every((p) => p.ready),
-    toggleReady: () => updateMe({ ready: !me.ready }),
-    rename: (name: string) => updateMe({ name: name.trim().slice(0, 16) || me.name }),
-    confirmSurvivor: (id: string) => updateMe({ survivor: id, survivorConfirmed: true }),
-    cycleMap: (dir: 1 | -1) => setMapIndex((i) => cycle(i, dir, MAPS.length)),
-    cycleDifficulty: () => setDifficultyIndex((i) => cycle(i, 1, DIFFICULTIES.length)),
-    sendMessage: (text: string) => {
-      const clean = text.trim().slice(0, 120)
-      if (!clean) return
-      setMessages((ms) => [...ms, { id: Date.now(), slot: me.slot, author: me.name, text: clean }])
-    },
+    difficulty: room?.difficulty ?? DIFFICULTIES[0],
+    canStart: me.isHost && playerCount === 2 && players.every((p) => p.ready),
+    toggleReady,
+    rename,
+    confirmSurvivor,
+    cycleMap,
+    cycleDifficulty,
+    sendMessage,
+    // Aditivos (no rompen consumidores existentes):
+    status,
+    seed,
   }
 }
 
