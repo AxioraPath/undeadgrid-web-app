@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { DoorOpen, Plus } from 'lucide-react'
 import { PixelModal } from '../../../shared/components/PixelModal'
+import { CODE_LENGTH } from '../../Lobby/data/catalog'
 
-const CODE_LENGTH = 5
 
 interface PlayModalProps {
   open: boolean

@@ -12,6 +12,7 @@ import { PlayModal } from './components/PlayModal'
 import { InfoModals, type InfoModalKind } from './components/InfoModals'
 import { HomeBackground } from './components/HomeBackground'
 import { useServerStatus } from '../../shared/hooks/useServerStatus'
+import { randomRoomCode } from '../Lobby/data/catalog'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -23,7 +24,7 @@ export function HomePage() {
   const closeInfo = useCallback(() => setInfo(null), [])
 
   // TODO: emitir lobby:create / lobby:join por socket cuando exista el servidor.
-  const createRoom = () => navigate('/sala/nueva')
+  const createRoom = () => navigate(`/sala/${randomRoomCode()}`, { state: { isHost: true } })
   const joinRoom = (code: string) => navigate(`/sala/${code}`)
 
   return (

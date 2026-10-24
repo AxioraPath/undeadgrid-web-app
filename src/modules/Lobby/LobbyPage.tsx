@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { LogOut, Map as MapIcon, Settings, UserRound, Users } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
 import { MenuButton } from '../../shared/components/MenuButton'
@@ -11,14 +11,13 @@ import { MatchSettings } from './components/MatchSettings'
 import { MapPanel } from './components/MapPanel'
 import { RoomChat } from './components/RoomChat'
 import { StartButton } from './components/StartButton'
-import { useLobbyRoom } from './hooks/useLobbyRoom'
+import { useRoom } from './context/roomContext'
 
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
 export function LobbyPage() {
-  const { code } = useParams()
   const navigate = useNavigate()
-  const room = useLobbyRoom(code)
+  const room = useRoom()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [starting, setStarting] = useState(false)
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
@@ -30,6 +29,7 @@ export function LobbyPage() {
     onToggleReady: room.toggleReady,
     onRename: room.rename,
     onCycleSurvivor: room.cycleSurvivor,
+    onChangeSurvivor: () => navigate('personaje'),
   })
 
   return (
@@ -67,7 +67,7 @@ export function LobbyPage() {
       <aside className="hidden flex-col gap-3 lg:col-start-1 lg:row-start-2 lg:flex lg:self-start">
         <nav className="flex flex-col gap-3" aria-label="Menú de sala">
           <MenuButton primary size="sm" icon={Users} title="Sala" subtitle="Multijugador 1v1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
-          <MenuButton size="sm" icon={UserRound} title="Personaje" subtitle="Elige tu superviviente" onClick={() => scrollTo(`slot-anchor-${room.me.slot}`)} />
+          <MenuButton size="sm" icon={UserRound} title="Personaje" subtitle="Elige tu superviviente" onClick={() => navigate('personaje')} />
           <MenuButton size="sm" icon={MapIcon} title="Mapa" subtitle="Selecciona el escenario" onClick={() => scrollTo('lobby-map')} />
           <MenuButton size="sm" icon={Settings} title="Ajustes" subtitle="Audio y controles" onClick={() => setSettingsOpen(true)} />
           <MenuButton size="sm" icon={LogOut} title="Salir" subtitle="Volver al menú" onClick={() => navigate('/')} testId="leave-room" />
@@ -77,8 +77,8 @@ export function LobbyPage() {
       {/* Centro: jugadores, configuración y comenzar */}
       <main className="flex flex-col gap-4 lg:col-start-2 lg:row-start-2">
         <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-4 sm:gap-10 lg:gap-24 lg:pt-2">
-          <div id="slot-anchor-1"><PlayerSlot {...slotProps(1)} /></div>
-          <div id="slot-anchor-2"><PlayerSlot {...slotProps(2)} /></div>
+          <div><PlayerSlot {...slotProps(1)} /></div>
+          <div><PlayerSlot {...slotProps(2)} /></div>
         </div>
         <div className="mt-2 lg:mt-auto">
           <MatchSettings
