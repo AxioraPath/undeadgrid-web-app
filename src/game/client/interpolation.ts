@@ -22,6 +22,7 @@ export interface PlayerView {
   alive: boolean
   hp: number
   weapon: 'pistol' | 'shotgun'
+  build: 'wall' | 'trap'
   shotAt: number
   hurtAt: number
 }
@@ -45,6 +46,8 @@ export interface StructureView {
   hp: number
   maxHp: number
   owner: Slot
+  /** Wall orientation decided by the server (traps ignore it). */
+  orient: 'h' | 'v'
 }
 
 /** Lo que dibuja el canvas en un cuadro: posiciones ya interpoladas. */
@@ -119,6 +122,7 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
       alive: p.alive,
       hp: p.hp,
       weapon: p.weapon,
+      build: p.build,
       shotAt: p.shotAt,
       hurtAt: p.hurtAt,
     }
@@ -151,7 +155,8 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
   })
 
   const structures = new Map<number, StructureView>()
-  for (const [key, type, hp, maxHp, owner] of b.structures) structures.set(key, { type: STRUCTURE_TYPES[type], hp, maxHp, owner })
+  for (const [key, type, hp, maxHp, owner, orient] of b.structures)
+    structures.set(key, { type: STRUCTURE_TYPES[type], hp, maxHp, owner, orient: orient === 'v' ? 'v' : 'h' })
 
   return { time, map, players, zombies, bullets, structures, cores: b.cores }
 }

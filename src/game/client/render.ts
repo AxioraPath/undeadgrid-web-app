@@ -13,6 +13,7 @@ import {
 } from '../../shared/lib/contracts'
 import type { PlayerView, View, ZombieView } from './interpolation'
 import { createRng } from './rng'
+import { wallHalf, wallPlacement, wallSpriteName, type WallLookup, type WallOrient } from './wallSprite'
 import { drawFrame as drawSheetFrame, frameAt, sheetAnimations, survivorSheet, type SheetName, type Sprites } from './sprites'
 
 const SLOT_COLOR: Record<Slot, { main: string; light: string; dark: string; tint: string }> = {
@@ -450,11 +451,12 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   // Todo lo que tiene altura se ordena por la posición de los pies
   type Drawable = { y: number; draw: () => void }
   const list: Drawable[] = []
+  const lookup = wallLookup(v)
   for (const [key, st] of v.structures) {
     if (st.type === 'trap') continue
     const tx = key % map.w
     const ty = Math.floor(key / map.w)
-    list.push({ y: ty + 1, draw: () => drawWall(ctx, v, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp) })
+    list.push({ y: ty + 1, draw: () => drawWall(ctx, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp, st.orient, lookup) })
   }
   for (const slot of [1, 2] as Slot[]) {
     const c = map.crates[slot]
@@ -510,7 +512,13 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
 
   // Casilla de enfrente al construir
   if (o.hint) {
-    const { x, y, ok } = o.hint
+    const { x, y, ok, orient } = o.hint
+    // Ghost of the wall that would be placed: same sprite/half as the final wall, tinted by validity.
+    if (me?.build === 'wall' && !v.structures.has(y * map.w + x)) {
+      ctx.globalAlpha = 0.6
+      drawWall(ctx, sp, x, y, 'wood', 1, orient, wallLookup(v, { x, y, orient }))
+      ctx.globalAlpha = 1
+    }
     ctx.fillStyle = ok ? 'rgba(46, 232, 106, 0.4)' : 'rgba(255, 42, 47, 0.35)'
     ctx.fillRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
     ctx.strokeStyle = ok ? '#2ee86a' : '#ff2a2f'
@@ -558,26 +566,25 @@ function hpBar(ctx: Ctx, x: number, y: number, w: number, pct: number, color = '
   ctx.fillRect(Math.round(x - w / 2), Math.round(y), Math.round(w * Math.max(0, pct)), 3)
 }
 
-const isWallAt = (v: View, x: number, y: number) => {
-  const st = v.structures.get(y * v.map.w + x)
-  return !!st && st.type !== 'trap'
-}
+const wallLookup =
+  (v: View, ghost?: { x: number; y: number; orient: WallOrient }): WallLookup =>
+  (x, y) => {
+    if (ghost && ghost.x === x && ghost.y === y) return ghost.orient
+    const st = v.structures.get(y * v.map.w + x)
+    return st && st.type !== 'trap' ? st.orient : null
+  }
 
 /**
- * Las paredes del arte miden 2 casillas (128 × 64 o 64 × 128); el juego construye por casilla.
- * Cada casilla dibuja la mitad que le toca según su posición, así una fila de paredes queda continua.
+ * Horizontal art is 2 tiles long (128 x 64), vertical art is a tall single post (64 x 128); the game builds per tile.
+ * Orientation comes from the server; horizontal tiles draw the half that matches their position in their run.
  */
-function drawWall(ctx: Ctx, v: View, sp: Sprites, tx: number, ty: number, type: 'wood' | 'reinforced', pct: number) {
-  const vertical = (isWallAt(v, tx, ty - 1) || isWallAt(v, tx, ty + 1)) && !isWallAt(v, tx - 1, ty) && !isWallAt(v, tx + 1, ty)
-  const mat = type === 'wood' ? 'madera' : 'metal'
-  const state = pct <= 0.33 ? '-destruida' : pct <= 0.66 ? '-danada' : ''
-  const img = sp[`pared-${mat}-${vertical ? 'v' : 'h'}${state}`]
-  const half = vertical ? ty % 2 : tx % 2
+function drawWall(ctx: Ctx, sp: Sprites, tx: number, ty: number, type: 'wood' | 'reinforced', pct: number, orient: WallOrient, lookup: WallLookup) {
+  const img = sp[wallSpriteName(type, orient, pct)]
+  const w = wallPlacement(orient, wallHalf(orient, tx, ty, lookup))
   const x = tx * TILE
   const y = ty * TILE
-  if (vertical) ctx.drawImage(img, 0, half * 64, 64, 64, x, y, TILE, TILE)
-  else ctx.drawImage(img, half * 64, 0, 64, 64, x, y, TILE, TILE)
-  if (pct < 1) hpBar(ctx, x + TILE / 2, y - 6, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
+  ctx.drawImage(img, w.sx, w.sy, w.sw, w.sh, x + w.dx * TILE, y + w.dy * TILE, w.dw * TILE, w.dh * TILE)
+  if (pct < 1) hpBar(ctx, x + TILE / 2, y - (orient === 'v' ? 16 : 6), 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
 }
 
 function drawCore(ctx: Ctx, v: View, sp: Sprites, slot: Slot, fx: Fx) {

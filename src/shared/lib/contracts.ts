@@ -198,6 +198,8 @@ export interface BuildHint {
   y: number
   ok: boolean
   label: string
+  /** Orientation the wall would have (server decides from the builder's facing). */
+  orient: 'h' | 'v'
 }
 
 export interface GamePlayer {
@@ -233,8 +235,8 @@ export interface GamePlayer {
 export type ZombieTuple = [number, number, number, number, number, number, number, number]
 /** [id, x, y, vx, vy] */
 export type BulletTuple = [number, number, number, number, number]
-/** [casilla, tipo(0 madera | 1 reforzada | 2 trampa), hp, maxHp, dueño] */
-export type StructureTuple = [number, number, number, number, Slot]
+/** [casilla, tipo(0 madera | 1 reforzada | 2 trampa), hp, maxHp, dueño, orientación('h' | 'v')] */
+export type StructureTuple = [number, number, number, number, Slot, 'h' | 'v']
 
 export type ZombieKind = 'normal' | 'fast' | 'tank'
 

@@ -188,6 +188,20 @@ const buildMap = () => ({
   spawns: [],
 })
 
+// MOCK_WALLS=1 places sample walls near slot 1 (horizontal/vertical runs, L, cross, isolated, damaged) for visual checks.
+// Tuple: [tile, type(0 wood|1 reinforced), hp, maxHp, owner, orient]
+const sampleWalls = () => {
+  const at = (x, y, orient, type = 0, hp = 100) => [y * MAP_W + x, type, hp, 100, 1, orient]
+  return [
+    ...[4, 5, 6].map((x) => at(x, 9, 'h')),
+    ...[9, 10, 11].map((y) => at(10, y, 'v')),
+    ...[4, 5, 6].map((x) => at(x, 13, 'h', 1)),
+    ...[14, 15].map((y) => at(6, y, 'v', 1)),
+    ...[10, 11, 12].map((y) => at(13, y, 'v', 0, y === 12 ? 30 : y === 11 ? 60 : 100)),
+    at(12, 11, 'h'), at(14, 11, 'h'),
+    at(4, 16, 'h'), at(11, 15, 'v'),
+  ]
+}
 const emptyStock = () => ({ wood: 0, metal: 0, medkits: 0, shells: 0 })
 const gameState = (room) => ({
   tick: room.tick,
@@ -197,11 +211,12 @@ const gameState = (room) => ({
   players: room.players.map((p) => ({
     id: p.id, slot: p.slot, name: p.name, survivor: p.survivor, x: p.pos.x, y: p.pos.y, dirX: 0, dirY: 1,
     hp: 100, alive: true, respawnIn: null, weapon: 'pistol', build: 'wall', ...emptyStock(),
-    kills: 0, zombieKills: 0, deaths: 0, shotAt: -1, hurtAt: -1, inBase: false, onCrate: false, buildHint: null,
+    kills: 0, zombieKills: 0, deaths: 0, shotAt: -1, hurtAt: -1, inBase: !!process.env.MOCK_WALLS, onCrate: false,
+    buildHint: process.env.MOCK_WALLS ? { x: 8, y: 9, ok: true, label: 'Pared de madera', orient: 'v' } : null,
   })),
   zombies: [],
   bullets: [],
-  structures: [],
+  structures: process.env.MOCK_WALLS ? sampleWalls() : [],
   cores: { 1: 500, 2: 500 },
   crates: { 1: emptyStock(), 2: emptyStock() },
   events: [],
