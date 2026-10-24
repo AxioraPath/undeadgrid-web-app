@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-pixel: 'Jersey 10', ui-monospace, monospace;
+  --font-terminal: 'Jersey 10', ui-monospace, monospace;
+
+  --color-ug-bg: #0b0f17;
+  --color-ug-panel: #121a26;
+  --color-ug-panel-2: #182231;
+  --color-ug-border: #2c3b50;
+  --color-ug-border-hi: #4a5f7c;
+  --color-ug-text: #e8ecf2;
+  --color-ug-muted: #a9b4c4;
+  --color-ug-accent: #8fd3ff;
+  --color-ug-red: #c4161c;
+  --color-ug-red-hi: #ff2a2f;
+  --color-ug-red-dark: #6e0b0f;
+  --color-ug-green: #2ee86a;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ug-bg);
+  color: var(--color-ug-text);
+  font-family: var(--font-pixel);
+  -webkit-font-smoothing: none;
+  font-synthesis: none;
+  letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+}
+
+img.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Panel con borde biselado tipo pixel art */
+.ug-panel {
+  background: linear-gradient(180deg, rgb(24 34 49 / 0.92), rgb(14 20 30 / 0.92));
+  border: 2px solid var(--color-ug-border);
+  box-shadow:
+    inset 0 0 0 2px rgb(0 0 0 / 0.55),
+    inset 0 2px 0 2px rgb(255 255 255 / 0.04),
+    0 4px 0 rgb(0 0 0 / 0.5);
+}
+
+.ug-title-shadow {
+  text-shadow: 2px 2px 0 rgb(0 0 0 / 0.85);
+}
+
+@keyframes ug-flicker {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.92; }
+  50% { opacity: 0.8; }
+  55% { opacity: 0.95; }
+}
+
+@keyframes ug-drip {
+  from { transform: translateY(-2px); }
+  to { transform: translateY(2px); }
+}
