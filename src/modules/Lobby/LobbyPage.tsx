@@ -97,7 +97,7 @@ export function LobbyPage() {
 
       {/* Panel del mapa */}
       <div className="mt-6 lg:col-start-3 lg:row-start-2 lg:mt-0">
-        <MapPanel map={room.map} canEdit={room.me.isHost} onChangeMap={() => room.cycleMap(1)} />
+        <MapPanel map={room.map} />
       </div>
 
       {/* Chat: al final en móvil, abajo del menú lateral en escritorio */}

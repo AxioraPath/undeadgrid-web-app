@@ -1,4 +1,4 @@
-import { Castle, Mountain, Shuffle, TreePine, Waves } from 'lucide-react'
+import { Castle, Mountain, TreePine, Waves } from 'lucide-react'
 import type { GameMap } from '../data/catalog'
 
 const FEATURES = [
@@ -10,11 +10,9 @@ const FEATURES = [
 
 interface MapPanelProps {
   map: GameMap
-  canEdit: boolean
-  onChangeMap: () => void
 }
 
-export function MapPanel({ map, canEdit, onChangeMap }: MapPanelProps) {
+export function MapPanel({ map }: MapPanelProps) {
   return (
     <section id="lobby-map" className="ug-panel flex flex-col p-4" data-testid="map-panel">
       <h2 className="ug-title-shadow text-3xl leading-none tracking-wide uppercase">{map.name}</h2>
@@ -37,14 +35,6 @@ export function MapPanel({ map, canEdit, onChangeMap }: MapPanelProps) {
         ))}
       </ul>
 
-      <button
-        type="button"
-        disabled={!canEdit}
-        onClick={onChangeMap}
-        className="mt-3 flex items-center justify-center gap-3 border-2 border-ug-border bg-ug-panel-2 py-2 font-terminal text-xl enabled:hover:border-ug-border-hi disabled:opacity-50"
-      >
-        <Shuffle size={20} /> Cambiar mapa
-      </button>
     </section>
   )
 }
