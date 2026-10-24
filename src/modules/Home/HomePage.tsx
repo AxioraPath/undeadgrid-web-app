@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, ChartNoAxesColumn, Play, Settings, Trophy, Users } from 'lucide-react'
+import { BookOpen, Play, Settings, Users } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
 import { MenuButton } from '../../shared/components/MenuButton'
 import { PlayerCard } from '../../shared/components/PlayerCard'
@@ -51,8 +51,6 @@ export function HomePage() {
             <PlayerCard name={user?.name ?? 'Invitado'} level={1} xp={0} xpToNext={100} />
           </button>
           <div className="hidden gap-3 sm:flex">
-            <IconButton icon={Users} label="Amigos" onClick={() => setInfo('friends')} />
-            <IconButton icon={ChartNoAxesColumn} label="Estadísticas" onClick={openProfile} />
             <IconButton icon={Settings} label="Ajustes" onClick={() => setInfo('settings')} />
           </div>
         </div>
@@ -62,7 +60,6 @@ export function HomePage() {
           <MenuButton primary icon={Play} title="JUGAR" subtitle="Crear o unirse a una sala" onClick={() => setPlayOpen(true)} testId="menu-play" />
           <MenuButton icon={BookOpen} title="Instrucciones" subtitle="Aprende a jugar" onClick={() => setInfo('instructions')} testId="menu-instructions" />
           <MenuButton icon={Settings} title="Ajustes" subtitle="Audio, controles y gráficos" onClick={() => setInfo('settings')} testId="menu-settings" />
-          <MenuButton icon={Trophy} title="Estadísticas" subtitle="Tu progreso y partidas" onClick={openProfile} testId="menu-stats" />
           <MenuButton icon={Users} title="Créditos" subtitle="Equipo del proyecto" onClick={() => setInfo('credits')} testId="menu-credits" />
         </nav>
 
