@@ -84,6 +84,11 @@ const http = createServer(async (req, res) => {
     const room = url.searchParams.get('code') ? rooms.get(url.searchParams.get('code')) : [...rooms.values()].at(-1)
     return json(res, 200, { input: room?.players[0]?.lastInput ?? null })
   }
+  if (url.pathname === '/__test/commands') {
+    // Every game:command received from the first player of the room, in order.
+    const room = url.searchParams.get('code') ? rooms.get(url.searchParams.get('code')) : [...rooms.values()].at(-1)
+    return json(res, 200, { commands: room?.players[0]?.commands ?? [] })
+  }
   if (req.method === 'POST' && url.pathname === '/__test/match-over') {
     const room = url.searchParams.get('code') ? rooms.get(url.searchParams.get('code')) : [...rooms.values()].at(-1)
     if (!room) return json(res, 404, { message: 'No room' })
@@ -215,7 +220,7 @@ const gameState = (room) => ({
   maxWave: 3,
   players: room.players.map((p) => ({
     id: p.id, slot: p.slot, name: p.name, survivor: p.survivor, x: p.pos.x, y: p.pos.y, dirX: 0, dirY: 1,
-    hp: 100, alive: true, respawnIn: null, weapon: 'pistol', build: 'wall', ...emptyStock(),
+    hp: 100, alive: true, respawnIn: null, weapon: p.weapon ?? 'pistol', build: p.build ?? 'wall', ...emptyStock(),
     kills: 0, zombieKills: 0, deaths: 0, shotAt: -1, hurtAt: -1, inBase: !!process.env.MOCK_WALLS, onCrate: false,
     buildHint: process.env.MOCK_WALLS ? { x: 8, y: 9, ok: true, label: 'Pared de madera', orient: 'v' } : null,
   })),
@@ -346,7 +351,18 @@ io.on('connection', (socket) => {
     if (player) player.lastInput = p
     if (player) player.input = { up: !!p.up, down: !!p.down, left: !!p.left, right: !!p.right, action: !!p.action }
   })
-  socket.on('game:command', () => {})
+  socket.on('game:command', (cmd) => {
+    const player = me()
+    if (!player) return
+    // Recorded for the E2E (`/__test/commands`); hotbar slots 1-2 / 4-5 mirror the server's weapon/build switch.
+    player.commands = [...(player.commands ?? []), cmd]
+    if (cmd?.type === 'hotbar') {
+      if (cmd.slot === 1) player.weapon = 'pistol'
+      if (cmd.slot === 2) player.weapon = 'shotgun'
+      if (cmd.slot === 4) player.build = 'wall'
+      if (cmd.slot === 5) player.build = 'trap'
+    }
+  })
 })
 
 http.listen(PORT, '127.0.0.1', () => console.log(`[mock-server] listening on ${PORT}`))

@@ -1,6 +1,9 @@
-import { RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { LayoutDashboard, RotateCcw } from 'lucide-react'
 import { PixelModal } from './PixelModal'
-import { resetSettings, updateSettings, useSettings, type Settings } from '../lib/settings'
+import { HudEditor } from './HudEditor'
+import { RangeField } from './RangeField'
+import { CONTROL_OPACITY_MIN, HUD_OPACITY_MIN, resetSettings, updateSettings, useSettings, type Settings } from '../lib/settings'
 
 interface SettingsModalProps {
   open: boolean
@@ -69,9 +72,13 @@ function Choice<T extends string>({
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const s = useSettings()
   const set = <K extends keyof Settings>(key: K) => (value: Settings[K]) => updateSettings({ [key]: value } as Partial<Settings>)
+  const [editingHud, setEditingHud] = useState(false)
+  const customCount = Object.keys(s.hudLayout.items).length
 
   return (
-    <PixelModal open={open} title="Ajustes" onClose={onClose} testId="settings-modal">
+    <>
+    <HudEditor open={open && editingHud} onClose={() => setEditingHud(false)} />
+    <PixelModal open={open && !editingHud} title="Ajustes" onClose={onClose} testId="settings-modal">
       <h3 className="ug-title-shadow mb-1 text-lg tracking-wide text-ug-accent">GRÁFICOS</h3>
       <Row label="Cámara" hint="Qué tan lejos se ve el mapa">
         <Choice
@@ -126,6 +133,34 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         <Toggle value={s.keyHelp} onChange={set('keyHelp')} testId="setting-keyhelp" />
       </Row>
 
+      <h3 className="ug-title-shadow mt-4 phone:mt-2 mb-1 text-lg tracking-wide text-ug-accent">INTERFAZ</h3>
+      <Row label="Personalizar HUD" hint={customCount > 0 ? `${customCount} elemento${customCount === 1 ? '' : 's'} movido${customCount === 1 ? '' : 's'}` : 'Mueve y ajusta botones y paneles'}>
+        <button
+          type="button"
+          onClick={() => setEditingHud(true)}
+          data-testid="setting-hud-editor"
+          className="flex shrink-0 items-center gap-1.5 border-2 border-ug-accent bg-ug-accent/15 px-3 py-0.5 text-lg leading-tight hover:bg-ug-accent/25"
+        >
+          <LayoutDashboard size="1rem" /> Editar
+        </button>
+      </Row>
+      <RangeField
+        label="Transparencia de controles"
+        value={Math.round(s.controlOpacity * 100)}
+        min={CONTROL_OPACITY_MIN * 100}
+        max={100}
+        testId="setting-control-opacity"
+        onChange={(v) => updateSettings({ controlOpacity: v / 100 })}
+      />
+      <RangeField
+        label="Transparencia del HUD"
+        value={Math.round(s.hudOpacity * 100)}
+        min={HUD_OPACITY_MIN * 100}
+        max={100}
+        testId="setting-hud-opacity"
+        onChange={(v) => updateSettings({ hudOpacity: v / 100 })}
+      />
+
       <button
         type="button"
         onClick={resetSettings}
@@ -135,5 +170,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         <RotateCcw size="1rem" /> Restablecer valores
       </button>
     </PixelModal>
+    </>
   )
 }

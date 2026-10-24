@@ -1,5 +1,8 @@
 import { useRef, type PointerEvent, type ReactNode } from 'react'
-import { Crosshair, Hammer } from 'lucide-react'
+import { Crosshair, Hammer, Repeat } from 'lucide-react'
+import type { HudLayout } from '../../../shared/lib/hudLayout'
+import { HudSlot } from './HudSlot'
+import { HEAVY_WEAPONS, type WeaponId } from '../../../shared/lib/contracts'
 
 /** Knob travel as a fraction of the base diameter. */
 const TRAVEL_RATIO = 0.3
@@ -11,7 +14,6 @@ interface StickProps {
   label: string
   /** Fires on every change. (0, 0) means released. */
   onChange: (nx: number, ny: number) => void
-  className: string
   baseClassName?: string
   knobClassName?: string
   children?: ReactNode
@@ -21,7 +23,7 @@ interface StickProps {
  * Fixed-position virtual joystick. Tracks a single pointer by id (pointer capture), so the
  * two sticks work at the same time with both thumbs. The knob moves through a ref (no re-render).
  */
-function Stick({ testId, label, onChange, className, baseClassName = '', knobClassName = '', children }: StickProps) {
+function Stick({ testId, label, onChange, baseClassName = '', knobClassName = '', children }: StickProps) {
   const baseRef = useRef<HTMLDivElement>(null)
   const knobRef = useRef<HTMLSpanElement>(null)
   const activeId = useRef<number | null>(null)
@@ -54,7 +56,7 @@ function Stick({ testId, label, onChange, className, baseClassName = '', knobCla
       aria-label={label}
       role="presentation"
       // The zone is larger than the visible base so a thumb that drifts off it keeps control.
-      className={`pointer-events-auto absolute grid size-[calc(var(--ug-ctl)*1.35)] touch-none place-items-center select-none [-webkit-touch-callout:none] ${className}`}
+      className="pointer-events-auto absolute top-1/2 left-1/2 grid size-[calc(var(--ug-ctl)*1.35)] -translate-x-1/2 -translate-y-1/2 touch-none place-items-center select-none opacity-(--ug-ctl-alpha) [-webkit-touch-callout:none]"
       onPointerDown={(e) => {
         if (activeId.current !== null) return
         activeId.current = e.pointerId
@@ -71,7 +73,7 @@ function Stick({ testId, label, onChange, className, baseClassName = '', knobCla
       <div
         ref={baseRef}
         data-held="false"
-        className={`grid size-(--ug-ctl) place-items-center rounded-full border-2 bg-white/[0.06] data-[held=true]:bg-white/[0.12] ${baseClassName}`}
+        className={`grid size-(--ug-ctl) place-items-center rounded-full border-2 bg-white/[0.09] data-[held=true]:bg-white/[0.17] ${baseClassName}`}
       >
         <span
           ref={knobRef}
@@ -86,33 +88,70 @@ function Stick({ testId, label, onChange, className, baseClassName = '', knobCla
 
 interface MobileControlsProps {
   inBase: boolean
+  layout: HudLayout
+  /** Weapon currently in hand, shown on the quick-switch button. */
+  weapon: WeaponId
   onDirection: (nx: number, ny: number) => void
   /** Right stick vector in [-1, 1] (not normalised); (0, 0) = released. */
   onAim: (nx: number, ny: number) => void
+  /** Cycles pistol <-> shotgun. */
+  onQuickWeapon: () => void
 }
 
-/** Twin-stick touch controls: left stick moves, right stick aims in any angle and fires while held. */
-export function MobileControls({ inBase, onDirection, onAim }: MobileControlsProps) {
+/**
+ * Twin-stick touch controls: left stick moves, right stick aims in any angle and fires while held,
+ * and a quick button swaps weapons. Every piece can be moved / resized from the HUD editor.
+ */
+export function MobileControls({ inBase, layout, weapon, onDirection, onAim, onQuickWeapon }: MobileControlsProps) {
   return (
     <>
-      <Stick
-        testId="move-stick"
-        label="Mover"
-        onChange={onDirection}
-        className="bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap)-var(--ug-ctl)*0.175)] left-[calc(var(--ug-safe-left)+var(--ug-gap)-var(--ug-ctl)*0.175)]"
-        baseClassName="border-white/25"
-        knobClassName="border-white/50 bg-white/40"
-      />
-      <Stick
-        testId="aim-stick"
-        label={inBase ? 'Construir' : 'Apuntar y disparar'}
-        onChange={onAim}
-        className="right-[calc(var(--ug-safe-right)+var(--ug-gap)-var(--ug-ctl)*0.175)] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap)-var(--ug-ctl)*0.175)]"
-        baseClassName={inBase ? 'border-ug-green/50 data-[held=true]:border-ug-green' : 'border-ug-red-hi/50 data-[held=true]:border-ug-red-hi'}
-        knobClassName={inBase ? 'border-ug-green/70 bg-ug-green/35 text-white' : 'border-ug-red-hi/70 bg-ug-red/40 text-white'}
+      <HudSlot id="moveStick" layout={layout} className="size-(--ug-ctl)" defaultClassName="absolute bottom-0 left-0">
+        <Stick
+          testId="move-stick"
+          label="Mover"
+          onChange={onDirection}
+          baseClassName="border-white/35"
+          knobClassName="border-white/70 bg-white/55"
+        />
+      </HudSlot>
+      <HudSlot id="aimStick" layout={layout} className="size-(--ug-ctl)" defaultClassName="absolute right-0 bottom-0">
+        <Stick
+          testId="aim-stick"
+          label={inBase ? 'Construir' : 'Apuntar y disparar'}
+          onChange={onAim}
+          baseClassName={inBase ? 'border-ug-green/70 data-[held=true]:border-ug-green' : 'border-ug-red-hi/70 data-[held=true]:border-ug-red-hi'}
+          knobClassName={inBase ? 'border-ug-green bg-ug-green/50 text-white' : 'border-ug-red-hi bg-ug-red/55 text-white'}
+        >
+          {inBase ? <Hammer className="size-[50%]" /> : <Crosshair className="size-[50%]" />}
+        </Stick>
+      </HudSlot>
+      <HudSlot
+        id="quickWeapon"
+        layout={layout}
+        className="size-[max(48px,calc(var(--ug-ctl)*0.55))]"
+        defaultClassName="absolute right-[calc(var(--ug-ctl)*1.2)] bottom-[calc(var(--ug-ctl)*0.1)]"
       >
-        {inBase ? <Hammer className="size-[50%]" /> : <Crosshair className="size-[50%]" />}
-      </Stick>
+        <button
+          type="button"
+          data-testid="quick-weapon"
+          aria-label={`Cambiar arma (${weapon === 'pistol' ? 'pistola' : weapon === 'shotgun' ? 'escopeta' : HEAVY_WEAPONS[weapon].name} en mano)`}
+          // pointerdown, not click: it must answer instantly and while the other thumb is on a stick.
+          onPointerDown={(e) => {
+            e.preventDefault()
+            onQuickWeapon()
+          }}
+          onClick={(e) => e.detail === 0 && onQuickWeapon()}
+          onContextMenu={(e) => e.preventDefault()}
+          className="pointer-events-auto relative grid size-full touch-none place-items-center rounded-full border-2 border-[#3d8bff] bg-[#3d8bff]/25 opacity-(--ug-ctl-alpha) select-none active:scale-95 active:bg-[#3d8bff]/45"
+        >
+          <img
+            src={weapon === 'pistol' ? '/assets/game/iconos/pistola.png' : weapon === 'shotgun' ? '/assets/game/iconos/escopeta.png' : `/assets/game/iconos/${HEAVY_WEAPONS[weapon].icon}.png`}
+            alt=""
+            className="pixelated h-[44%] w-[62%] object-contain"
+          />
+          <Repeat aria-hidden className="absolute -right-0.5 -bottom-0.5 size-[34%] rounded-full bg-ug-bg p-[3px] text-ug-accent" />
+        </button>
+      </HudSlot>
     </>
   )
 }

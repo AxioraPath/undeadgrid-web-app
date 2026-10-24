@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
+import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock, type WeaponId } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
@@ -15,6 +15,7 @@ import { PhasePanel } from './components/PhasePanel'
 import { Hotbar } from './components/Hotbar'
 import { ControlsHelp } from './components/ControlsHelp'
 import { MobileControls } from './components/MobileControls'
+import { HudSlot } from './components/HudSlot'
 import { CrateMenu } from './components/CrateMenu'
 import { MatchResultsScreen, type ResultsPlayer, type ResultsSummary } from './components/MatchResultsScreen'
 import type { MatchSummary } from '../Lobby/hooks/useLobbyRoom'
@@ -25,6 +26,10 @@ const MINIMAP_MS = 200
 const PING_MS = 2000
 /** Latido del input: aunque no cambie, se reenvía para que el servidor no se quede con uno viejo. */
 const INPUT_HEARTBEAT_MS = 66
+/** Minimum gap between two mouse-wheel weapon switches. */
+const WHEEL_THROTTLE_MS = 160
+
+type Weapon = WeaponId
 
 export interface GamePageProps {
   mySlot: Slot
@@ -107,7 +112,38 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   }, [])
   /** Cámara y posición del jugador del último cuadro: para convertir un clic/toque en casilla. */
   const viewRef = useRef<{ cam: Camera | null; w: number; h: number; mePos: { x: number; y: number } | null }>({ cam: null, w: 0, h: 0, mePos: null })
-  const { read: readInput, setTouchDirection, setTouchAim, readTouchAim, setMouseAction } = useGameInput(sendCommand)
+
+  // Weapon switching: every path (hotbar tap, number keys, Q, wheel, quick button) goes through here.
+  // The chosen weapon is shown at once (optimistic) and replaced by the server's value on the next snapshot.
+  const [localWeapon, setLocalWeapon] = useState<{ weapon: Weapon; base: Weapon | undefined } | null>(null)
+  const serverWeaponRef = useRef<Weapon | undefined>(undefined)
+  const weaponRef = useRef<Weapon>('pistol')
+  const previousWeaponRef = useRef<Weapon | null>(null)
+  const selectWeapon = useCallback(
+    (w: Weapon) => {
+      if (weaponRef.current !== w) previousWeaponRef.current = weaponRef.current
+      weaponRef.current = w
+      setLocalWeapon({ weapon: w, base: serverWeaponRef.current })
+      sendCommand({ type: 'hotbar', slot: w === 'pistol' ? 1 : w === 'shotgun' ? 2 : 6 })
+    },
+    [sendCommand],
+  )
+  const cycleWeapon = useCallback(() => selectWeapon(weaponRef.current === 'pistol' ? 'shotgun' : 'pistol'), [selectWeapon])
+  const swapToPreviousWeapon = useCallback(
+    () => selectWeapon(previousWeaponRef.current ?? (weaponRef.current === 'pistol' ? 'shotgun' : 'pistol')),
+    [selectWeapon],
+  )
+  const onCommand = useCallback(
+    (cmd: GameCommand) => {
+      if (cmd.type === 'hotbar' && (cmd.slot === 1 || cmd.slot === 2)) {
+        selectWeapon(cmd.slot === 1 ? 'pistol' : 'shotgun')
+        return
+      }
+      sendCommand(cmd)
+    },
+    [sendCommand, selectWeapon],
+  )
+  const { read: readInput, setTouchDirection, setTouchAim, readTouchAim, setMouseAction } = useGameInput(onCommand, swapToPreviousWeapon)
   const finished = status === 'results'
   const aimEnabled = settings.mouseAim && !isTouch
   const aimEnabledRef = useRef(aimEnabled)
@@ -196,6 +232,32 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       canvas.removeEventListener('contextmenu', noMenu)
     }
   }, [map, sendCommand])
+
+  // Mouse wheel cycles the weapons (only with mouse aim; throttled so a touchpad does not flip it back and forth).
+  useEffect(() => {
+    if (!aimEnabled || finished) return
+    let last = 0
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) < 4) return
+      const now = performance.now()
+      if (now - last < WHEEL_THROTTLE_MS) return
+      last = now
+      cycleWeapon()
+    }
+    window.addEventListener('wheel', onWheel, { passive: true })
+    return () => window.removeEventListener('wheel', onWheel)
+  }, [aimEnabled, finished, cycleWeapon])
+
+  const serverWeapon = hud?.me.weapon
+  useEffect(() => {
+    // Server value changed: remember what was in hand before (for Q) and keep the refs in sync.
+    serverWeaponRef.current = serverWeapon
+    if (!serverWeapon) return
+    if (weaponRef.current !== serverWeapon) previousWeaponRef.current = weaponRef.current
+    weaponRef.current = serverWeapon
+  }, [serverWeapon])
+  // The optimistic choice is valid until the server reports a different weapon than the one it had then.
+  const weapon: Weapon = localWeapon && localWeapon.base === serverWeapon ? localWeapon.weapon : (serverWeapon ?? 'pistol')
 
   const pushToast = useCallback((text: string) => {
     const id = Date.now() + Math.random()
@@ -434,6 +496,13 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   }, [sprites, map, mySlot, readInput, readTouchAim])
 
   const armoryProgress = hud?.armory?.available ? hud.armory.progress[mySlot] : undefined
+  const layout = settings.hudLayout
+  const renderHotbar = (h: HudSnapshot) => (
+    <div className="pointer-events-auto">
+      <Hotbar hud={h} weapon={weapon} onSelect={(slot) => (slot === 1 || slot === 2 ? selectWeapon(slot === 1 ? 'pistol' : 'shotgun') : sendCommand({ type: 'hotbar', slot }))} />
+    </div>
+  )
+
   const takeFromCrate = (item: keyof Stock) => sendCommand({ type: 'crateTake', item })
 
   // Prefer the server's `match:over` data; until it arrives, fall back to what the game state knows.
@@ -476,7 +545,13 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       className="ug-game bg-ug-bg"
       data-testid="game"
       data-touch={isTouch}
-      style={settings.touchSize === 'large' ? ({ '--ug-ctl': 'clamp(6.5rem, 27vmin, 11rem)' } as React.CSSProperties) : undefined}
+      style={
+        {
+          ...(settings.touchSize === 'large' ? { '--ug-ctl': 'clamp(6.5rem, 27vmin, 11rem)' } : null),
+          '--ug-ctl-alpha': settings.controlOpacity,
+          '--ug-hud-alpha': settings.hudOpacity,
+        } as React.CSSProperties
+      }
     >
       <canvas ref={canvasRef} className={`absolute inset-0 size-full ${aimEnabled ? 'cursor-none' : ''}`} data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
@@ -491,14 +566,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
 
       {hud && (
         <div className="ug-hud pointer-events-none absolute inset-0 overflow-hidden">
-          {/* Arriba */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="pointer-events-auto min-w-0">
-              <PlayerPanel hud={hud} compact={isTouch} />
-            </div>
-            <div className="absolute left-1/2 -translate-x-1/2 max-sm:top-[calc(var(--ug-safe-top)+4.75rem)]">
-              <PhasePanel hud={hud} />
-            </div>
+          {/* Arriba: lo que no se mueve del sitio por defecto */}
+          <div className="relative z-10 flex items-start justify-end gap-2">
             <div className="pointer-events-auto flex shrink-0 items-center gap-2">
               {settings.showFps && (
                 <span className="ug-panel px-2 py-1 font-terminal text-sm short:px-1 short:text-xs" data-testid="hud-fps">
@@ -513,14 +582,6 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
               </button>
             </div>
           </div>
-          {isTouch && (
-            <canvas
-              ref={minimapRef}
-              width={192}
-              height={144}
-              className="ug-panel pointer-events-auto absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] top-[calc(var(--ug-safe-top)+var(--ug-gap)+3rem)] h-auto w-[clamp(5.5rem,20vmin,10rem)] short:w-24 max-sm:portrait:top-[calc(var(--ug-safe-top)+13rem)]"
-            />
-          )}
 
           {/* Toasts */}
           <div className="absolute top-1/3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
@@ -563,21 +624,55 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
                 </p>
               )
             )}
-            <div className="pointer-events-auto">
-              <Hotbar hud={hud} onSelect={(slot) => sendCommand({ type: 'hotbar', slot })} />
-            </div>
+            {!layout.items.hotbar && renderHotbar(hud)}
           </div>
-          {!isTouch && (
-            <div className="pointer-events-auto absolute bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))] left-[calc(var(--ug-safe-left)+var(--ug-gap))]">
-              <canvas ref={minimapRef} width={256} height={192} className="ug-panel hidden h-auto w-[clamp(7rem,22vmin,14rem)] md:block" />
-            </div>
-          )}
           {!isTouch && settings.keyHelp && (
             <div className="absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))]">
               <ControlsHelp mouseAim={aimEnabled} />
             </div>
           )}
-          {isTouch && <MobileControls inBase={hud.me.inBase} onDirection={setTouchDirection} onAim={(x, y) => setTouchAim(x, y)} />}
+
+          {/* Elementos movibles (HUD editable): se anclan al área segura; sin personalizar, su sitio de siempre */}
+          <div className="ug-hud-area pointer-events-none absolute" data-testid="hud-area">
+            <HudSlot id="playerPanel" layout={layout} defaultClassName="absolute top-0 left-0">
+              <div className="pointer-events-auto min-w-0">
+                <PlayerPanel hud={hud} compact={isTouch} />
+              </div>
+            </HudSlot>
+            <HudSlot id="phasePanel" layout={layout} defaultClassName="absolute top-0 left-1/2 -translate-x-1/2 max-sm:top-[calc(4.75rem-var(--ug-gap))]">
+              <PhasePanel hud={hud} />
+            </HudSlot>
+            <HudSlot
+              id="minimap"
+              layout={layout}
+              defaultClassName={
+                isTouch ? 'absolute top-12 right-0 max-sm:portrait:top-[calc(13rem-var(--ug-gap))]' : 'absolute bottom-0 left-0'
+              }
+            >
+              <div className="pointer-events-auto">
+                {isTouch ? (
+                  <canvas ref={minimapRef} width={192} height={144} className="ug-panel h-auto w-[clamp(5.5rem,20vmin,10rem)] opacity-[max(0.4,var(--ug-hud-alpha,1))] short:w-24" />
+                ) : (
+                  <canvas ref={minimapRef} width={256} height={192} className="ug-panel hidden h-auto w-[clamp(7rem,22vmin,14rem)] opacity-[max(0.4,var(--ug-hud-alpha,1))] md:block" />
+                )}
+              </div>
+            </HudSlot>
+            {layout.items.hotbar && (
+              <HudSlot id="hotbar" layout={layout}>
+                {renderHotbar(hud)}
+              </HudSlot>
+            )}
+            {isTouch && (
+              <MobileControls
+                inBase={hud.me.inBase}
+                layout={layout}
+                weapon={weapon}
+                onDirection={setTouchDirection}
+                onAim={(x, y) => setTouchAim(x, y)}
+                onQuickWeapon={cycleWeapon}
+              />
+            )}
+          </div>
         </div>
       )}
 

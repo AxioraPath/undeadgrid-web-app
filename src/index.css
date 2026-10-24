@@ -63,6 +63,18 @@ img.pixelated {
     0 4px 0 rgb(0 0 0 / 0.5);
 }
 
+/* HUD transparency: only the panel background and border fade (text stays opaque and readable).
+   --ug-hud-alpha is set by the match screen and by the HUD editor preview (0.4 - 1). */
+.ug-hud .ug-panel,
+.ug-hud-preview .ug-panel {
+  background: linear-gradient(
+    180deg,
+    rgb(24 34 49 / calc(0.92 * var(--ug-hud-alpha, 1))),
+    rgb(14 20 30 / calc(0.92 * var(--ug-hud-alpha, 1)))
+  );
+  border-color: color-mix(in srgb, var(--color-ug-border) calc(var(--ug-hud-alpha, 1) * 100%), transparent);
+}
+
 .ug-title-shadow {
   text-shadow: 2px 2px 0 rgb(0 0 0 / 0.85);
 }
@@ -126,6 +138,12 @@ html.ug-no-scroll #root {
 /* HUD layer, padded by the notch / rounded corners. */
 .ug-hud {
   padding: calc(var(--ug-safe-top) + var(--ug-gap)) calc(var(--ug-safe-right) + var(--ug-gap))
+    calc(var(--ug-safe-bottom) + var(--ug-gap)) calc(var(--ug-safe-left) + var(--ug-gap));
+}
+
+/* Safe area for the movable HUD elements (same inset as .ug-hud's padding). */
+.ug-hud-area {
+  inset: calc(var(--ug-safe-top) + var(--ug-gap)) calc(var(--ug-safe-right) + var(--ug-gap))
     calc(var(--ug-safe-bottom) + var(--ug-gap)) calc(var(--ug-safe-left) + var(--ug-gap));
 }
 

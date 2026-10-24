@@ -13,7 +13,10 @@ const KEYMAP: Record<string, keyof PlayerInput> = {
   Space: 'action',
 }
 
-const HOTBAR_KEYS: Record<string, 1 | 2 | 3 | 4 | 5 | 6 | 7> = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5, Digit6: 6, Digit7: 7 }
+const HOTBAR_KEYS: Record<string, 1 | 2 | 3 | 4 | 5 | 6 | 7> = {
+  Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5, Digit6: 6, Digit7: 7,
+  Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4, Numpad5: 5, Numpad6: 6, Numpad7: 7,
+}
 
 // `tapped` guarda un toque de acción aunque keydown y keyup caigan entre dos ticks.
 // `fireTapped` hace lo mismo para el disparo (clic o stick de apuntar).
@@ -33,13 +36,15 @@ const TOUCH_AIM_DEAD_ZONE = 0.25
 const empty = (): PlayerInput => ({ up: false, down: false, left: false, right: false, action: false })
 
 /** Teclado (keydown/keyup) + estado táctil; el bucle del juego lee `read()` en cada tick. */
-export function useGameInput(onCommand: (cmd: Command) => void) {
+export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: () => void) {
   const state = useRef<InputState>({ keyboard: empty(), touch: empty(), tapped: false, fireTapped: false, touchFire: false, mouse: false, touchAim: null })
   const onCommandRef = useRef(onCommand)
+  const onSwapRef = useRef(onSwapWeapon)
 
   useEffect(() => {
     onCommandRef.current = onCommand
-  }, [onCommand])
+    onSwapRef.current = onSwapWeapon
+  }, [onCommand, onSwapWeapon])
 
   useEffect(() => {
     const typing = (e: KeyboardEvent) => e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
@@ -52,7 +57,9 @@ export function useGameInput(onCommand: (cmd: Command) => void) {
         e.preventDefault()
       }
       const slot = HOTBAR_KEYS[e.code]
+      // Hotbar keys never touch the movement state, so they work while WASD / arrows are held.
       if (slot && !e.repeat) onCommandRef.current({ type: 'hotbar', slot })
+      if (e.code === 'KeyQ' && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) onSwapRef.current?.()
     }
     const up = (e: KeyboardEvent) => {
       const k = KEYMAP[e.code]

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { clamp01, clampScale, DEFAULT_HUD_LAYOUT, sanitizeHudLayout, type HudElementId, type HudItem, type HudLayout } from './hudLayout'
 
 /** Preferencias del jugador. Solo visuales/de control: el servidor no las conoce. */
 export interface Settings {
@@ -15,7 +16,18 @@ export interface Settings {
   keyHelp: boolean
   /** Apuntar con el mouse y disparar con clic (solo PC; se ignora en táctil). */
   mouseAim: boolean
+  /** Opacity of joysticks, quick weapon button and hotbar (0.25 - 1). */
+  controlOpacity: number
+  /** Opacity of the panel backgrounds and the minimap (0.4 - 1); text always stays opaque. */
+  hudOpacity: number
+  /** Custom HUD positions / sizes (versioned; empty = built-in layout). */
+  hudLayout: HudLayout
+  /** Snap dragged HUD elements to a grid in the editor. */
+  hudSnap: boolean
 }
+
+export const CONTROL_OPACITY_MIN = 0.25
+export const HUD_OPACITY_MIN = 0.4
 
 export const DEFAULT_SETTINGS: Settings = {
   zoom: 'normal',
@@ -26,6 +38,10 @@ export const DEFAULT_SETTINGS: Settings = {
   touchSize: 'normal',
   keyHelp: true,
   mouseAim: true,
+  controlOpacity: 0.7,
+  hudOpacity: 1,
+  hudLayout: DEFAULT_HUD_LAYOUT,
+  hudSnap: true,
 }
 
 /** Casillas que caben a lo ancho según la distancia de cámara (horizontal / vertical). */
@@ -37,10 +53,24 @@ export const ZOOM_TILES: Record<Settings['zoom'], { landscape: number; portrait:
 
 const KEY = 'ug:settings'
 
+const num = (v: unknown, lo: number, hi: number, fallback: number) =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback
+
+/** Stored values are untrusted: numbers are clamped, the HUD layout is validated and versioned. */
+function normalize(s: Settings): Settings {
+  return {
+    ...s,
+    controlOpacity: num(s.controlOpacity, CONTROL_OPACITY_MIN, 1, DEFAULT_SETTINGS.controlOpacity),
+    hudOpacity: num(s.hudOpacity, HUD_OPACITY_MIN, 1, DEFAULT_SETTINGS.hudOpacity),
+    hudLayout: sanitizeHudLayout(s.hudLayout),
+    hudSnap: typeof s.hudSnap === 'boolean' ? s.hudSnap : DEFAULT_SETTINGS.hudSnap,
+  }
+}
+
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) } : DEFAULT_SETTINGS
+    return raw ? normalize({ ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) }) : DEFAULT_SETTINGS
   } catch {
     return DEFAULT_SETTINGS
   }
@@ -52,7 +82,7 @@ const listeners = new Set<() => void>()
 export const getSettings = () => current
 
 export function updateSettings(patch: Partial<Settings>) {
-  current = { ...current, ...patch }
+  current = normalize({ ...current, ...patch })
   try {
     localStorage.setItem(KEY, JSON.stringify(current))
   } catch {
@@ -62,6 +92,21 @@ export function updateSettings(patch: Partial<Settings>) {
 }
 
 export const resetSettings = () => updateSettings(DEFAULT_SETTINGS)
+
+/** Creates or edits one customised HUD element (values are clamped). */
+export function setHudItem(id: HudElementId, item: HudItem) {
+  const next: HudItem = { x: clamp01(item.x), y: clamp01(item.y), scale: clampScale(item.scale) }
+  updateSettings({ hudLayout: { ...current.hudLayout, items: { ...current.hudLayout.items, [id]: next } } })
+}
+
+/** Puts one element back on the built-in layout. */
+export function resetHudItem(id: HudElementId) {
+  const items = { ...current.hudLayout.items }
+  delete items[id]
+  updateSettings({ hudLayout: { ...current.hudLayout, items } })
+}
+
+export const resetHudLayout = () => updateSettings({ hudLayout: DEFAULT_HUD_LAYOUT })
 
 const subscribe = (l: () => void) => {
   listeners.add(l)

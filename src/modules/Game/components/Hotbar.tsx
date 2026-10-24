@@ -1,4 +1,4 @@
-import { HEAVY_WEAPONS } from '../../../shared/lib/contracts'
+import { HEAVY_WEAPONS, type WeaponId } from '../../../shared/lib/contracts'
 import type { HudSnapshot } from '../hud'
 
 type HotbarSlot = 1 | 2 | 3 | 4 | 5 | 6 | 7
@@ -6,10 +6,12 @@ type HotbarSlot = 1 | 2 | 3 | 4 | 5 | 6 | 7
 interface HotbarProps {
   hud: HudSnapshot
   onSelect: (slot: HotbarSlot) => void
+  /** Weapon to show as active when it differs from the server snapshot (optimistic, instant feedback). */
+  weapon?: WeaponId
 }
 
-export function Hotbar({ hud, onSelect }: HotbarProps) {
-  const { me } = hud
+export function Hotbar({ hud, onSelect, weapon }: HotbarProps) {
+  const me = { ...hud.me, weapon: weapon ?? hud.me.weapon }
   // Ranura 6: el arma pesada que dio la caja (ametralladora, sniper o lanzacohetes).
   const heavy = me.heavy ? HEAVY_WEAPONS[me.heavy] : null
   const items: { slot: HotbarSlot; icon: string; label: string; value: string; active: boolean; kind: 'weapon' | 'use' | 'build'; locked?: boolean }[] = [
@@ -32,22 +34,35 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
   ]
 
   return (
-    <div className="ug-panel flex gap-1 p-1 [--hb:clamp(2.5rem,9vmin,5rem)] short:[--hb:2.5rem] sm:gap-1.5 short:p-0.5" data-testid="hotbar">
+    <div
+      className="ug-panel flex gap-1 p-1 [--hb:clamp(2.5rem,9vmin,5rem)] short:[--hb:2.5rem] sm:gap-1.5 short:p-0.5 [opacity:max(0.5,var(--ug-ctl-alpha,1))]"
+      data-testid="hotbar"
+    >
       {items.map((it) => (
         <button
           key={it.slot}
           type="button"
-          onClick={() => onSelect(it.slot)}
+          // pointerdown (not click): Chromium swallows the click of a second finger while another one is
+          // held on a joystick, so a tap would be lost exactly while moving. Keyboard activation
+          // (Enter / Space) still arrives as a click with detail 0.
+          onPointerDown={(e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return
+            e.preventDefault()
+            onSelect(it.slot)
+          }}
+          onClick={(e) => e.detail === 0 && onSelect(it.slot)}
+          data-testid={`hotbar-slot-${it.slot}`}
           title={`${it.slot} · ${it.label}`}
           aria-pressed={it.active}
-          className={`relative flex w-(--hb) flex-col items-center border-2 px-0.5 pt-1 pb-0.5 short:pt-0.5 ${
+          className={`relative flex w-(--hb) touch-none flex-col items-center border-2 px-0.5 pt-1 pb-0.5 select-none short:pt-0.5 ${
             it.active
               ? it.kind === 'build'
-                ? 'border-ug-green bg-ug-green/10 shadow-[0_0_10px_rgb(46_232_106/0.4)]'
-                : 'border-[#3d8bff] bg-[#3d8bff]/15 shadow-[0_0_10px_rgb(61_139_255/0.5)]'
+                ? 'border-ug-green bg-ug-green/20 shadow-[0_0_10px_rgb(46_232_106/0.4)]'
+                : 'border-[#3d8bff] bg-[#3d8bff]/25 shadow-[0_0_10px_rgb(61_139_255/0.5)]'
               : 'border-ug-border bg-black/40 hover:border-ug-border-hi'
           }`}
         >
+          {it.active && <span aria-hidden className={`absolute inset-x-0 -bottom-1 h-1 ${it.kind === 'build' ? 'bg-ug-green' : 'bg-[#3d8bff]'}`} />}
           <img src={it.icon} alt="" className={`pixelated h-[calc(var(--hb)*0.5)] w-[calc(var(--hb)*0.7)] object-contain ${it.locked ? 'opacity-35 grayscale' : ''}`} />
           <span className="flex w-full items-center justify-between text-[clamp(0.75rem,2.6vmin,1rem)] leading-none short:text-xs">
             <span className="bg-ug-panel-2 px-0.5 sm:px-1">{it.slot}</span>
