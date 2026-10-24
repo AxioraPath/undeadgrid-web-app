@@ -13,6 +13,8 @@ export interface Settings {
   touchSize: 'normal' | 'large'
   /** Ayuda de teclas en pantalla (PC). */
   keyHelp: boolean
+  /** Apuntar con el mouse y disparar con clic (solo PC; se ignora en táctil). */
+  mouseAim: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   touchControls: 'auto',
   touchSize: 'normal',
   keyHelp: true,
+  mouseAim: true,
 }
 
 /** Casillas que caben a lo ancho según la distancia de cámara (horizontal / vertical). */

@@ -79,6 +79,11 @@ const http = createServer(async (req, res) => {
       rooms: [...rooms.values()].map((r) => ({ code: r.code, status: r.status, players: r.players.length })),
     })
   }
+  if (url.pathname === '/__test/last-input') {
+    // Raw payload of the most recent game:input from the first player of the room (includes the optional `aim`).
+    const room = url.searchParams.get('code') ? rooms.get(url.searchParams.get('code')) : [...rooms.values()].at(-1)
+    return json(res, 200, { input: room?.players[0]?.lastInput ?? null })
+  }
   if (req.method === 'POST' && url.pathname === '/__test/match-over') {
     const room = url.searchParams.get('code') ? rooms.get(url.searchParams.get('code')) : [...rooms.values()].at(-1)
     if (!room) return json(res, 404, { message: 'No room' })
@@ -338,6 +343,7 @@ io.on('connection', (socket) => {
   })
   socket.on('game:input', (p) => {
     const player = me()
+    if (player) player.lastInput = p
     if (player) player.input = { up: !!p.up, down: !!p.down, left: !!p.left, right: !!p.right, action: !!p.action }
   })
   socket.on('game:command', () => {})

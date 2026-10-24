@@ -119,6 +119,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           ]}
         />
       </Row>
+      <Row label="Apuntar con el mouse" hint="Clic izquierdo para disparar (solo PC)">
+        <Toggle value={s.mouseAim} onChange={set('mouseAim')} testId="setting-mouse-aim" />
+      </Row>
       <Row label="Ayuda de teclas" hint="Recuadro de controles en PC">
         <Toggle value={s.keyHelp} onChange={set('keyHelp')} testId="setting-keyhelp" />
       </Row>

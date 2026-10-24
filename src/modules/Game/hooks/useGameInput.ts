@@ -16,7 +16,7 @@ const KEYMAP: Record<string, keyof PlayerInput> = {
 const HOTBAR_KEYS: Record<string, 1 | 2 | 3 | 4 | 5> = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5 }
 
 // `tapped` guarda un toque de acción aunque keydown y keyup caigan entre dos ticks.
-type InputState = { keyboard: PlayerInput; touch: PlayerInput; tapped: boolean }
+type InputState = { keyboard: PlayerInput; touch: PlayerInput; tapped: boolean; mouse: boolean }
 
 const TOUCH_DEAD_ZONE = 0.35
 
@@ -24,7 +24,7 @@ const empty = (): PlayerInput => ({ up: false, down: false, left: false, right: 
 
 /** Teclado (keydown/keyup) + estado táctil; el bucle del juego lee `read()` en cada tick. */
 export function useGameInput(onCommand: (cmd: Command) => void) {
-  const state = useRef<InputState>({ keyboard: empty(), touch: empty(), tapped: false })
+  const state = useRef<InputState>({ keyboard: empty(), touch: empty(), tapped: false, mouse: false })
   const onCommandRef = useRef(onCommand)
 
   useEffect(() => {
@@ -50,6 +50,7 @@ export function useGameInput(onCommand: (cmd: Command) => void) {
     }
     const reset = () => {
       state.current.keyboard = empty()
+      state.current.mouse = false
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
@@ -62,14 +63,14 @@ export function useGameInput(onCommand: (cmd: Command) => void) {
   }, [])
 
   const read = useCallback((): PlayerInput => {
-    const { keyboard: k, touch: t, tapped } = state.current
+    const { keyboard: k, touch: t, tapped, mouse } = state.current
     state.current.tapped = false
     return {
       up: k.up || t.up,
       down: k.down || t.down,
       left: k.left || t.left,
       right: k.right || t.right,
-      action: k.action || t.action || tapped,
+      action: k.action || t.action || tapped || mouse,
     }
   }, [])
 
@@ -87,5 +88,11 @@ export function useGameInput(onCommand: (cmd: Command) => void) {
     state.current.touch.action = on
   }, [])
 
-  return { read, setTouchDirection, setTouchAction }
+  /** Left mouse button held (continuous fire). A press shorter than a tick still counts once. */
+  const setMouseAction = useCallback((on: boolean) => {
+    if (on && !state.current.mouse) state.current.tapped = true
+    state.current.mouse = on
+  }, [])
+
+  return { read, setTouchDirection, setTouchAction, setMouseAction }
 }

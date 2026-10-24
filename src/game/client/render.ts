@@ -384,6 +384,45 @@ export function computeCamera(map: GameMap, w: number, h: number, focusX: number
   return { x, y, scale }
 }
 
+/** Canvas CSS pixels -> world pixels for the given camera (pure; ignores screen shake). */
+export function screenToWorld(cam: Camera, cssX: number, cssY: number): { x: number; y: number } {
+  return { x: cam.x + cssX / cam.scale, y: cam.y + cssY / cam.scale }
+}
+
+/** Bullets are drawn this many world px above the player's feet position. */
+export const AIM_Y_OFFSET = 8
+
+/** Aim vector (world px) from the player at (px, py) tiles to the mouse; null when the mouse sits on the player. */
+export function aimFromMouse(cam: Camera, cssX: number, cssY: number, playerX: number, playerY: number): { x: number; y: number } | null {
+  const w = screenToWorld(cam, cssX, cssY)
+  // Shots are drawn AIM_Y_OFFSET above the server position, so aim at the mouse shifted down by it.
+  const x = w.x - playerX * TILE
+  const y = w.y + AIM_Y_OFFSET - playerY * TILE
+  return Math.hypot(x, y) < 1e-3 ? null : { x, y }
+}
+
+/** Small pixel-art crosshair at a canvas CSS position (call after drawFrame, in screen space). */
+export function drawCrosshair(ctx: Ctx, cssX: number, cssY: number, dpr: number) {
+  const s = Math.max(1, Math.round(dpr * 2))
+  const cx = Math.round(cssX * dpr)
+  const cy = Math.round(cssY * dpr)
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  const arm = (x: number, y: number, w: number, h: number) => {
+    ctx.fillStyle = '#000'
+    ctx.fillRect(x - s, y - s, w + 2 * s, h + 2 * s)
+  }
+  const parts: [number, number, number, number][] = [
+    [cx - 7 * s, cy - s / 2, 4 * s, s],
+    [cx + 3 * s, cy - s / 2, 4 * s, s],
+    [cx - s / 2, cy - 7 * s, s, 4 * s],
+    [cx - s / 2, cy + 3 * s, s, 4 * s],
+    [cx - s / 2, cy - s / 2, s, s],
+  ]
+  for (const [x, y, w, h] of parts) arm(x, y, w, h)
+  ctx.fillStyle = '#ff2a2f'
+  for (const [x, y, w, h] of parts) ctx.fillRect(x, y, w, h)
+}
+
 // ---------------------------------------------------------------------------
 // Cuadro
 // ---------------------------------------------------------------------------
@@ -403,6 +442,8 @@ export interface FrameOptions {
   zoom: ZoomTiles
   screenShake: boolean
   effects: boolean
+  /** Local player's aim direction (world space) while mouse aiming is on; drives the sprite facing. */
+  aim?: { x: number; y: number } | null
 }
 
 export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
@@ -472,7 +513,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   for (const id of fx.facing.keys()) if (!alive.has(id)) fx.facing.delete(id)
   for (const p of v.players) {
     if (p.alive) {
-      list.push({ y: p.y, draw: () => drawPlayer(ctx, v, sp, fx, p, p.slot === o.meSlot) })
+      list.push({ y: p.y, draw: () => drawPlayer(ctx, v, sp, fx, p, p.slot === o.meSlot, p.slot === o.meSlot ? o.aim : null) })
     } else {
       const d = fx.deadPlayers[p.slot]
       if (d) {
@@ -636,13 +677,13 @@ function drawZombie(ctx: Ctx, v: View, sp: Sprites, fx: Fx, z: ZombieView) {
   if (z.hp < z.maxHp) hpBar(ctx, x, y - (z.kind === 'tank' ? 34 : 26), 18, z.hp / z.maxHp)
 }
 
-function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe: boolean) {
+function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe: boolean, aim?: { x: number; y: number } | null) {
   const x = p.x * TILE
   const y = p.y * TILE
   const col = SLOT_COLOR[p.slot]
   const sheet = survivorSheet(p.survivor)
   const anims = sheetAnimations(sheet)
-  const dir = dirOf(p.dirX, p.dirY)
+  const dir = aim ? dirOf(aim.x, aim.y) : dirOf(p.dirX, p.dirY)
   const sinceShot = v.time - p.shotAt
   const sinceHurt = v.time - p.hurtAt
   let frame: number

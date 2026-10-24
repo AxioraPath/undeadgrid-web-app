@@ -3,7 +3,7 @@ import { LogOut } from 'lucide-react'
 import { CORE_HP, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
-import { consumeEvents, createFx, createStaticLayer, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
+import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, type Camera } from '../../game/client/render'
 import { loadSprites, type Sprites } from '../../game/client/sprites'
 import { useGameInput } from './hooks/useGameInput'
 import { useIsTouch } from './hooks/useIsTouch'
@@ -59,6 +59,15 @@ interface Toast {
 const sameInput = (a: PlayerInput, b: PlayerInput) =>
   a.up === b.up && a.down === b.down && a.left === b.left && a.right === b.right && a.action === b.action
 
+/** Aim changes smaller than this (radians, ~2.3 degrees) are not worth a new game:input. */
+const AIM_EPSILON = 0.04
+type Aim = { x: number; y: number }
+const sameAim = (a: Aim | null, b: Aim | null) => {
+  if (!a || !b) return a === b
+  const diff = Math.abs(Math.atan2(a.x * b.y - a.y * b.x, a.x * b.x + a.y * b.y))
+  return diff < AIM_EPSILON
+}
+
 const asReason = (r: string | undefined): MatchEndReason =>
   r === 'opponent_left' || r === 'time_out' ? r : 'core_destroyed'
 
@@ -86,7 +95,69 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const sendCommand = useCallback((cmd: GameCommand) => {
     getSocket().emit('game:command', cmd)
   }, [])
-  const { read: readInput, setTouchDirection, setTouchAction } = useGameInput(sendCommand)
+  const { read: readInput, setTouchDirection, setTouchAction, setMouseAction } = useGameInput(sendCommand)
+  const finished = status === 'results'
+  const aimEnabled = settings.mouseAim && !isTouch
+  const aimEnabledRef = useRef(aimEnabled)
+  const finishedRef = useRef(finished)
+  const mouseRef = useRef<{ x: number; y: number; known: boolean; over: boolean }>({ x: 0, y: 0, known: false, over: false })
+  useEffect(() => {
+    aimEnabledRef.current = aimEnabled
+    finishedRef.current = finished
+    if (!aimEnabled || finished) setMouseAction(false)
+  }, [aimEnabled, finished, setMouseAction])
+
+  // Mouse aiming: pointer position (client coords) + left button as the fire flag. Mouse pointers only.
+  useEffect(() => {
+    if (!aimEnabled) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const m = mouseRef.current
+    const track = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return
+      m.x = e.clientX
+      m.y = e.clientY
+      m.known = true
+      m.over = e.target === canvas
+    }
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || finishedRef.current) return
+      track(e)
+      setMouseAction(true)
+    }
+    const release = () => setMouseAction(false)
+    const up = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      release()
+    }
+    const leave = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') m.over = false
+    }
+    const noMenu = (e: Event) => e.preventDefault()
+    const hidden = () => {
+      if (document.hidden) release()
+    }
+    window.addEventListener('pointermove', track)
+    canvas.addEventListener('pointerdown', down)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', release)
+    canvas.addEventListener('pointerleave', leave)
+    canvas.addEventListener('contextmenu', noMenu)
+    window.addEventListener('blur', release)
+    document.addEventListener('visibilitychange', hidden)
+    return () => {
+      window.removeEventListener('pointermove', track)
+      canvas.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', release)
+      canvas.removeEventListener('pointerleave', leave)
+      canvas.removeEventListener('contextmenu', noMenu)
+      window.removeEventListener('blur', release)
+      document.removeEventListener('visibilitychange', hidden)
+      m.over = false
+      release()
+    }
+  }, [aimEnabled, setMouseAction])
 
   const pushToast = useCallback((text: string) => {
     const id = Date.now() + Math.random()
@@ -181,7 +252,10 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
     let size = { w: 0, h: 0, dpr: 1 }
     let seq = 0
     let lastSent: PlayerInput | null = null
+    let lastSentAim: Aim | null = null
     let lastSentAt = 0
+    // Interpolated local player position from the last drawn frame (tiles), for the aim vector.
+    let mePos: { x: number; y: number } | null = null
 
     // The canvas fills the fixed container; the camera scales the map to cover it (see computeCamera).
     // Re-fit on any size change: window resize, fullscreen toggle, rotation, mobile toolbar show/hide.
@@ -208,9 +282,23 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       raf = requestAnimationFrame(frame)
       // Controles: se mandan al cambiar y como latido, sin depender de los FPS.
       const input = readInput()
-      if (!lastSent || !sameInput(input, lastSent) || now - lastSentAt >= INPUT_HEARTBEAT_MS) {
-        socket.emit('game:input', { seq: seq++, ...input })
+      // Aim = mouse (world) - player (interpolated), recomputed every frame so it follows the camera.
+      let aim: Aim | null = null
+      const mouse = mouseRef.current
+      if (aimEnabledRef.current && mouse.known && cam && mePos) {
+        const rect = canvas.getBoundingClientRect()
+        if (rect.width > 0 && rect.height > 0) {
+          // Undo any CSS scale between layout size (what the camera uses) and the on-screen rect.
+          const cx = (mouse.x - rect.left) * (size.w / rect.width)
+          const cy = (mouse.y - rect.top) * (size.h / rect.height)
+          aim = aimFromMouse(cam, cx, cy, mePos.x, mePos.y)
+        }
+      }
+      if (!lastSent || !sameInput(input, lastSent) || !sameAim(aim, lastSentAim) || now - lastSentAt >= INPUT_HEARTBEAT_MS) {
+        const payload = aim ? { seq: seq++, ...input, aim: { x: +aim.x.toFixed(2), y: +aim.y.toFixed(2) } } : { seq: seq++, ...input }
+        socket.emit('game:input', payload)
         lastSent = input
+        lastSentAim = aim
         lastSentAt = now
       }
 
@@ -239,7 +327,14 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         zoom: ZOOM_TILES[prefs.zoom],
         screenShake: prefs.screenShake,
         effects: prefs.effects,
+        aim,
       })
+      const meView = view.players.find((p) => p.slot === mySlot)
+      mePos = meView ? { x: meView.x, y: meView.y } : null
+      if (aim && mouse.over && !finishedRef.current) {
+        const rect = canvas.getBoundingClientRect()
+        drawCrosshair(ctx, (mouse.x - rect.left) * (size.w / rect.width), (mouse.y - rect.top) * (size.h / rect.height), size.dpr)
+      }
 
       // Posición para el E2E de Canvas (en casillas, según el servidor).
       if (meNow) {
@@ -276,7 +371,6 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   }, [sprites, map, mySlot, readInput])
 
   const takeFromCrate = (item: keyof Stock) => sendCommand({ type: 'crateTake', item })
-  const finished = status === 'results'
 
   // Prefer the server's `match:over` data; until it arrives, fall back to what the game state knows.
   const { summary: serverSummary, mapId, mapName } = results
@@ -320,7 +414,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       data-touch={isTouch}
       style={settings.touchSize === 'large' ? ({ '--ug-ctl': 'clamp(8rem, 30vmin, 13.5rem)' } as React.CSSProperties) : undefined}
     >
-      <canvas ref={canvasRef} className="absolute inset-0 size-full" data-testid="game-canvas" />
+      <canvas ref={canvasRef} className={`absolute inset-0 size-full ${aimEnabled ? 'cursor-none' : ''}`} data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
 
       {(!sprites || !map) && (
@@ -402,7 +496,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
           )}
           {!isTouch && settings.keyHelp && (
             <div className="absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))]">
-              <ControlsHelp />
+              <ControlsHelp mouseAim={aimEnabled} />
             </div>
           )}
           {isTouch && <MobileControls inBase={hud.me.inBase} onDirection={setTouchDirection} onAction={setTouchAction} />}

@@ -131,7 +131,7 @@ export interface ClientToServerEvents {
   'match:rematchCancel': (ack: (r: Ack) => void) => void
   'lobby:backToLobby': (ack: (r: Ack<RoomSnapshot>) => void) => void
   'chat:send': (p: { text: string }, ack: (r: Ack<ChatMessageSnapshot>) => void) => void
-  'game:input': (p: { seq: number } & PlayerInput, ack?: (r: Ack) => void) => void
+  'game:input': (p: { seq: number } & PlayerInput & { aim?: AimVector }, ack?: (r: Ack) => void) => void
   'game:command': (p: GameCommand, ack?: (r: Ack) => void) => void
   'game:sync': (ack: (r: Ack<GameSyncData>) => void) => void
   ping: (p: { t?: number } | undefined, ack: (r: Ack<{ t: number }>) => void) => void
@@ -145,6 +145,12 @@ export interface PlayerInput {
   left: boolean
   right: boolean
   action: boolean
+}
+
+/** Direction from the local player to the mouse in world space (server normalizes it). Omitted when mouse aiming is off. */
+export interface AimVector {
+  x: number
+  y: number
 }
 
 export type HotbarSlot = 1 | 2 | 3 | 4 | 5
