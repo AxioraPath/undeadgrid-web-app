@@ -8,7 +8,7 @@ export interface AuthUser {
 export interface AuthContextValue {
   user: AuthUser | null
   /** Inicia sesión. Lanza Error con mensaje legible si falla. */
-  login: (email: string, password: string, remember: boolean) => Promise<void>
+  login: (email: string, password: string) => Promise<void>
   /** Crea una cuenta. Lanza Error con mensaje legible si falla. */
   register: (name: string, email: string, password: string) => Promise<void>
   /** Solicita el enlace de recuperación. */

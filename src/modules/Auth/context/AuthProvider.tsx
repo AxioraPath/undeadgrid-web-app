@@ -1,67 +1,75 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AuthContext, type AuthUser } from './authContext'
+import { authApi, setAccessToken, type AuthUserDto } from '../../../shared/lib/authApi'
 
-const STORAGE_KEY = 'undeadgrid:auth'
+const toUser = (u: AuthUserDto): AuthUser => ({ name: u.displayName, email: u.email })
 
 /**
- * Auth SIMULADA en local (sin backend todavía). Guarda la sesión en
- * localStorage para "Recordarme". Diseñada para reemplazar su implementación
- * por llamadas reales al backend cuando exista (la interfaz no cambiará).
+ * Autenticación real contra el backend. El access token vive en memoria; el
+ * refresh token en una cookie httpOnly. Al montar, intenta renovar sesión
+ * (si había cookie válida) para mantener al usuario logueado tras recargar.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      return raw ? (JSON.parse(raw) as AuthUser) : null
-    } catch {
-      return null
-    }
-  })
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [ready, setReady] = useState(false)
 
-  const persist = useCallback((u: AuthUser | null, remember: boolean) => {
-    setUser(u)
-    try {
-      if (u && remember) localStorage.setItem(STORAGE_KEY, JSON.stringify(u))
-      else localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      // storage no disponible; no es crítico.
+  // Intento de rehidratar sesión al cargar la app.
+  useEffect(() => {
+    let cancelled = false
+    authApi
+      .refresh()
+      .then((r) => {
+        if (cancelled) return
+        setAccessToken(r.accessToken)
+        // Con el access token, pedimos el perfil para conocer el nombre.
+        return fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/me`, {
+          headers: { Authorization: `Bearer ${r.accessToken}` },
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((me) => {
+            if (!cancelled && me) setUser({ name: me.displayName, email: me.email })
+          })
+      })
+      .catch(() => {
+        /* sin sesión previa */
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true)
+      })
+    return () => {
+      cancelled = true
     }
   }, [])
 
-  const login = useCallback(
-    async (email: string, password: string, remember: boolean) => {
-      // TODO(backend): POST /api/auth/login. Por ahora validación local.
-      await new Promise((r) => setTimeout(r, 400))
-      if (!email || !password) throw new Error('Introduce tu correo y contraseña.')
-      const name = email.split('@')[0] || 'Superviviente'
-      persist({ name, email }, remember)
-    },
-    [persist],
-  )
+  const login = useCallback(async (email: string, password: string) => {
+    const { user: u, accessToken } = await authApi.login(email, password)
+    setAccessToken(accessToken)
+    setUser(toUser(u))
+  }, [])
 
-  const register = useCallback(
-    async (name: string, email: string, password: string) => {
-      // TODO(backend): POST /api/auth/register.
-      await new Promise((r) => setTimeout(r, 400))
-      if (!name.trim()) throw new Error('Introduce tu nombre de jugador.')
-      if (password.length < 12) throw new Error('La contraseña debe tener al menos 12 caracteres.')
-      persist({ name: name.trim(), email }, true)
-    },
-    [persist],
-  )
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const { user: u, accessToken } = await authApi.register(name, email, password)
+    setAccessToken(accessToken)
+    setUser(toUser(u))
+  }, [])
 
   const requestReset = useCallback(async (email: string) => {
-    // TODO(backend): POST /api/auth/forgot-password.
-    await new Promise((r) => setTimeout(r, 400))
-    if (!email) throw new Error('Introduce tu correo electrónico.')
+    await authApi.forgotPassword(email)
   }, [])
 
-  const logout = useCallback(() => persist(null, false), [persist])
+  const logout = useCallback(() => {
+    authApi.logout().catch(() => undefined)
+    setAccessToken(null)
+    setUser(null)
+  }, [])
 
   const value = useMemo(
     () => ({ user, login, register, requestReset, logout }),
     [user, login, register, requestReset, logout],
   )
+
+  // Evita parpadeo de "no logueado" mientras se rehidrata la sesión.
+  if (!ready) return null
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

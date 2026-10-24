@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 import { API_URL } from './api'
+import { getAccessToken } from './authApi'
 import type { Ack, ClientToServerEvents, ServerToClientEvents } from './contracts'
 
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>
@@ -9,7 +10,8 @@ let socket: AppSocket | null = null
 /**
  * Devuelve el socket singleton. Se conecta al mismo origen (API_URL vacío) o al
  * dominio del backend si VITE_API_URL está definido. Prioriza WebSocket para
- * menor latencia (coincide con la config del servidor).
+ * menor latencia (coincide con la config del servidor). Envía el JWT (si hay
+ * sesión) en auth.token para que el servidor asocie la partida a la cuenta.
  */
 export function getSocket(): AppSocket {
   if (socket) return socket
@@ -19,6 +21,7 @@ export function getSocket(): AppSocket {
     reconnection: true,
     reconnectionDelay: 500,
     reconnectionDelayMax: 4000,
+    auth: (cb) => cb({ token: getAccessToken() ?? undefined }),
   })
   return socket
 }

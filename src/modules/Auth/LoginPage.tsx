@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, Mail, Play } from 'lucide-react'
 import { AuthLayout } from './components/AuthLayout'
 import { AuthField } from './components/AuthField'
@@ -8,6 +8,7 @@ import { useAuth } from './context/authContext'
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const returnTo = useLocation().state as { from?: string; fromState?: unknown } | null
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -20,8 +21,8 @@ export function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      await login(email, password, remember)
-      navigate('/')
+      await login(email, password)
+      navigate(returnTo?.from ?? '/', { replace: true, state: returnTo?.fromState })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.')
     } finally {
