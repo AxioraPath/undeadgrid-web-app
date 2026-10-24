@@ -329,6 +329,15 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     [me.isHost, mapIndex],
   )
 
+  /** El host elige un mapa concreto; los que aún no están disponibles se ignoran. */
+  const selectMap = useCallback(
+    (mapId: string) => {
+      if (!me.isHost || !MAPS.some((m) => m.id === mapId && m.available)) return
+      emitAck('lobby:setMap', { mapId }).catch((err) => console.error('[useLobbyRoom] lobby:setMap falló', err))
+    },
+    [me.isHost],
+  )
+
   const cycleDifficulty = useCallback(() => {
     if (!me.isHost) return
     const current = room?.difficulty ?? DIFFICULTIES[0]
@@ -370,6 +379,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     start,
     leave,
     cycleMap,
+    selectMap,
     cycleDifficulty,
     sendMessage,
     // Aditivos (no rompen consumidores existentes):

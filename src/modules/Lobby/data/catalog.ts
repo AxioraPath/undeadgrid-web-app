@@ -27,6 +27,8 @@ export interface GameMap {
   biome: string
   description: string
   preview: string
+  /** false = todavía no se puede jugar (se muestra en gris como "Próximamente"). */
+  available: boolean
 }
 
 export const STAT_LABELS: Record<StatKey, string> = {
@@ -99,8 +101,9 @@ export const MAPS: GameMap[] = [
     id: 'ciudad-abandonada',
     name: 'Ciudad Abandonada',
     biome: 'Urbano',
-    description: 'Una ciudad en ruinas cruzada por una avenida y un río. Puentes estrechos y autos abandonados como cobertura.',
+    description: 'Una ciudad en ruinas con un estanque en el centro. Puentes estrechos y autos abandonados como cobertura.',
     preview: '/assets/maps/ciudad.jpg',
+    available: true,
   },
   {
     id: 'desierto-ferroviario',
@@ -108,6 +111,7 @@ export const MAPS: GameMap[] = [
     biome: 'Desierto',
     description: 'Una estación olvidada entre cañones y oasis. Las vías dividen el mapa y la torre central controla el paso.',
     preview: '/assets/maps/desierto.jpg',
+    available: false,
   },
   {
     id: 'distrito-industrial',
@@ -115,6 +119,7 @@ export const MAPS: GameMap[] = [
     biome: 'Industrial',
     description: 'Fábricas, canales y un tren detenido. Muchas rutas cortas y callejones para emboscar al rival.',
     preview: '/assets/maps/industrial.jpg',
+    available: false,
   },
 ]
 

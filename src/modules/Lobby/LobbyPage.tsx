@@ -81,10 +81,9 @@ export function LobbyPage() {
         <div className="mt-2 lg:mt-auto">
           <MatchSettings
             map={room.map}
-            mapIndex={room.mapIndex}
             difficulty={room.difficulty}
             canEdit={room.me.isHost}
-            onCycleMap={room.cycleMap}
+            onSelectMap={room.selectMap}
             onCycleDifficulty={room.cycleDifficulty}
           />
         </div>
