@@ -6,6 +6,7 @@ import {
   PLAYER_MAX_HP,
   TILE,
   Tile,
+  isExplosive,
   type BuildHint,
   type GameEvent,
   type GameMap,
@@ -131,7 +132,7 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
 
   // Todo lo que tiene altura, ordenado por la base para que se tape bien
   type Item = { y: number; draw: () => void }
-  const items: Item[] = map.objects.filter((o) => o.kind !== 'water').map((o) => ({ y: o.y + o.h, draw: () => drawObject(g, sp, o) }))
+  const items: Item[] = map.objects.filter((o) => o.kind !== 'water' && !isExplosive(o)).map((o) => ({ y: o.y + o.h, draw: () => drawObject(g, sp, o) }))
 
   for (let y = 1; y < MAP_H - 1; y++)
     for (let x = 1; x < MAP_W - 1; x++) {
@@ -330,7 +331,7 @@ export interface Fx {
   decals: { x: number; y: number; r: number; a: number }[]
   corpses: { x: number; y: number; kind: ZombieKind; flip: boolean; at: number; life: number }[]
   muzzle: { x: number; y: number; life: number }[]
-  explosions: { x: number; y: number; life: number }[]
+  explosions: { x: number; y: number; life: number; big: boolean }[]
   deadPlayers: Partial<Record<Slot, { x: number; y: number; at: number }>>
   facing: Map<number, Dir>
   coreFlash: Record<Slot, number>
@@ -365,9 +366,9 @@ export function consumeEvents(fx: Fx, events: GameEvent[], meSlot: Slot) {
     } else if (e.type === 'shot') {
       fx.muzzle.push({ x: e.x + e.dirX * 0.65, y: e.y - 0.25 + e.dirY * 0.5, life: 0.06 })
     } else if (e.type === 'explosion') {
-      fx.explosions.push({ x: e.x, y: e.y, life: 0.45 })
-      fx.decals.push({ x: e.x, y: e.y, r: 0.7, a: 0.35 })
-      for (let i = 0; i < 18; i++) {
+      fx.explosions.push({ x: e.x, y: e.y, life: 0.45, big: !!e.big })
+      fx.decals.push({ x: e.x, y: e.y, r: e.big ? 1.2 : 0.7, a: 0.35 })
+      for (let i = 0; i < (e.big ? 30 : 18); i++) {
         const a = Math.random() * Math.PI * 2
         const sp = 2 + Math.random() * 5
         fx.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.5, max: 0.5, color: i % 3 ? '#ff9a2e' : '#4a4a4a', size: 3 })
@@ -553,6 +554,25 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     }
     list.push({ y: ty + 1, draw: () => drawWall(ctx, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp, st.orient, lookup) })
   }
+  // Barriles y tanques: se dibujan aquí para que desaparezcan al explotar (dejan restos quemados).
+  map.objects.forEach((obj, i) => {
+    if (!isExplosive(obj)) return
+    if (v.props.destroyed.has(i)) {
+      list.push({ y: obj.y, draw: () => drawWreck(ctx, sp, obj) })
+      return
+    }
+    const pct = v.props.damaged.get(i)
+    list.push({
+      y: obj.y + obj.h,
+      draw: () => {
+        ctx.save()
+        ctx.scale(ART, ART)
+        drawObject(ctx, sp, obj)
+        ctx.restore()
+        if (pct !== undefined) hpBar(ctx, (obj.x + obj.w / 2) * TILE, (obj.y - (obj.h > 1 ? 1 : 0.3)) * TILE, 22, pct, '#ffb020')
+      },
+    })
+  })
   const armoryAt = map.armory
   if (armoryAt) list.push({ y: armoryAt.y + 0.5, draw: () => drawArmory(ctx, v, sp, armoryAt.x, armoryAt.y, o.meSlot, fx.clock) })
   for (const slot of [1, 2] as Slot[]) {
@@ -605,7 +625,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   }
   for (const e of fx.explosions) {
     const k = 1 - e.life / 0.45
-    const r = TILE * (0.6 + k * 1.2)
+    const r = TILE * (0.6 + k * (e.big ? 2.2 : 1.2))
     const grd = ctx.createRadialGradient(e.x * TILE, e.y * TILE, 0, e.x * TILE, e.y * TILE, r)
     grd.addColorStop(0, `rgba(255, 246, 194, ${1 - k})`)
     grd.addColorStop(0.45, `rgba(255, 140, 30, ${0.85 * (1 - k)})`)
@@ -644,7 +664,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     // Ghost of the wall that would be placed: same sprite/half as the final wall, tinted by validity.
     if (me?.build === 'wall' && !v.structures.has(y * map.w + x)) {
       ctx.globalAlpha = 0.6
-      drawWall(ctx, sp, x, y, 'wood', 1, orient, wallLookup(v, { x, y, orient }))
+      drawWall(ctx, sp, x, y, 'wood', 1, orient, wallLookup(v, { x, y, orient }), true)
       ctx.globalAlpha = 1
     }
     ctx.fillStyle = ok ? 'rgba(46, 232, 106, 0.4)' : 'rgba(255, 42, 47, 0.35)'
@@ -676,6 +696,17 @@ function drawTurret(ctx: Ctx, sp: Sprites, t: TurretView | undefined, tx: number
     ctx.fillRect(cx - 2, ty * TILE - 2, 4, 4)
   }
   if (pct < 1) hpBar(ctx, cx, ty * TILE - 8, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
+}
+
+/** Restos de un barril o tanque que explotó. */
+function drawWreck(ctx: Ctx, sp: Sprites, o: MapObject) {
+  const cx = (o.x + o.w / 2) * TILE
+  const cy = (o.y + o.h / 2) * TILE
+  ctx.fillStyle = 'rgba(20, 16, 12, 0.55)'
+  ctx.beginPath()
+  ctx.ellipse(cx, cy + 4, o.w * TILE * 0.55, o.h * TILE * 0.4, 0, 0, Math.PI * 2)
+  ctx.fill()
+  drawAnchored(ctx, sp['escombros-2'], cx, (o.y + o.h) * TILE, ART * (o.w > 1 ? 1.2 : 0.8))
 }
 
 /** Caja de armamento del centro: cerrada cuando hay botín; anillo con el avance de quien la abre. */
@@ -756,8 +787,8 @@ const wallLookup =
  * Horizontal art is 2 tiles long (128 x 64), vertical art is a tall single post (64 x 128); the game builds per tile.
  * Orientation comes from the server; horizontal tiles draw the half that matches their position in their run.
  */
-function drawWall(ctx: Ctx, sp: Sprites, tx: number, ty: number, type: 'wood' | 'reinforced', pct: number, orient: WallOrient, lookup: WallLookup) {
-  const img = sp[wallSpriteName(type, orient, pct)]
+function drawWall(ctx: Ctx, sp: Sprites, tx: number, ty: number, type: 'wood' | 'reinforced', pct: number, orient: WallOrient, lookup: WallLookup, preview = false) {
+  const img = sp[wallSpriteName(type, orient, pct, preview)]
   const w = wallPlacement(orient, wallHalf(orient, tx, ty, lookup))
   const x = tx * TILE
   const y = ty * TILE

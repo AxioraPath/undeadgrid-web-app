@@ -65,6 +65,8 @@ export interface View {
   /** Torretas por casilla: hacia dónde apuntan, si recargan y si acaban de disparar. */
   turrets: Map<number, TurretView>
   armory: { available: boolean; progress: Partial<Record<Slot, number>> } | null
+  /** Explosivos del mapa (índice de objeto): los que ya explotaron y la vida de los dañados. */
+  props: { destroyed: Set<number>; damaged: Map<number, number> }
 }
 
 export interface TurretView {
@@ -180,5 +182,10 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
     turrets.set(key, { aimX, aimY, ammo, reloading: reloading === 1, firing: firing === 1 })
   const armory = b.armory ? { available: b.armory.available, progress: b.armory.progress } : null
 
-  return { time, map, players, zombies, bullets, structures, cores: b.cores, turrets, armory }
+  const props = {
+    destroyed: new Set(b.props?.destroyed ?? []),
+    damaged: new Map((b.props?.damaged ?? []).map(([i, hp, max]) => [i, hp / max] as [number, number])),
+  }
+
+  return { time, map, players, zombies, bullets, structures, cores: b.cores, turrets, armory, props }
 }

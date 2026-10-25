@@ -73,6 +73,7 @@ const CONSTRUCTION = [
   'pared-madera-h', 'pared-madera-h-danada', 'pared-madera-h-destruida', 'pared-madera-v', 'pared-madera-v-danada', 'pared-madera-v-destruida',
   'pared-metal-h', 'pared-metal-h-danada', 'pared-metal-h-destruida', 'pared-metal-v', 'pared-metal-v-danada', 'pared-metal-v-destruida',
   'trampa-puas', 'valla-metal',
+  'valla-madera-v-sana', 'valla-madera-v-destruida', 'valla-madera-v-preview', 'valla-metal-v-sana', 'valla-metal-v-destruida',
 ]
 
 const FILES: Record<string, string> = {}

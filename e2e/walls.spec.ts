@@ -8,17 +8,18 @@ const layout = (walls: [number, number, WallOrient][]): WallLookup => {
 }
 
 test.describe('Wall sprite halves (pure helper)', () => {
-  test('an isolated tile draws the left half; vertical posts never use halves', () => {
+  test('an isolated tile draws the left half; an isolated vertical tile draws the whole fence', () => {
     const lookup = layout([[5, 5, 'h'], [9, 9, 'v']])
     expect(wallHalf('h', 5, 5, lookup)).toBe(0)
-    expect(wallHalf('v', 9, 9, lookup)).toBe(0)
+    expect(wallHalf('v', 9, 9, lookup)).toBe(2)
   })
 
   test('halves alternate along a run regardless of global parity', () => {
     const h = layout([[3, 2, 'h'], [4, 2, 'h'], [5, 2, 'h'], [6, 2, 'h']])
     expect([3, 4, 5, 6].map((x) => wallHalf('h', x, 2, h))).toEqual([0, 1, 0, 1])
     const v = layout([[7, 3, 'v'], [7, 4, 'v'], [7, 5, 'v']])
-    expect([3, 4, 5].map((y) => wallHalf('v', 7, y, v))).toEqual([0, 0, 0])
+    // Vertical: top/bottom halves in pairs; the last tile of an odd run draws the whole fence.
+    expect([3, 4, 5].map((y) => wallHalf('v', 7, y, v))).toEqual([0, 1, 2])
   })
 
   test('runs only count same-orientation neighbours (L and crossing)', () => {
@@ -33,10 +34,12 @@ test.describe('Wall sprite halves (pure helper)', () => {
 
   test('source rect and sprite name keep the orientation in every damage state', () => {
     expect(wallPlacement('h', 1)).toEqual({ sx: 64, sy: 0, sw: 64, sh: 64, dx: 0, dy: 0, dw: 1, dh: 1 })
-    // Vertical: whole 64 x 128 post anchored on the tile's bottom edge.
-    expect(wallPlacement('v', 0)).toEqual({ sx: 0, sy: 0, sw: 64, sh: 128, dx: 0, dy: -1, dw: 1, dh: 2 })
-    expect(wallSpriteName('wood', 'v', 1)).toBe('pared-madera-v')
-    expect(wallSpriteName('reinforced', 'v', 0.5)).toBe('pared-metal-v-danada')
+    // Vertical: top/bottom half of the 64 x 128 fence, or the whole fence anchored on the tile's bottom edge.
+    expect(wallPlacement('v', 1)).toEqual({ sx: 0, sy: 64, sw: 64, sh: 64, dx: 0, dy: 0, dw: 1, dh: 1 })
+    expect(wallPlacement('v', 2)).toEqual({ sx: 0, sy: 0, sw: 64, sh: 128, dx: 0, dy: -1, dw: 1, dh: 2 })
+    expect(wallSpriteName('wood', 'v', 1)).toBe('valla-madera-v-sana')
+    expect(wallSpriteName('reinforced', 'v', 0.2)).toBe('valla-metal-v-destruida')
+    expect(wallSpriteName('wood', 'v', 1, true)).toBe('valla-madera-v-preview')
     expect(wallSpriteName('wood', 'h', 0.2)).toBe('pared-madera-h-destruida')
   })
 })

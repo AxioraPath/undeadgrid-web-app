@@ -281,7 +281,8 @@ export type ZombieKind = 'normal' | 'fast' | 'tank'
 
 export type GameEvent =
   | { type: 'shot'; x: number; y: number; dirX: number; dirY: number; slot: Slot }
-  | { type: 'explosion'; x: number; y: number }
+  | { type: 'explosion'; x: number; y: number; big?: boolean }
+  | { type: 'propDestroyed'; index: number }
   | { type: 'knife'; slot: Slot; x: number; y: number }
   | { type: 'hit'; x: number; y: number }
   | { type: 'zombieDied'; x: number; y: number; kind: ZombieKind }
@@ -305,6 +306,8 @@ export interface GameState {
   cores: Record<Slot, number>
   crates: Record<Slot, Stock>
   armory?: { available: boolean; openedBy: Slot | null; progress: Partial<Record<Slot, number>> }
+  /** Barriles y tanques del mapa (índice en `map.objects`): los que explotaron y los dañados [índice, hp, maxHp]. */
+  props?: { destroyed: number[]; damaged: [number, number, number][] }
   /** Torretas: [casilla, aimX, aimY, tiros en el cargador, recargando (0/1), disparando (0/1)]. */
   turrets?: [number, number, number, number, number, number?][]
   events: GameEvent[]
@@ -334,6 +337,9 @@ export const STRUCTURE_TYPES = ['wood', 'reinforced', 'trap', 'turret'] as const
 
 /** Caja de armamento: segundos para abrirla (igual que el servidor). */
 export const ARMORY_OPEN_S = 5
+
+/** Barriles y tanques de combustible: tienen vida y explotan (el servidor decide), así que no van en la capa fija. */
+export const isExplosive = (o: MapObject) => o.kind === 'barrel' || (o.kind === 'building' && BUILDINGS[o.variant]?.name === 'tanque-combustible')
 
 /** Estructuras del mapa (variant de `building`): sprite y casillas que ocupan (igual que el servidor). */
 export const BUILDINGS = [
