@@ -1037,11 +1037,11 @@ function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe:
   ctx.globalAlpha = 1
   drawSheet(ctx, sp[`sheet-${sheet}`], frame, x, y + 11, false, sheetColumns(sheet))
 
-  // Name tag: J1 / J2 in 1v1, the player name in 2v2 (4 players on screen).
+  // Etiqueta con el nombre del jugador en todos los modos (J1, J2… si no tiene nombre).
   ctx.font = 'bold 9px monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const text = v.players.length > 2 ? (p.name || `J${p.slot}`).slice(0, 10) : `J${p.slot}`
+  const text = (p.name || `J${p.slot}`).slice(0, 10)
   const tagW = Math.max(18, Math.ceil(ctx.measureText(text).width) + 8)
   const tagX = Math.round(x - tagW / 2)
   ctx.fillStyle = col.dark
