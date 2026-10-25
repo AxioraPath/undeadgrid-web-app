@@ -11,6 +11,7 @@ import { RegisterPage } from './modules/Auth/RegisterPage'
 import { DesktopFit } from './shared/components/DesktopFit'
 import { RotateDevice } from './shared/components/RotateDevice'
 import { AutoFullscreen } from './shared/components/AutoFullscreen'
+import { SoundController } from './shared/components/SoundController'
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
       </AuthProvider>
       <RotateDevice />
       <AutoFullscreen />
+      <SoundController />
     </BrowserRouter>
   )
 }

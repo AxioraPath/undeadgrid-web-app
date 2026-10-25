@@ -133,6 +133,26 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         <Toggle value={s.keyHelp} onChange={set('keyHelp')} testId="setting-keyhelp" />
       </Row>
 
+      <h3 className="ug-title-shadow mt-4 phone:mt-2 mb-1 text-lg tracking-wide text-ug-accent">SONIDO</h3>
+      <RangeField
+        label="Música"
+        value={Math.round(s.musicVolume * 100)}
+        min={0}
+        max={100}
+        display={s.musicVolume === 0 ? 'Apagada' : undefined}
+        testId="setting-music-volume"
+        onChange={(v) => updateSettings({ musicVolume: v / 100 })}
+      />
+      <RangeField
+        label="Efectos"
+        value={Math.round(s.sfxVolume * 100)}
+        min={0}
+        max={100}
+        display={s.sfxVolume === 0 ? 'Apagados' : undefined}
+        testId="setting-sfx-volume"
+        onChange={(v) => updateSettings({ sfxVolume: v / 100 })}
+      />
+
       <h3 className="ug-title-shadow mt-4 phone:mt-2 mb-1 text-lg tracking-wide text-ug-accent">INTERFAZ</h3>
       <Row label="Personalizar HUD" hint={customCount > 0 ? `${customCount} elemento${customCount === 1 ? '' : 's'} movido${customCount === 1 ? '' : 's'}` : 'Mueve y ajusta botones y paneles'}>
         <button

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogOut, Maximize, MessageSquare, Settings } from 'lucide-react'
 import { GameChat } from './components/GameChat'
+import { playGameSounds, zombieAmbience } from './gameSounds'
 import type { ChatMessage } from '../Lobby/hooks/useLobbyRoom'
 import { SettingsModal } from '../../shared/components/SettingsModal'
 import { useFullscreen } from '../../shared/lib/fullscreen'
@@ -347,6 +348,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
     (state: GameState) => {
       bufferRef.current.push(state, performance.now())
       consumeEvents(fxRef.current, state.events, mySlot)
+      playGameSounds(state, mySlot)
+      zombieAmbience(state, mySlot)
       for (const e of state.events) {
         if (e.type === 'rejected' && e.slot === mySlot) pushToast(e.reason)
         if (e.type === 'phase') pushToast(e.label.toUpperCase())

@@ -24,6 +24,9 @@ export interface Settings {
   hudLayout: HudLayout
   /** Snap dragged HUD elements to a grid in the editor. */
   hudSnap: boolean
+  /** Volumen de la música y de los efectos (0 - 1). */
+  musicVolume: number
+  sfxVolume: number
 }
 
 export const CONTROL_OPACITY_MIN = 0.25
@@ -42,6 +45,8 @@ export const DEFAULT_SETTINGS: Settings = {
   hudOpacity: 1,
   hudLayout: DEFAULT_HUD_LAYOUT,
   hudSnap: true,
+  musicVolume: 0.35,
+  sfxVolume: 0.7,
 }
 
 /** Casillas que caben a lo ancho según la distancia de cámara (horizontal / vertical). */
@@ -64,6 +69,8 @@ function normalize(s: Settings): Settings {
     hudOpacity: num(s.hudOpacity, HUD_OPACITY_MIN, 1, DEFAULT_SETTINGS.hudOpacity),
     hudLayout: sanitizeHudLayout(s.hudLayout),
     hudSnap: typeof s.hudSnap === 'boolean' ? s.hudSnap : DEFAULT_SETTINGS.hudSnap,
+    musicVolume: num(s.musicVolume, 0, 1, DEFAULT_SETTINGS.musicVolume),
+    sfxVolume: num(s.sfxVolume, 0, 1, DEFAULT_SETTINGS.sfxVolume),
   }
 }
 
@@ -111,6 +118,14 @@ export const resetHudLayout = () => updateSettings({ hudLayout: DEFAULT_HUD_LAYO
 const subscribe = (l: () => void) => {
   listeners.add(l)
   return () => listeners.delete(l)
+}
+
+/** Aviso cuando cambian los ajustes (fuera de React, p. ej. el volumen del audio). */
+export const subscribeSettings = (l: () => void): (() => void) => {
+  listeners.add(l)
+  return () => {
+    listeners.delete(l)
+  }
 }
 
 /** Ajustes actuales; el componente se vuelve a dibujar cuando cambian. */
