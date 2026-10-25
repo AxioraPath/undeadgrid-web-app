@@ -32,7 +32,7 @@ export function Hotbar({ hud, onSelect, weapon, buildMode = false }: HotbarProps
       kind: 'weapon',
       locked: !me.heavy || !me.heavyAmmo,
     },
-    { slot: 7, icon: '/assets/game/iconos/torreta.png', label: 'Torreta', value: String(me.turrets ?? 0), active: buildMode && me.build === 'turret', kind: 'build', locked: !me.turrets },
+    { slot: 7, icon: '/assets/game/objetos/torreta-abajo.png', label: 'Torreta', value: String(me.turrets ?? 0), active: buildMode && me.build === 'turret', kind: 'build', locked: !me.turrets },
   ]
 
   return (
