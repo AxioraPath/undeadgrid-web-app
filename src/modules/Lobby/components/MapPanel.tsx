@@ -5,7 +5,7 @@ const FEATURES = [
   { icon: Castle, label: '2 bases 8 × 8' },
   { icon: Package, label: 'Caja de armamento al centro' },
   { icon: TreePine, label: 'Zombis desde las 4 orillas' },
-  { icon: Waves, label: 'Estanques no transitables' },
+  { icon: Waves, label: 'Agua no transitable' },
 ]
 
 interface MapPanelProps {

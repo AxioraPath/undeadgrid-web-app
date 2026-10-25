@@ -1,10 +1,11 @@
 const ROWS = [
   ['WASD', 'Moverse'],
   ['Espacio', 'En tu base: construir enfrente · Fuera: disparar'],
-  ['1 2 6', 'Pistola / Escopeta / Metralleta'],
+  ['1 2 6', 'Pistola / Escopeta / Arma pesada'],
   ['3', 'Usar botiquín'],
   ['4 5 7', 'Pared / trampa / torreta'],
   ['Centro', 'Quédate 5 s junto a la caja de armamento'],
+  ['Cuchillo', 'Automático con un zombi pegado al atacar'],
   ['Caja', 'Párate encima para tomar recursos'],
 ]
 

@@ -78,12 +78,57 @@ export const SURVIVORS: Survivor[] = [
     ],
     playstyle: 'Fortifica tu base 8 × 8 con paredes reforzadas y trampas, y aguanta las oleadas.',
   },
-  { id: 'soldado', name: 'Soldado', tagline: 'Próximamente', description: '', portrait: `${P}soldado.png`, locked: true },
-  { id: 'ingeniero', name: 'Ingeniero', tagline: 'Próximamente', description: '', portrait: `${P}ingeniero.png`, locked: true },
-  { id: 'encapuchada', name: 'Encapuchada', tagline: 'Próximamente', description: '', portrait: `${P}encapuchada.png`, locked: true },
-  { id: 'rubia', name: 'Rubia', tagline: 'Próximamente', description: '', portrait: `${P}rubia.png`, locked: true },
-  { id: 'punk', name: 'Punk', tagline: 'Próximamente', description: '', portrait: `${P}punk.png`, locked: true },
-  { id: 'sombra', name: 'Sombra', tagline: 'Próximamente', description: '', portrait: `${P}sombra.png`, locked: true },
+  {
+    id: 'militar',
+    name: 'Militar',
+    tagline: 'Potencia de fuego',
+    description: 'Veterano entrenado para el combate. Cada disparo pega más fuerte.',
+    portrait: `${P}militar.png`,
+    sprite: `${P}militar-sprite.png`,
+    preview: `${P}militar-preview.png`,
+    locked: false,
+    stats: { vida: 3, velocidad: 3, dano: 5, capacidad: 3 },
+    skills: [
+      { icon: 'aim', title: 'Daño', text: '15 % más daño con todas sus armas.' },
+      { icon: 'pack', title: 'Cuchillo', text: 'Su cuchillo también pega 15 % más.' },
+      { icon: 'run', title: 'Asalto', text: 'Ideal para disputar la caja del centro.' },
+    ],
+    playstyle: 'Ve por la caja de armamento y presiona al rival con el arma pesada.',
+  },
+  {
+    id: 'medica',
+    name: 'Médica',
+    tagline: 'Aguanta más que nadie',
+    description: 'Sabe mantenerse en pie. Empieza con más botiquines y los aprovecha mejor.',
+    portrait: `${P}medica.png`,
+    sprite: `${P}medica-sprite.png`,
+    preview: `${P}medica-preview.png`,
+    locked: false,
+    stats: { vida: 5, velocidad: 3, dano: 3, capacidad: 3 },
+    skills: [
+      { icon: 'box', title: 'Botiquines', text: 'Empieza con 2 botiquines extra.' },
+      { icon: 'gear', title: 'Curación', text: 'Cada botiquín cura 50 % más.' },
+      { icon: 'run', title: 'Resistencia', text: 'Aguanta peleas largas fuera de la base.' },
+    ],
+    playstyle: 'Sal a pelear sin miedo: cúrate entre oleadas y vuelve al frente.',
+  },
+  {
+    id: 'obrero',
+    name: 'Obrero',
+    tagline: 'Muros que no caen',
+    description: 'Constructor de oficio. Sus paredes resisten mucho más.',
+    portrait: `${P}obrero.png`,
+    sprite: `${P}obrero-sprite.png`,
+    preview: `${P}obrero-preview.png`,
+    locked: false,
+    stats: { vida: 4, velocidad: 3, dano: 2, capacidad: 4 },
+    skills: [
+      { icon: 'wrench', title: 'Paredes', text: 'Sus paredes aguantan 50 % más.' },
+      { icon: 'box', title: 'Madera', text: 'Empieza con 8 de madera extra.' },
+      { icon: 'gear', title: 'Refuerzo', text: 'Las paredes reforzadas también aguantan más.' },
+    ],
+    playstyle: 'Encierra tu núcleo con paredes reforzadas y deja que los zombis choquen.',
+  },
 ]
 
 export const UNLOCKED_SURVIVORS = SURVIVORS.filter((s) => !s.locked)
@@ -94,6 +139,8 @@ export const getSurvivor = (id: string) => SURVIVORS.find((s) => s.id === id) ??
 export const STARTING_WEAPONS = [
   { name: 'Pistola', detail: '15 de daño · 3 disparos/s · munición infinita' },
   { name: 'Escopeta', detail: '10 × 5 perdigones · 1 disparo/s · 12 cartuchos en la caja' },
+  { name: 'Cuchillo', detail: 'Automático con un zombi pegado · 25 de daño · no gasta munición' },
+  { name: 'Caja del centro', detail: 'Ametralladora (oleada 1) · Sniper (oleada 2) · Lanzacohetes (horda)' },
 ]
 
 export const MAPS: GameMap[] = [
@@ -117,9 +164,9 @@ export const MAPS: GameMap[] = [
     id: 'distrito-industrial',
     name: 'Distrito Industrial',
     biome: 'Industrial',
-    description: 'Fábricas, canales y un tren detenido. Muchas rutas cortas y callejones para emboscar al rival.',
+    description: 'Fábricas, canales y un tren detenido. Un helicóptero derribado y callejones para emboscar al rival.',
     preview: '/assets/maps/industrial.jpg',
-    available: false,
+    available: true,
   },
 ]
 

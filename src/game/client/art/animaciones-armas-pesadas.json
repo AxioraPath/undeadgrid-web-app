@@ -1,0 +1,364 @@
+{
+  "version": 1,
+  "frameWidth": 64,
+  "frameHeight": 64,
+  "columns": 4,
+  "rows": 4,
+  "pivot": [
+    32,
+    54
+  ],
+  "directionOrder": [
+    "down",
+    "up",
+    "left",
+    "right"
+  ],
+  "sheets": {
+    "explorador": {
+      "file": "personajes/explorador-armas-pesadas.png",
+      "animations": {
+        "machinegun_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_down": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_up": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_up": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_left": {
+          "frames": [
+            8,
+            9
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_left": {
+          "frames": [
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_right": {
+          "frames": [
+            12,
+            13
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_right": {
+          "frames": [
+            14,
+            15
+          ],
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "mecanica": {
+      "file": "personajes/mecanica-armas-pesadas.png",
+      "animations": {
+        "machinegun_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_down": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_up": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_up": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_left": {
+          "frames": [
+            8,
+            9
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_left": {
+          "frames": [
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_right": {
+          "frames": [
+            12,
+            13
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_right": {
+          "frames": [
+            14,
+            15
+          ],
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "militar": {
+      "file": "personajes/militar-armas-pesadas.png",
+      "animations": {
+        "machinegun_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_down": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_up": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_up": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_left": {
+          "frames": [
+            8,
+            9
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_left": {
+          "frames": [
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_right": {
+          "frames": [
+            12,
+            13
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_right": {
+          "frames": [
+            14,
+            15
+          ],
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "medica": {
+      "file": "personajes/medica-armas-pesadas.png",
+      "animations": {
+        "machinegun_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_down": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_up": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_up": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_left": {
+          "frames": [
+            8,
+            9
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_left": {
+          "frames": [
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_right": {
+          "frames": [
+            12,
+            13
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_right": {
+          "frames": [
+            14,
+            15
+          ],
+          "fps": 8,
+          "loop": false
+        }
+      }
+    },
+    "obrero": {
+      "file": "personajes/obrero-armas-pesadas.png",
+      "animations": {
+        "machinegun_down": {
+          "frames": [
+            0,
+            1
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_down": {
+          "frames": [
+            2,
+            3
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_up": {
+          "frames": [
+            4,
+            5
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_up": {
+          "frames": [
+            6,
+            7
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_left": {
+          "frames": [
+            8,
+            9
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_left": {
+          "frames": [
+            10,
+            11
+          ],
+          "fps": 8,
+          "loop": false
+        },
+        "machinegun_right": {
+          "frames": [
+            12,
+            13
+          ],
+          "fps": 12,
+          "loop": true
+        },
+        "rocket_right": {
+          "frames": [
+            14,
+            15
+          ],
+          "fps": 8,
+          "loop": false
+        }
+      }
+    }
+  }
+}

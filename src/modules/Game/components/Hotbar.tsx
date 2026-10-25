@@ -1,3 +1,4 @@
+import { HEAVY_WEAPONS } from '../../../shared/lib/contracts'
 import type { HudSnapshot } from '../hud'
 
 type HotbarSlot = 1 | 2 | 3 | 4 | 5 | 6 | 7
@@ -9,6 +10,8 @@ interface HotbarProps {
 
 export function Hotbar({ hud, onSelect }: HotbarProps) {
   const { me } = hud
+  // Ranura 6: el arma pesada que dio la caja (ametralladora, sniper o lanzacohetes).
+  const heavy = me.heavy ? HEAVY_WEAPONS[me.heavy] : null
   const items: { slot: HotbarSlot; icon: string; label: string; value: string; active: boolean; kind: 'weapon' | 'use' | 'build'; locked?: boolean }[] = [
     { slot: 1, icon: '/assets/game/iconos/pistola.png', label: 'Pistola', value: '∞', active: me.weapon === 'pistol', kind: 'weapon' },
     { slot: 2, icon: '/assets/game/iconos/escopeta.png', label: 'Escopeta', value: String(me.shells), active: me.weapon === 'shotgun', kind: 'weapon' },
@@ -16,7 +19,15 @@ export function Hotbar({ hud, onSelect }: HotbarProps) {
     { slot: 4, icon: '/assets/game/construccion/pared-madera-h.png', label: 'Pared', value: '', active: me.build === 'wall', kind: 'build' },
     { slot: 5, icon: '/assets/game/construccion/trampa-puas.png', label: 'Trampa', value: '', active: me.build === 'trap', kind: 'build' },
     // Solo de la caja de armamento del centro: en gris mientras no se tengan.
-    { slot: 6, icon: '/assets/game/iconos/metralleta.png', label: 'Metralleta', value: String(me.smgAmmo ?? 0), active: me.weapon === 'smg', kind: 'weapon', locked: !me.smgAmmo },
+    {
+      slot: 6,
+      icon: `/assets/game/iconos/${heavy?.icon ?? 'ametralladora'}.png`,
+      label: heavy?.name ?? 'Arma pesada',
+      value: String(me.heavyAmmo ?? 0),
+      active: !!me.heavy && me.weapon === me.heavy,
+      kind: 'weapon',
+      locked: !me.heavy || !me.heavyAmmo,
+    },
     { slot: 7, icon: '/assets/game/iconos/torreta.png', label: 'Torreta', value: String(me.turrets ?? 0), active: me.build === 'turret', kind: 'build', locked: !me.turrets },
   ]
 

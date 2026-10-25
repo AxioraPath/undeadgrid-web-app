@@ -182,7 +182,7 @@ export interface Rect extends Point {
 
 export interface MapObject {
   /** `lamp` es solo decoración (no bloquea). */
-  kind: 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water' | 'lamp' | 'building'
+  kind: 'tree' | 'rock' | 'car' | 'container' | 'debris' | 'barrel' | 'tires' | 'barrier' | 'water' | 'lamp' | 'building' | 'train'
   x: number
   y: number
   w: number
@@ -190,8 +190,13 @@ export interface MapObject {
   variant: number
 }
 
+/** Tema del mapa (lo decide el servidor según el mapa de la sala). */
+export type MapTheme = 'ciudad' | 'industrial'
+
 export interface GameMap {
   seed: number
+  /** Falta en servidores viejos: se toma como 'ciudad'. */
+  theme?: MapTheme
   w: number
   h: number
   /** Capa de colisión por casilla (ver Tile). */
@@ -228,10 +233,11 @@ export interface GamePlayer {
   hp: number
   alive: boolean
   respawnIn: number | null
-  weapon: 'pistol' | 'shotgun' | 'smg'
+  weapon: WeaponId
   build: 'wall' | 'trap' | 'turret'
-  /** Balas de metralleta y torretas por colocar (caja de armamento); faltan en servidores viejos. */
-  smgAmmo?: number
+  /** Arma pesada de la caja de armamento y su munición; torretas por colocar. */
+  heavy?: HeavyId | null
+  heavyAmmo?: number
   turrets?: number
   wood: number
   metal: number
@@ -243,6 +249,10 @@ export interface GamePlayer {
   /** Tiempo de partida del último disparo / daño (-1 = nunca), para las animaciones. */
   shotAt: number
   hurtAt: number
+  /** Último ataque con cuchillo (-1 = nunca) y su dirección. */
+  knifeAt?: number
+  knifeDirX?: number
+  knifeDirY?: number
   inBase: boolean
   onCrate: boolean
   buildHint: BuildHint | null
@@ -250,8 +260,20 @@ export interface GamePlayer {
 
 /** [id, x, y, hp, maxHp, kind(0 normal | 1 rápido | 2 tanque), attackAt, hurtAt] */
 export type ZombieTuple = [number, number, number, number, number, number, number, number]
-/** [id, x, y, vx, vy] */
-export type BulletTuple = [number, number, number, number, number]
+/** [id, x, y, vx, vy, tipo(0 bala | 1 sniper | 2 cohete)] */
+export type BulletTuple = [number, number, number, number, number, number?]
+
+export type WeaponId = 'pistol' | 'shotgun' | 'smg' | 'sniper' | 'rocket'
+export type HeavyId = 'smg' | 'sniper' | 'rocket'
+export type ProjectileKind = 'bullet' | 'sniper' | 'rocket'
+export const PROJECTILE_KINDS: ProjectileKind[] = ['bullet', 'sniper', 'rocket']
+
+/** Nombre e ícono de cada arma pesada (los íconos están en /assets/game/iconos). */
+export const HEAVY_WEAPONS: Record<HeavyId, { name: string; icon: string }> = {
+  smg: { name: 'Ametralladora', icon: 'ametralladora' },
+  sniper: { name: 'Sniper', icon: 'sniper' },
+  rocket: { name: 'Lanzacohetes', icon: 'lanzacohetes' },
+}
 /** [casilla, tipo(0 madera | 1 reforzada | 2 trampa), hp, maxHp, dueño, orientación('h' | 'v')] */
 export type StructureTuple = [number, number, number, number, Slot, 'h' | 'v']
 
@@ -259,6 +281,8 @@ export type ZombieKind = 'normal' | 'fast' | 'tank'
 
 export type GameEvent =
   | { type: 'shot'; x: number; y: number; dirX: number; dirY: number; slot: Slot }
+  | { type: 'explosion'; x: number; y: number }
+  | { type: 'knife'; slot: Slot; x: number; y: number }
   | { type: 'hit'; x: number; y: number }
   | { type: 'zombieDied'; x: number; y: number; kind: ZombieKind }
   | { type: 'playerDied'; slot: Slot; x: number; y: number }
@@ -266,8 +290,8 @@ export type GameEvent =
   | { type: 'rejected'; slot: Slot; reason: string }
   | { type: 'phase'; label: string }
   | { type: 'coreHit'; slot: Slot }
-  | { type: 'armoryOpened'; slot: Slot }
-  | { type: 'armoryReady' }
+  | { type: 'armoryOpened'; slot: Slot; weapon?: HeavyId }
+  | { type: 'armoryReady'; weapon?: HeavyId }
 
 export interface GameState {
   tick: number
@@ -281,8 +305,8 @@ export interface GameState {
   cores: Record<Slot, number>
   crates: Record<Slot, Stock>
   armory?: { available: boolean; openedBy: Slot | null; progress: Partial<Record<Slot, number>> }
-  /** Torretas: [casilla, aimX, aimY, tiros en el cargador, recargando (0/1)]. */
-  turrets?: [number, number, number, number, number][]
+  /** Torretas: [casilla, aimX, aimY, tiros en el cargador, recargando (0/1), disparando (0/1)]. */
+  turrets?: [number, number, number, number, number, number?][]
   events: GameEvent[]
   result: { winner: Slot | 0; reason: string; durationS: number; byTime: boolean } | null
 }
@@ -303,7 +327,7 @@ export const PLAYER_MAX_HP = 100
 /** Capa de colisión del mapa (mapgen del servidor). */
 export const Tile = { GRASS: 0, BORDER: 1, BASE: 5, ROAD: 6, WATER: 7 } as const
 /** Capa de suelo del mapa (mapgen del servidor). */
-export const Ground = { GRASS: 0, DIRT: 1, ROAD: 2, BASE: 3, WATER: 4, GRAVEL: 5, BRIDGE: 6, PLAZA: 7 } as const
+export const Ground = { GRASS: 0, DIRT: 1, ROAD: 2, BASE: 3, WATER: 4, GRAVEL: 5, BRIDGE: 6, PLAZA: 7, RAIL: 8 } as const
 
 export const ZOMBIE_KINDS: ZombieKind[] = ['normal', 'fast', 'tank']
 export const STRUCTURE_TYPES = ['wood', 'reinforced', 'trap', 'turret'] as const
@@ -322,4 +346,18 @@ export const BUILDINGS = [
   { name: 'muro-piedra-h', w: 2, h: 1 },
   { name: 'valla-madera', w: 2, h: 1 },
   { name: 'sacos-h', w: 2, h: 1 },
+  { name: 'ind-taller', w: 3, h: 3 },
+  { name: 'ind-hangar', w: 4, h: 3 },
+  { name: 'ind-sala-control', w: 3, h: 3 },
+  { name: 'ind-planta-bombeo', w: 3, h: 3 },
+  { name: 'ind-refugio-generador', w: 3, h: 3 },
+  { name: 'ind-cobertizo', w: 3, h: 2 },
+  { name: 'urb-gasolinera', w: 3, h: 3 },
+  { name: 'urb-bomberos', w: 4, h: 3 },
+  { name: 'helicoptero-militar-derribado', w: 4, h: 3 },
+  { name: 'ind-silo', w: 2, h: 2 },
+  { name: 'ind-contenedores-apilados', w: 2, h: 2 },
+  { name: 'urb-parada-autobus', w: 2, h: 2 },
+  { name: 'valla-metal-v-sana', w: 1, h: 2 },
+  { name: 'ind-control-h', w: 3, h: 2 },
 ] as const

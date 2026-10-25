@@ -1,5 +1,5 @@
-import type { GameMap, GameState, Slot, ZombieKind } from '../../shared/lib/contracts'
-import { STRUCTURE_TYPES, ZOMBIE_KINDS } from '../../shared/lib/contracts'
+import type { GameMap, GameState, ProjectileKind, Slot, WeaponId, ZombieKind } from '../../shared/lib/contracts'
+import { PROJECTILE_KINDS, STRUCTURE_TYPES, ZOMBIE_KINDS } from '../../shared/lib/contracts'
 
 /** Retraso de dibujo: se pinta ~100 ms en el pasado para tener siempre dos estados entre los que interpolar. */
 const INTERP_DELAY_S = 0.1
@@ -21,10 +21,13 @@ export interface PlayerView {
   moving: boolean
   alive: boolean
   hp: number
-  weapon: 'pistol' | 'shotgun' | 'smg'
+  weapon: WeaponId
   build: 'wall' | 'trap' | 'turret'
   shotAt: number
   hurtAt: number
+  knifeAt: number
+  knifeDirX: number
+  knifeDirY: number
 }
 
 export interface ZombieView {
@@ -56,12 +59,20 @@ export interface View {
   map: GameMap
   players: PlayerView[]
   zombies: ZombieView[]
-  bullets: { x: number; y: number; vx: number; vy: number }[]
+  bullets: { x: number; y: number; vx: number; vy: number; kind: ProjectileKind }[]
   structures: Map<number, StructureView>
   cores: Record<Slot, number>
-  /** Torretas por casilla: hacia dónde apuntan y si están recargando. */
-  turrets: Map<number, { aimX: number; aimY: number; ammo: number; reloading: boolean }>
+  /** Torretas por casilla: hacia dónde apuntan, si recargan y si acaban de disparar. */
+  turrets: Map<number, TurretView>
   armory: { available: boolean; progress: Partial<Record<Slot, number>> } | null
+}
+
+export interface TurretView {
+  aimX: number
+  aimY: number
+  ammo: number
+  reloading: boolean
+  firing: boolean
 }
 
 interface Entry {
@@ -128,6 +139,9 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
       build: p.build,
       shotAt: p.shotAt,
       hurtAt: p.hurtAt,
+      knifeAt: p.knifeAt ?? -1,
+      knifeDirX: p.knifeDirX ?? 0,
+      knifeDirY: p.knifeDirY ?? 1,
     }
   })
 
@@ -152,17 +166,18 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
   })
 
   const prevBullets = new Map(a.bullets.map((bl) => [bl[0], bl]))
-  const bullets = b.bullets.map(([id, x, y, vx, vy]) => {
+  const bullets = b.bullets.map(([id, x, y, vx, vy, kind]) => {
     const q = prevBullets.get(id)
-    return { x: q ? lerp(q[1], x, t) : x, y: q ? lerp(q[2], y, t) : y, vx, vy }
+    return { x: q ? lerp(q[1], x, t) : x, y: q ? lerp(q[2], y, t) : y, vx, vy, kind: PROJECTILE_KINDS[kind ?? 0] ?? 'bullet' }
   })
 
   const structures = new Map<number, StructureView>()
   for (const [key, type, hp, maxHp, owner, orient] of b.structures)
     structures.set(key, { type: STRUCTURE_TYPES[type], hp, maxHp, owner, orient: orient === 'v' ? 'v' : 'h' })
 
-  const turrets = new Map<number, { aimX: number; aimY: number; ammo: number; reloading: boolean }>()
-  for (const [key, aimX, aimY, ammo, reloading] of b.turrets ?? []) turrets.set(key, { aimX, aimY, ammo, reloading: reloading === 1 })
+  const turrets = new Map<number, TurretView>()
+  for (const [key, aimX, aimY, ammo, reloading, firing] of b.turrets ?? [])
+    turrets.set(key, { aimX, aimY, ammo, reloading: reloading === 1, firing: firing === 1 })
   const armory = b.armory ? { available: b.armory.available, progress: b.armory.progress } : null
 
   return { time, map, players, zombies, bullets, structures, cores: b.cores, turrets, armory }

@@ -13,10 +13,10 @@ import {
   type Slot,
   type ZombieKind,
 } from '../../shared/lib/contracts'
-import type { PlayerView, View, ZombieView } from './interpolation'
+import type { PlayerView, TurretView, View, ZombieView } from './interpolation'
 import { createRng } from './rng'
 import { wallHalf, wallPlacement, wallSpriteName, type WallLookup, type WallOrient } from './wallSprite'
-import { drawFrame as drawSheetFrame, frameAt, sheetAnimations, survivorSheet, type SheetName, type Sprites } from './sprites'
+import { drawFrame as drawSheetFrame, frameAt, sheetAnimations, sheetColumns, survivorSheet, type SheetName, type Sprites } from './sprites'
 
 const SLOT_COLOR: Record<Slot, { main: string; light: string; dark: string; tint: string }> = {
   1: { main: '#3d8bff', light: '#8fc1ff', dark: '#173d78', tint: 'rgba(61, 139, 255, 0.14)' },
@@ -59,21 +59,31 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
   const rng = createRng(map.seed * 7 + 3)
   const v = () => rng.int(1, 4)
   const groundAt = (x: number, y: number) => (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? -1 : map.ground[y * MAP_W + x])
+  // Distrito industrial: cemento de búnker con calles urbanas (sus bordes están hechos para ese suelo).
+  const industrial = map.theme === 'industrial'
 
   for (let y = 0; y < MAP_H; y++) {
     for (let x = 0; x < MAP_W; x++) {
       const gk = map.ground[y * MAP_W + x]
       let tex: string
-      if (gk === Ground.ROAD) tex = roadPiece(map, x, y)
+      if (gk === Ground.ROAD) tex = industrial ? roadPiece(map, x, y).replace('camino-', 'via-urbana-') : roadPiece(map, x, y)
       else if (gk === Ground.WATER || gk === Ground.BRIDGE) tex = waterPiece(groundAt, x, y, v())
-      else if (gk === Ground.PLAZA) tex = `concreto-${v()}`
+      else if (gk === Ground.PLAZA) tex = industrial ? `mapa-asfalto-claro-${v()}` : `concreto-${v()}`
       else if (gk === Ground.BASE) tex = `metal-${v()}`
       else if (gk === Ground.GRAVEL) tex = `grava-${v()}`
-      else if (gk === Ground.DIRT) tex = rng.next() < 0.7 ? `tierra-${v()}` : `barro-${v()}`
-      else tex = `pasto-${v()}`
+      else if (gk === Ground.DIRT)
+        tex = industrial
+          ? rng.next() < 0.85 ? `mapa-hormigon-industrial-${v()}` : `mapa-rejilla-oxidada-${v()}`
+          : rng.next() < 0.7 ? `tierra-${v()}` : `barro-${v()}`
+      else tex = industrial ? `mapa-cemento-bunker-${v()}` : `pasto-${v()}`
       g.drawImage(sp[tex], x * T2, y * T2, T2, T2)
     }
   }
+
+  // Vías del tren: la pieza mide 2 casillas, se dibuja la mitad que toca.
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++)
+      if (map.ground[y * MAP_W + x] === Ground.RAIL) g.drawImage(sp['via-tren-h'], (x % 2) * 64, 0, 64, 64, x * T2, y * T2, T2, T2)
 
   // Puentes: tablones de madera continuos con barandal a los lados (sobre el agua ya dibujada)
   const isPath = (x: number, y: number) => [Ground.ROAD, Ground.BRIDGE, Ground.PLAZA].includes(groundAt(x, y) as 2 | 6 | 7)
@@ -127,16 +137,29 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
     for (let x = 1; x < MAP_W - 1; x++) {
       const i = y * MAP_W + x
       if (map.tiles[i] !== Tile.GRASS || rng.next() > 0.08) continue
+      if (industrial) {
+        // Sin hierba en el distrito: algún cono o hidrante suelto.
+        if (map.ground[i] !== Ground.GRASS || rng.next() > 0.35) continue
+        const name = rng.pick(['cono', 'cono', 'hidrante'] as const)
+        items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5) * T2, (y + 1) * T2, 0.6) })
+        continue
+      }
       const nearWater = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => groundAt(x + dx, y + dy) === Ground.WATER)
       const name = nearWater ? 'juncos' : rng.pick(['hierba-alta', 'hierba-alta', 'arbusto-1', 'arbusto-seco'] as const)
       const jx = (rng.next() - 0.5) * 0.4
       items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5 + jx) * T2, (y + 1) * T2, 0.8) })
     }
 
-  // Bosque del borde
+  // Borde: bosque en la ciudad; barreras, vallas y barriles en el distrito industrial.
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++) {
       if (map.tiles[y * MAP_W + x] !== Tile.BORDER) continue
+      if (industrial) {
+        const name = rng.pick(['barrera-concreto', 'barrera-concreto', 'barrera-concreto', 'valla-metal', 'valla-metal', 'barrera-concreto', 'neumaticos', 'barril-explosivo', 'barrera-concreto', 'valla-metal'] as const)
+        const scale = name === 'barril-explosivo' || name === 'neumaticos' ? 0.9 : 0.5
+        items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5) * T2, (y + 1) * T2, scale) })
+        continue
+      }
       const name = rng.pick(['arbol-1', 'arbol-1', 'arbol-2', 'arbol-1', 'arbusto-1'] as const)
       const jx = (rng.next() - 0.5) * 0.4
       items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5 + jx) * T2, (y + 1.1) * T2, name === 'arbusto-1' ? 1.2 : 0.75) })
@@ -216,7 +239,7 @@ function roadPiece(map: GameMap, x: number, y: number) {
   if (e) return 'camino-fin-e'
   if (s) return 'camino-fin-s'
   if (w) return 'camino-fin-w'
-  return 'camino-cruce'
+  return map.theme === 'industrial' ? 'camino-isla' : 'camino-cruce'
 }
 
 /** Orillas: el nombre indica de qué lado está la tierra. */
@@ -277,6 +300,9 @@ function drawObject(g: Ctx, sp: Sprites, o: MapObject) {
     case 'lamp':
       drawAnchored(g, sp['farol-poste'], cx, bottom, 0.85)
       break
+    case 'train':
+      drawAnchored(g, sp['vagon-h'], cx, bottom, (o.w * T2) / sp['vagon-h'].width)
+      break
     case 'car':
       drawAnchored(g, sp[`auto-${o.variant % 2 ? 'destruido' : 'rojo'}-${horizontal ? 'h' : 'v'}`], cx, bottom, 1)
       if (o.variant % 2 === 0) drawAnchored(g, sp.cono, (o.x + o.w + 0.2) * T2, bottom - T2 * 0.1, 0.55)
@@ -304,6 +330,7 @@ export interface Fx {
   decals: { x: number; y: number; r: number; a: number }[]
   corpses: { x: number; y: number; kind: ZombieKind; flip: boolean; at: number; life: number }[]
   muzzle: { x: number; y: number; life: number }[]
+  explosions: { x: number; y: number; life: number }[]
   deadPlayers: Partial<Record<Slot, { x: number; y: number; at: number }>>
   facing: Map<number, Dir>
   coreFlash: Record<Slot, number>
@@ -316,6 +343,7 @@ export const createFx = (): Fx => ({
   decals: [],
   corpses: [],
   muzzle: [],
+  explosions: [],
   deadPlayers: {},
   facing: new Map(),
   coreFlash: { 1: 0, 2: 0 },
@@ -336,6 +364,15 @@ export function consumeEvents(fx: Fx, events: GameEvent[], meSlot: Slot) {
       if (fx.decals.length > 120) fx.decals.shift()
     } else if (e.type === 'shot') {
       fx.muzzle.push({ x: e.x + e.dirX * 0.65, y: e.y - 0.25 + e.dirY * 0.5, life: 0.06 })
+    } else if (e.type === 'explosion') {
+      fx.explosions.push({ x: e.x, y: e.y, life: 0.45 })
+      fx.decals.push({ x: e.x, y: e.y, r: 0.7, a: 0.35 })
+      for (let i = 0; i < 18; i++) {
+        const a = Math.random() * Math.PI * 2
+        const sp = 2 + Math.random() * 5
+        fx.particles.push({ x: e.x, y: e.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.5, max: 0.5, color: i % 3 ? '#ff9a2e' : '#4a4a4a', size: 3 })
+      }
+      fx.shake = Math.max(fx.shake, 0.18)
     } else if (e.type === 'coreHit') {
       fx.coreFlash[e.slot] = 0.2
       if (e.slot === meSlot) fx.shake = Math.max(fx.shake, 0.15)
@@ -357,6 +394,8 @@ function updateFx(fx: Fx, dt: number) {
   fx.particles = fx.particles.filter((p) => p.life > 0)
   for (const m of fx.muzzle) m.life -= dt
   fx.muzzle = fx.muzzle.filter((m) => m.life > 0)
+  for (const e of fx.explosions) e.life -= dt
+  fx.explosions = fx.explosions.filter((e) => e.life > 0)
   for (const c of fx.corpses) c.life -= dt
   fx.corpses = fx.corpses.filter((c) => c.life > 0)
   fx.coreFlash[1] = Math.max(0, fx.coreFlash[1] - dt)
@@ -509,7 +548,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     const tx = key % map.w
     const ty = Math.floor(key / map.w)
     if (st.type === 'turret') {
-      list.push({ y: ty + 1, draw: () => drawTurret(ctx, v, tx, ty, st.hp / st.maxHp, st.owner) })
+      list.push({ y: ty + 1, draw: () => drawTurret(ctx, sp, v.turrets.get(key), tx, ty, st.hp / st.maxHp, st.owner, v.time) })
       continue
     }
     list.push({ y: ty + 1, draw: () => drawWall(ctx, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp, st.orient, lookup) })
@@ -543,15 +582,36 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   list.sort((a, b) => a.y - b.y).forEach((d) => d.draw())
 
   // Balas
-  ctx.strokeStyle = '#ffe08a'
   ctx.lineWidth = 2
   for (const b of v.bullets) {
     const x = b.x * TILE
     const y = b.y * TILE - 8
+    if (b.kind === 'rocket') {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.rotate(Math.atan2(b.vy, b.vx))
+      ctx.fillStyle = 'rgba(255, 150, 40, 0.8)'
+      ctx.fillRect(-16, -2, 8, 4)
+      drawAnchored(ctx, sp.cohete, 0, 4, 0.4)
+      ctx.restore()
+      continue
+    }
+    ctx.strokeStyle = b.kind === 'sniper' ? '#d8f6ff' : '#ffe08a'
+    const tail = b.kind === 'sniper' ? 0.45 : 0.6
     ctx.beginPath()
-    ctx.moveTo(x - b.vx * 0.6, y - b.vy * 0.6)
+    ctx.moveTo(x - b.vx * tail, y - b.vy * tail)
     ctx.lineTo(x, y)
     ctx.stroke()
+  }
+  for (const e of fx.explosions) {
+    const k = 1 - e.life / 0.45
+    const r = TILE * (0.6 + k * 1.2)
+    const grd = ctx.createRadialGradient(e.x * TILE, e.y * TILE, 0, e.x * TILE, e.y * TILE, r)
+    grd.addColorStop(0, `rgba(255, 246, 194, ${1 - k})`)
+    grd.addColorStop(0.45, `rgba(255, 140, 30, ${0.85 * (1 - k)})`)
+    grd.addColorStop(1, 'rgba(120, 40, 0, 0)')
+    ctx.fillStyle = grd
+    ctx.fillRect(e.x * TILE - r, e.y * TILE - r, r * 2, r * 2)
   }
   for (const m of fx.muzzle) {
     const grd = ctx.createRadialGradient(m.x * TILE, m.y * TILE, 0, m.x * TILE, m.y * TILE, 9)
@@ -597,36 +657,25 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   return cam
 }
 
-/** Torreta: base metálica con un cañón que gira hacia su objetivo; parpadea en ámbar al recargar. */
-function drawTurret(ctx: Ctx, v: View, tx: number, ty: number, pct: number, owner: Slot) {
-  const t = v.turrets.get(ty * v.map.w + tx)
+const TURRET_DIR: Record<Dir, string> = { down: 'abajo', up: 'arriba', left: 'izquierda', right: 'derecha' }
+
+/** Torreta: sprite en la dirección de su objetivo (con fogonazo al disparar); parpadea en ámbar al recargar. */
+function drawTurret(ctx: Ctx, sp: Sprites, t: TurretView | undefined, tx: number, ty: number, pct: number, owner: Slot, time: number) {
   const cx = (tx + 0.5) * TILE
-  const cy = (ty + 0.55) * TILE
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'
-  ctx.beginPath()
-  ctx.ellipse(cx, cy + 9, 13, 5, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = '#23262d'
-  ctx.fillRect(cx - 12, cy - 2, 24, 12)
+  const bottom = (ty + 1) * TILE + 2
   ctx.fillStyle = SLOT_COLOR[owner].main
-  ctx.fillRect(cx - 12, cy + 8, 24, 2)
-  ctx.fillStyle = '#4e5460'
+  ctx.globalAlpha = 0.55
   ctx.beginPath()
-  ctx.arc(cx, cy, 9, 0, Math.PI * 2)
+  ctx.ellipse(cx, bottom - 3, 14, 5, 0, 0, Math.PI * 2)
   ctx.fill()
-  const a = Math.atan2(t?.aimY ?? 1, t?.aimX ?? 0)
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.rotate(a)
-  ctx.fillStyle = '#1b1d22'
-  ctx.fillRect(2, -3, 15, 6)
-  ctx.fillStyle = '#8c939e'
-  ctx.fillRect(2, -3, 15, 2)
-  ctx.restore()
-  const reloading = t?.reloading
-  ctx.fillStyle = reloading ? (Math.floor(v.time * 6) % 2 ? '#ffb020' : '#5a3d08') : '#ff2a2f'
-  ctx.fillRect(cx - 2, cy - 2, 4, 4)
-  if (pct < 1) hpBar(ctx, cx, ty * TILE - 6, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
+  ctx.globalAlpha = 1
+  const dir = TURRET_DIR[dirOf(t?.aimX ?? 0, t?.aimY ?? 1)]
+  drawAnchored(ctx, sp[`torreta-${dir}${t?.firing ? '-disparo' : ''}`], cx, bottom, 0.36)
+  if (t?.reloading) {
+    ctx.fillStyle = Math.floor(time * 6) % 2 ? '#ffb020' : '#5a3d08'
+    ctx.fillRect(cx - 2, ty * TILE - 2, 4, 4)
+  }
+  if (pct < 1) hpBar(ctx, cx, ty * TILE - 8, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
 }
 
 /** Caja de armamento del centro: cerrada cuando hay botín; anillo con el avance de quien la abre. */
@@ -658,15 +707,15 @@ function drawArmory(ctx: Ctx, v: View, sp: Sprites, x: number, y: number, meSlot
   }
 }
 
-function drawSheet(ctx: Ctx, sheet: HTMLImageElement, frame: number, feetX: number, feetY: number, flip = false) {
+function drawSheet(ctx: Ctx, sheet: HTMLImageElement, frame: number, feetX: number, feetY: number, flip = false, columns?: number) {
   if (!flip) {
-    drawSheetFrame(ctx, sheet, frame, Math.round(feetX), Math.round(feetY), CHAR_SCALE)
+    drawSheetFrame(ctx, sheet, frame, Math.round(feetX), Math.round(feetY), CHAR_SCALE, columns)
     return
   }
   ctx.save()
   ctx.translate(Math.round(feetX), 0)
   ctx.scale(-1, 1)
-  drawSheetFrame(ctx, sheet, frame, 0, Math.round(feetY), CHAR_SCALE)
+  drawSheetFrame(ctx, sheet, frame, 0, Math.round(feetY), CHAR_SCALE, columns)
   ctx.restore()
 }
 
@@ -769,15 +818,31 @@ function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe:
   const x = p.x * TILE
   const y = p.y * TILE
   const col = SLOT_COLOR[p.slot]
-  const sheet = survivorSheet(p.survivor)
-  const anims = sheetAnimations(sheet)
-  const dir = aim ? dirOf(aim.x, aim.y) : dirOf(p.dirX, p.dirY)
+  const base = survivorSheet(p.survivor)
+  let dir = aim ? dirOf(aim.x, aim.y) : dirOf(p.dirX, p.dirY)
   const sinceShot = v.time - p.shotAt
   const sinceHurt = v.time - p.hurtAt
+  const sinceKnife = v.time - p.knifeAt
+  // Hoja y animación según la acción: cuchillo y sniper en `-combate`; ametralladora y lanzacohetes en `-armas-pesadas`.
+  const pose = (weapon: PlayerView['weapon']): [SheetName, string] =>
+    weapon === 'smg' ? [`${base}-armas-pesadas`, 'machinegun'] : weapon === 'rocket' ? [`${base}-armas-pesadas`, 'rocket'] : weapon === 'sniper' ? [`${base}-combate`, 'sniper'] : [base, weapon === 'shotgun' ? 'shotgun' : 'pistol']
+  let sheet: SheetName = base
   let frame: number
-  if (p.shotAt >= 0 && sinceShot >= 0 && sinceShot < 0.22) frame = frameAt(anims[`${p.weapon === 'shotgun' ? 'shotgun' : 'pistol'}_${dir}`], sinceShot)
-  else if (p.hurtAt >= 0 && sinceHurt >= 0 && sinceHurt < 0.2) frame = frameAt(anims.hurt, sinceHurt)
-  else frame = frameAt(anims[p.moving ? `walk_${dir}` : `idle_${dir}`], fx.clock)
+  if (p.knifeAt >= 0 && sinceKnife >= 0 && sinceKnife < 0.3) {
+    sheet = `${base}-combate`
+    dir = dirOf(p.knifeDirX, p.knifeDirY)
+    frame = frameAt(sheetAnimations(sheet)[`knife_${dir}`], sinceKnife)
+  } else if (p.shotAt >= 0 && sinceShot >= 0 && sinceShot < 0.22) {
+    const [sh, name] = pose(p.weapon)
+    sheet = sh
+    frame = frameAt(sheetAnimations(sheet)[`${name}_${dir}`], sinceShot)
+  } else if (p.hurtAt >= 0 && sinceHurt >= 0 && sinceHurt < 0.2) frame = frameAt(sheetAnimations(base).hurt, sinceHurt)
+  else if (!p.moving && p.weapon !== 'pistol' && p.weapon !== 'shotgun') {
+    // Quieto con un arma pesada o el sniper: primer cuadro (apuntar sin disparar).
+    const [sh, name] = pose(p.weapon)
+    sheet = sh
+    frame = sheetAnimations(sheet)[`${name}_${dir}`].frames[0]
+  } else frame = frameAt(sheetAnimations(base)[p.moving ? `walk_${dir}` : `idle_${dir}`], fx.clock)
 
   ctx.strokeStyle = col.main
   ctx.lineWidth = 2
@@ -786,7 +851,7 @@ function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe:
   ctx.ellipse(x, y + 10, 11, 5, 0, 0, Math.PI * 2)
   ctx.stroke()
   ctx.globalAlpha = 1
-  drawSheet(ctx, sp[`sheet-${sheet}`], frame, x, y + 11)
+  drawSheet(ctx, sp[`sheet-${sheet}`], frame, x, y + 11, false, sheetColumns(sheet))
 
   // Etiqueta J1 / J2
   ctx.font = 'bold 9px monospace'

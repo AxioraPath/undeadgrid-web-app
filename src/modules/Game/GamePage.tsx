@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
+import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
@@ -224,9 +224,14 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       for (const e of state.events) {
         if (e.type === 'rejected' && e.slot === mySlot) pushToast(e.reason)
         if (e.type === 'phase') pushToast(e.label.toUpperCase())
-        if (e.type === 'armoryReady') pushToast('¡CAJA DE ARMAMENTO EN EL CENTRO!')
+        if (e.type === 'armoryReady')
+          pushToast(e.weapon ? `¡CAJA EN EL CENTRO: ${HEAVY_WEAPONS[e.weapon].name.toUpperCase()}!` : '¡CAJA DE ARMAMENTO EN EL CENTRO!')
         if (e.type === 'armoryOpened')
-          pushToast(e.slot === mySlot ? '¡Metralleta, torreta y botiquín conseguidos!' : 'El rival abrió la caja de armamento')
+          pushToast(
+            e.slot === mySlot
+              ? `¡${e.weapon ? HEAVY_WEAPONS[e.weapon].name : 'Arma pesada'}, torreta y botiquín conseguidos!`
+              : 'El rival abrió la caja de armamento',
+          )
       }
     },
     [mySlot, pushToast],
