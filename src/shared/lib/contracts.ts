@@ -359,6 +359,8 @@ export type GameEvent =
 export interface GameState {
   tick: number
   time: number
+  /** Duración total de la partida en segundos (depende del modo; falta en servidores viejos). */
+  duration?: number
   phase: { id: PhaseId; label: string; start: number; end: number; wave: number }
   maxWave: number
   players: GamePlayer[]
@@ -385,7 +387,10 @@ export interface GameSyncData {
 
 /** Casilla lógica en px (el servidor trabaja en casillas). */
 export const TILE = 32
-export const MATCH_DURATION = 240
+/** Duración de 1v1/2v2 (25 s de preparación + 3 oleadas de 60 s). El servidor manda la real en `GameState.duration`. */
+export const MATCH_DURATION = 205
+/** Todos contra todos: solo 5 s de preparación. */
+export const MATCH_DURATION_FFA = 185
 export const CORE_HP = 500
 /** Construir con clic/toque: casillas de distancia máxima (igual que el servidor). */
 export const BUILD_REACH = 4.5

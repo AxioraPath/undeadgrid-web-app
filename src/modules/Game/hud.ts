@@ -42,7 +42,7 @@ export function snapshotHud(s: GameState, meSlot: Slot): HudSnapshot | null {
     wave: ph.wave,
     phaseLeft: Math.max(0, ph.end - s.time),
     phaseProgress: Math.min(1, (s.time - ph.start) / (ph.end - ph.start)),
-    matchLeft: Math.max(0, MATCH_DURATION - s.time),
+    matchLeft: Math.max(0, (s.duration ?? MATCH_DURATION) - s.time),
     zombies: s.zombies.length,
     cores: { ...s.cores },
     myTeam,

@@ -163,7 +163,6 @@ export const MAPS: GameMap[] = [
 
 export const DIFFICULTIES = ['Estándar', 'Difícil'] as const
 
-export const MATCH_DURATION_MIN = 4
 
 export const CODE_LENGTH = 5
 

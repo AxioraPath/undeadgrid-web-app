@@ -1,5 +1,8 @@
 import { ChartNoAxesColumn, ChevronRight, Clock, Heart, Lock } from 'lucide-react'
-import { DIFFICULTY_INFO, MAPS, MATCH_DURATION_MIN, type GameMap } from '../data/catalog'
+import { MATCH_DURATION, MATCH_DURATION_FFA } from '../../../shared/lib/contracts'
+import { DIFFICULTY_INFO, MAPS, type GameMap } from '../data/catalog'
+
+const minutes = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 interface MatchSettingsProps {
   map: GameMap
@@ -61,7 +64,7 @@ export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDi
           <div>
             <Label>DURACIÓN</Label>
             <div className="flex items-center gap-3 border-2 border-ug-border bg-black/30 px-3 py-3 phone:px-2 phone:py-1.5 font-terminal text-xl phone:text-lg">
-              <Clock size="1.5rem" /> <span className="flex-1">{MATCH_DURATION_MIN} minutos</span>
+              <Clock size="1.5rem" /> <span className="flex-1" data-testid="match-duration">{minutes(lives !== null ? MATCH_DURATION_FFA : MATCH_DURATION)} min</span>
             </div>
           </div>
           <div>

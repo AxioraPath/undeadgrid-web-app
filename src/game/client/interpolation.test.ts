@@ -31,7 +31,7 @@ const state = (tick: number, time: number, players: GamePlayer[], extra: Partial
   ({
     tick,
     time,
-    phase: { id: 'prep', label: 'Preparación', start: 0, end: 60, wave: 0 },
+    phase: { id: 'prep', label: 'Preparación', start: 0, end: 25, wave: 0 },
     maxWave: 0,
     players,
     zombies: [],

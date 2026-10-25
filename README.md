@@ -20,7 +20,7 @@
 
 | Fase | Duración | Qué pasa |
 |---|---|---|
-| Preparación | 1:00 | Construye tu base. Sin zombis ni PvP |
+| Preparación | 0:25 (0:05 en todos contra todos) | Construye tu base. Sin zombis ni PvP |
 | Oleada 1 y 2 | 1:00 c/u | Zombis cada vez más fuertes |
 | Horda final | 1:00 | Oleada enorme para cerrar |
 
