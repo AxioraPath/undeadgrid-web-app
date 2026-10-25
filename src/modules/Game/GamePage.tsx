@@ -605,7 +605,12 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
     if (serverSummary) {
       // Keyed by slot (1-2 in 1v1, 1-4 in 2v2); only players that took part have an entry.
       const stats: ResultsSummary['stats'] = {}
-      for (const [key, s] of Object.entries(serverSummary.stats)) stats[Number(key) as Slot] = { ...s, team: s.team ?? teamOf(Number(key) as Slot) }
+      for (const [key, s] of Object.entries(serverSummary.stats)) {
+        const slot = Number(key) as Slot
+        // Todos contra todos: solo los que estuvieron en la partida (un servidor viejo manda los 4 lugares).
+        if (map?.ffa && hud && !hud.stats[slot]) continue
+        stats[slot] = { ...s, team: s.team ?? teamOf(slot) }
+      }
       return {
         winner: serverSummary.winner,
         winnerSlot: serverSummary.winnerSlot,
