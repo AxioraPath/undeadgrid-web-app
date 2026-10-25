@@ -20,7 +20,6 @@ import { CrateMenu } from './components/CrateMenu'
 import { MatchResultsScreen, type ResultsPlayer, type ResultsSummary } from './components/MatchResultsScreen'
 import type { MatchSummary } from '../Lobby/hooks/useLobbyRoom'
 
-const FRAME_MS = 1000 / 60
 const HUD_MS = 100
 const MINIMAP_MS = 200
 const PING_MS = 2000
@@ -332,10 +331,17 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
 
   // Latencia con el evento ping cada 2 s (se muestra en el HUD).
   useEffect(() => {
+    // Mediana de las últimas muestras: una sola lectura atrasada por un tirón del hilo no dispara el número.
+    const samples: number[] = []
     const measure = () => {
       const t0 = performance.now()
       emitAck('ping', { t: Date.now() })
-        .then(() => setPingMs(Math.round(performance.now() - t0)))
+        .then(() => {
+          samples.push(performance.now() - t0)
+          if (samples.length > 5) samples.shift()
+          const sorted = [...samples].sort((a, b) => a - b)
+          setPingMs(Math.round(sorted[Math.floor(sorted.length / 2)]))
+        })
         .catch(() => setPingMs(null))
     }
     measure()
@@ -354,7 +360,6 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
 
     let raf = 0
     let last = performance.now()
-    let lastFrame = 0
     let frames = 0
     let fpsAt = last
     let hudAt = 0
@@ -415,9 +420,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         lastSentAt = now
       }
 
-      // Tope de 60 FPS: si pasaron menos de 16.6 ms, no se dibuja.
-      if (now - lastFrame < FRAME_MS - 1) return
-      lastFrame = now
+      // Sin tope fijo: en monitores de 75/100/144 Hz un tope de 60 FPS saltaba cuadros alternos (37-50 FPS).
+      // Se dibuja en cada refresco; el movimiento usa delta time, así que la velocidad no depende de los FPS.
       const dt = Math.min((now - last) / 1000, 0.25)
       last = now
 
