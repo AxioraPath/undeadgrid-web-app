@@ -1,5 +1,5 @@
 import { useRef, type PointerEvent, type ReactNode } from 'react'
-import { Crosshair, Hammer, Repeat } from 'lucide-react'
+import { Crosshair, Repeat } from 'lucide-react'
 import type { HudLayout } from '../../../shared/lib/hudLayout'
 import { HudSlot } from './HudSlot'
 import { HEAVY_WEAPONS, type WeaponId } from '../../../shared/lib/contracts'
@@ -91,7 +91,6 @@ function Stick({ testId, label, onChange, onPress, baseClassName = '', knobClass
 }
 
 interface MobileControlsProps {
-  inBase: boolean
   layout: HudLayout
   /** Weapon currently in hand, shown on the quick-switch button. */
   weapon: WeaponId
@@ -108,7 +107,7 @@ interface MobileControlsProps {
  * Twin-stick touch controls: left stick moves, right stick aims in any angle and fires while held,
  * and a quick button swaps weapons. Every piece can be moved / resized from the HUD editor.
  */
-export function MobileControls({ inBase, layout, weapon, onDirection, onAim, onAimPress, onQuickWeapon }: MobileControlsProps) {
+export function MobileControls({ layout, weapon, onDirection, onAim, onAimPress, onQuickWeapon }: MobileControlsProps) {
   return (
     <>
       <HudSlot id="moveStick" layout={layout} className="size-(--ug-ctl)" defaultClassName="absolute bottom-0 left-0">
@@ -123,13 +122,14 @@ export function MobileControls({ inBase, layout, weapon, onDirection, onAim, onA
       <HudSlot id="aimStick" layout={layout} className="size-(--ug-ctl)" defaultClassName="absolute right-0 bottom-0">
         <Stick
           testId="aim-stick"
-          label={inBase ? 'Construir' : 'Apuntar y disparar'}
+          // Siempre dispara (también en la base): construir es tocando la casilla con pared/trampa/torreta elegida.
+          label="Apuntar y disparar"
           onChange={onAim}
           onPress={onAimPress}
-          baseClassName={inBase ? 'border-ug-green/70 data-[held=true]:border-ug-green' : 'border-ug-red-hi/70 data-[held=true]:border-ug-red-hi'}
-          knobClassName={inBase ? 'border-ug-green bg-ug-green/50 text-white' : 'border-ug-red-hi bg-ug-red/55 text-white'}
+          baseClassName="border-ug-red-hi/70 data-[held=true]:border-ug-red-hi"
+          knobClassName="border-ug-red-hi bg-ug-red/55 text-white"
         >
-          {inBase ? <Hammer className="size-[50%]" /> : <Crosshair className="size-[50%]" />}
+          <Crosshair className="size-[50%]" />
         </Stick>
       </HudSlot>
       <HudSlot

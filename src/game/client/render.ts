@@ -527,7 +527,7 @@ export interface FrameOptions {
   /** Casilla que construiría el botón de acción (la calcula el servidor). */
   hint: BuildHint | null
   /** Casilla bajo el mouse donde construiría el clic derecho (solo se dibuja). */
-  ghost?: { x: number; y: number; inReach: boolean } | null
+  ghost?: { x: number; y: number; inReach: boolean; build?: 'wall' | 'trap' | 'turret' } | null
   /** Preferencias del jugador (Ajustes). */
   zoom: ZoomTiles
   screenShake: boolean
@@ -689,15 +689,8 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   }
   ctx.globalAlpha = 1
 
-  // Casilla bajo el mouse (clic derecho = construir ahí)
-  if (o.ghost) {
-    const { x, y, inReach } = o.ghost
-    ctx.strokeStyle = inReach ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.35)'
-    ctx.lineWidth = 2
-    ctx.setLineDash([5, 4])
-    ctx.strokeRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
-    ctx.setLineDash([])
-  }
+  // Casilla bajo el mouse (clic derecho = construir ahí): lo que se pondría, con su textura, en verde (o rojo si no se puede)
+  if (o.ghost) drawBuildGhost(ctx, v, sp, o.ghost)
 
   // Casilla de enfrente al construir
   if (o.hint) {
@@ -738,6 +731,38 @@ function drawTurret(ctx: Ctx, sp: Sprites, t: TurretView | undefined, tx: number
     ctx.fillRect(cx - 2, ty * TILE - 2, 4, 4)
   }
   if (pct < 1) hpBar(ctx, cx, ty * TILE - 8, 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
+}
+
+/** Vista previa de construcción en una casilla: sprite de pared/trampa/torreta teñido de verde, o rojo si no se puede. */
+function drawBuildGhost(ctx: Ctx, v: View, sp: Sprites, g: { x: number; y: number; inReach: boolean; build?: 'wall' | 'trap' | 'turret' }) {
+  const { x, y, inReach } = g
+  const build = g.build ?? 'wall'
+  const map = v.map
+  const key = y * map.w + x
+  const existing = v.structures.get(key)
+  const onCoreOrCrate = ([1, 2] as const).some((t) => {
+    const c = map.cores[t]
+    const k = map.crates[t]
+    return (x >= c.x && x < c.x + 2 && y >= c.y && y < c.y + 2) || (k.x === x && k.y === y)
+  })
+  // Sobre una pared se puede reparar/reforzar; trampas y torretas necesitan la casilla libre.
+  const ok = inReach && !onCoreOrCrate && (!existing || (build === 'wall' && existing.type !== 'trap' && existing.type !== 'turret'))
+  if (!existing && !onCoreOrCrate) {
+    ctx.globalAlpha = 0.7
+    if (build === 'trap') drawAnchored(ctx, sp['trampa-puas'], (x + 0.5) * TILE, (y + 1) * TILE, ART)
+    else if (build === 'turret') drawAnchored(ctx, sp['torreta-abajo'], (x + 0.5) * TILE, (y + 1) * TILE + 2, 0.36)
+    else {
+      const lookup = wallLookup(v)
+      const orient: WallOrient = lookup(x, y - 1) === 'v' || lookup(x, y + 1) === 'v' ? 'v' : 'h'
+      drawWall(ctx, sp, x, y, 'wood', 1, orient, wallLookup(v, { x, y, orient }), true)
+    }
+    ctx.globalAlpha = 1
+  }
+  ctx.fillStyle = ok ? 'rgba(46, 232, 106, 0.32)' : 'rgba(255, 42, 47, 0.3)'
+  ctx.fillRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
+  ctx.strokeStyle = ok ? '#2ee86a' : '#ff2a2f'
+  ctx.lineWidth = 2
+  ctx.strokeRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
 }
 
 /** Restos de un barril o tanque que explotó. */

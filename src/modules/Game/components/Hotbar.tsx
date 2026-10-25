@@ -8,9 +8,11 @@ interface HotbarProps {
   onSelect: (slot: HotbarSlot) => void
   /** Weapon to show as active when it differs from the server snapshot (optimistic, instant feedback). */
   weapon?: WeaponId
+  /** Pared/trampa/torreta elegida para construir: solo entonces se marca su ranura. */
+  buildMode?: boolean
 }
 
-export function Hotbar({ hud, onSelect, weapon }: HotbarProps) {
+export function Hotbar({ hud, onSelect, weapon, buildMode = false }: HotbarProps) {
   const me = { ...hud.me, weapon: weapon ?? hud.me.weapon }
   // Ranura 6: el arma pesada que dio la caja (ametralladora, sniper o lanzacohetes).
   const heavy = me.heavy ? HEAVY_WEAPONS[me.heavy] : null
@@ -18,8 +20,8 @@ export function Hotbar({ hud, onSelect, weapon }: HotbarProps) {
     { slot: 1, icon: '/assets/game/iconos/pistola.png', label: 'Pistola', value: '∞', active: me.weapon === 'pistol', kind: 'weapon' },
     { slot: 2, icon: '/assets/game/iconos/escopeta.png', label: 'Escopeta', value: String(me.shells), active: me.weapon === 'shotgun', kind: 'weapon' },
     { slot: 3, icon: '/assets/game/iconos/botiquin.png', label: 'Botiquín', value: String(me.medkits), active: false, kind: 'use' },
-    { slot: 4, icon: '/assets/game/construccion/pared-madera-h.png', label: 'Pared', value: '', active: me.build === 'wall', kind: 'build' },
-    { slot: 5, icon: '/assets/game/construccion/trampa-puas.png', label: 'Trampa', value: '', active: me.build === 'trap', kind: 'build' },
+    { slot: 4, icon: '/assets/game/construccion/pared-madera-h.png', label: 'Pared', value: '', active: buildMode && me.build === 'wall', kind: 'build' },
+    { slot: 5, icon: '/assets/game/construccion/trampa-puas.png', label: 'Trampa', value: '', active: buildMode && me.build === 'trap', kind: 'build' },
     // Solo de la caja de armamento del centro: en gris mientras no se tengan.
     {
       slot: 6,
@@ -30,7 +32,7 @@ export function Hotbar({ hud, onSelect, weapon }: HotbarProps) {
       kind: 'weapon',
       locked: !me.heavy || !me.heavyAmmo,
     },
-    { slot: 7, icon: '/assets/game/iconos/torreta.png', label: 'Torreta', value: String(me.turrets ?? 0), active: me.build === 'turret', kind: 'build', locked: !me.turrets },
+    { slot: 7, icon: '/assets/game/iconos/torreta.png', label: 'Torreta', value: String(me.turrets ?? 0), active: buildMode && me.build === 'turret', kind: 'build', locked: !me.turrets },
   ]
 
   return (

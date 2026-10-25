@@ -127,16 +127,26 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const settings = useSettings()
   const detectedTouch = useIsTouch()
   const isTouch = settings.touchControls === 'auto' ? detectedTouch : settings.touchControls === 'on'
+  // Para el bucle de dibujo (que no se vuelve a crear al cambiar): en celular no se muestra la casilla de enfrente.
+  const isTouchRef = useRef(isTouch)
+  useEffect(() => {
+    isTouchRef.current = isTouch
+  }, [isTouch])
 
   // Modo construir: la última selección de la barra fue pared, trampa o torreta (4, 5, 7).
   // En celular, tocar una casilla de tu base construye ahí (como en Minecraft).
   const [buildMode, setBuildMode] = useState(false)
   const buildModeRef = useRef(false)
+  const buildSlotRef = useRef<number | null>(null)
   const sendCommand = useCallback((cmd: GameCommand) => {
     if (cmd.type === 'hotbar' && cmd.slot !== 3) {
-      const building = cmd.slot === 4 || cmd.slot === 5 || cmd.slot === 7
+      let building = cmd.slot === 4 || cmd.slot === 5 || cmd.slot === 7
+      // Tocar otra vez la construcción elegida la suelta (vuelve a solo disparar).
+      if (building && buildModeRef.current && buildSlotRef.current === cmd.slot) building = false
       buildModeRef.current = building
+      buildSlotRef.current = building ? cmd.slot : null
       setBuildMode(building)
+      if (!building && (cmd.slot === 4 || cmd.slot === 5 || cmd.slot === 7)) return
     }
     getSocket().emit('game:command', cmd)
   }, [])
@@ -464,7 +474,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
 
       const prefs = getSettings()
       // Casilla de tu base bajo el mouse: ahí construye el clic derecho.
-      let ghost: { x: number; y: number; inReach: boolean } | null = null
+      let ghost: { x: number; y: number; inReach: boolean; build: 'wall' | 'trap' | 'turret' } | null = null
       if (aimEnabledRef.current && mouse.over && cam && mePos && !finishedRef.current) {
         const rect = canvas.getBoundingClientRect()
         const w = screenToWorld(cam, (mouse.x - rect.left) * (size.w / rect.width), (mouse.y - rect.top) * (size.h / rect.height))
@@ -472,7 +482,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         const gy = Math.floor(w.y / TILE)
         const b = map.bases[teamOf(mySlot)]
         if (gx >= b.x && gx < b.x + b.w && gy >= b.y && gy < b.y + b.h)
-          ghost = { x: gx, y: gy, inReach: Math.hypot(gx + 0.5 - mePos.x, gy + 0.5 - mePos.y) <= BUILD_REACH }
+          ghost = { x: gx, y: gy, inReach: Math.hypot(gx + 0.5 - mePos.x, gy + 0.5 - mePos.y) <= BUILD_REACH, build: meNow?.build ?? 'wall' }
       }
       cam = drawFrame(ctx, view, {
         width: size.w,
@@ -483,7 +493,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         staticLayer,
         sprites,
         fx,
-        hint: meNow?.buildHint ?? null,
+        hint: !isTouchRef.current && !ghost ? (meNow?.buildHint ?? null) : null,
         zoom: ZOOM_TILES[prefs.zoom],
         screenShake: prefs.screenShake,
         effects: prefs.effects,
@@ -546,7 +556,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const layout = settings.hudLayout
   const renderHotbar = (h: HudSnapshot) => (
     <div className="pointer-events-auto">
-      <Hotbar hud={h} weapon={weapon} onSelect={(slot) => (slot === 1 || slot === 2 ? selectWeapon(slot === 1 ? 'pistol' : 'shotgun') : sendCommand({ type: 'hotbar', slot }))} />
+      <Hotbar hud={h} weapon={weapon} buildMode={buildMode} onSelect={(slot) => (slot === 1 || slot === 2 ? selectWeapon(slot === 1 ? 'pistol' : 'shotgun') : sendCommand({ type: 'hotbar', slot }))} />
     </div>
   )
 
@@ -738,7 +748,6 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
             )}
             {isTouch && (
               <MobileControls
-                inBase={hud.me.inBase}
                 layout={layout}
                 weapon={weapon}
                 onDirection={setTouchDirection}
