@@ -55,6 +55,9 @@ const cycle = (i: number, dir: 1 | -1, len: number) => (i + dir + len) % len
 
 const sessionKey = (code: string) => `undeadgrid:session:${code}`
 
+/** Código de la URL mientras el servidor crea la sala; luego se reemplaza por el real. */
+export const NEW_ROOM_CODE = 'NUEVA-SALA'
+
 const toLobbyPlayer = (p: PlayerSnapshot): LobbyPlayer => ({
   id: p.id,
   name: p.name,
@@ -87,8 +90,10 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   // Bumped each time the room leaves `results`, so the match screen remounts clean for a rematch.
   const [matchRound, setMatchRound] = useState(0)
   const [mySlot, setMySlot] = useState<Slot>(isHost ? 1 : 2)
+  // Mensaje si no se pudo crear/unirse (sala inexistente, llena, sin conexión…).
+  const [joinError, setJoinError] = useState<string | null>(null)
 
-  // Nombre y superviviente por defecto (editables luego con rename / confirmSurvivor).
+  // Nombre y superviviente por defecto (editables luego con rename / selectSurvivor).
   const { user } = useAuth()
   const defaultName = resolvePlayerName(user?.name, isHost ? 1 : 2)
   const defaultSurvivor = UNLOCKED_SURVIVORS[isHost ? 0 : 1].id
@@ -105,8 +110,10 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   useEffect(() => {
     const socket = getSocket()
     let cancelled = false
+    const creating = code === NEW_ROOM_CODE
 
     const storedSessionId = (() => {
+      if (creating) return undefined
       try {
         return sessionStorage.getItem(sessionKey(code)) ?? undefined
       } catch {
@@ -118,9 +125,6 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       try {
         // Clave por el code real que devuelve el servidor para permitir reconexión.
         sessionStorage.setItem(sessionKey(joined.room.code), joined.sessionId)
-        if (joined.room.code !== code) {
-          sessionStorage.setItem(sessionKey(code), joined.sessionId)
-        }
       } catch {
         // sessionStorage puede no estar disponible; no es crítico.
       }
@@ -141,8 +145,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
         // se reutiliza en lugar de crear/unirse otra vez.
         if (joinRequestRef.current?.code !== code) {
           // Al recargar con una sesión guardada se recupera el asiento en lugar de crear otra sala.
-          const request =
-            isHost && !storedSessionId
+          const request = creating
               ? emitAck<JoinedData>('lobby:create', { name: defaultName, survivor: defaultSurvivor })
               : emitAck<JoinedData>('lobby:join', { code, name: defaultName, survivor: defaultSurvivor, sessionId: storedSessionId })
           joinRequestRef.current = { code, request }
@@ -150,6 +153,16 @@ export function useLobbyRoom(code: string, isHost: boolean) {
         applyJoined(await joinRequestRef.current.request)
       } catch (err) {
         console.error('[useLobbyRoom] join/create falló', err)
+        joinRequestRef.current = null
+        if (cancelled) return
+        const e = err as { code?: string; message?: string }
+        setJoinError(
+          e.code === 'ROOM_NOT_FOUND'
+            ? 'La sala no existe. Revisa el código.'
+            : e.code === 'ROOM_FULL'
+              ? 'La sala está llena.'
+              : (e.message ?? 'No se pudo entrar a la sala.'),
+        )
       }
     }
 
@@ -257,7 +270,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     )
   }, [])
 
-  /** En el lobby solo se elige; la confirmación existe solo en la fase de selección. */
+  /** El personaje se elige en el lobby; al iniciar, el servidor usa el elegido. */
   const selectSurvivor = useCallback(async (id: string) => {
     try {
       await emitAck('lobby:selectSurvivor', { survivor: id })
@@ -266,7 +279,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     }
   }, [])
 
-  /** El host inicia: lobby → selección (el servidor valida sala llena y ambos listos). */
+  /** El host inicia: lobby → preparación (el servidor valida sala llena y ambos listos). */
   const start = useCallback(() => {
     emitAck('lobby:start').catch((err) => console.error('[useLobbyRoom] lobby:start falló', err))
   }, [])
@@ -309,26 +322,6 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     }
   }, [])
 
-  const confirmSurvivor = useCallback(async (id: string) => {
-    try {
-      await emitAck('lobby:selectSurvivor', { survivor: id })
-      await emitAck('lobby:confirmSurvivor')
-    } catch (err) {
-      console.error('[useLobbyRoom] confirmSurvivor falló', err)
-    }
-  }, [])
-
-  const cycleMap = useCallback(
-    (dir: 1 | -1) => {
-      if (!me.isHost) return
-      const nextId = MAPS[cycle(mapIndex, dir, MAPS.length)].id
-      emitAck('lobby:setMap', { mapId: nextId }).catch((err) =>
-        console.error('[useLobbyRoom] lobby:setMap falló', err),
-      )
-    },
-    [me.isHost, mapIndex],
-  )
-
   /** El host elige un mapa concreto; los que aún no están disponibles se ignoran. */
   const selectMap = useCallback(
     (mapId: string) => {
@@ -363,6 +356,9 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   return {
     // Fuente de verdad interna: el code real del snapshot (la URL puede mostrar un placeholder).
     code: room?.code ?? code,
+    /** true en cuanto el servidor confirmó la sala (ya hay código real). */
+    joined: room !== null,
+    joinError,
     me,
     rival,
     bySlot,
@@ -375,10 +371,8 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     toggleReady,
     rename,
     selectSurvivor,
-    confirmSurvivor,
     start,
     leave,
-    cycleMap,
     selectMap,
     cycleDifficulty,
     sendMessage,

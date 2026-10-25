@@ -67,3 +67,25 @@ test.describe('Flow 2 - Lobbies', () => {
     await expect(page.getByLabel('Tu nombre')).toHaveCount(0)
   })
 })
+
+test.describe('Lobby: errores y avisos', () => {
+  test('unirse a un código que no existe muestra el error y regresa al inicio', async ({ page }) => {
+    await login(page)
+    await page.goto('/sala/ZZZZZ')
+    const modal = page.getByTestId('join-error')
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('La sala no existe')
+    await modal.getByRole('button', { name: 'VOLVER AL INICIO' }).click()
+    await expect(page.getByTestId('home')).toBeVisible()
+  })
+
+  test('avisa cuando el rival se va de la sala', async ({ page }) => {
+    const code = await createRoom(page)
+    const bot = await joinAsBot(code)
+    await expect(page.getByTestId('player-count')).toHaveText('2 / 2')
+    await new Promise((resolve) => bot.emit('lobby:leave', resolve))
+    await expect(page.getByTestId('rival-left')).toBeVisible()
+    await expect(page.getByTestId('player-count')).toHaveText('1 / 2')
+    bot.disconnect()
+  })
+})

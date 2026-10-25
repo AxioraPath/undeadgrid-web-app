@@ -1,7 +1,5 @@
-import { ChartNoAxesColumn, ChevronRight, CircleCheck, Clock, Lock } from 'lucide-react'
-import { MAPS, MATCH_DURATION_MIN, type GameMap } from '../data/catalog'
-
-const CHECKS = ['Núcleos balanceados', 'Rutas válidas', 'Spawns verificados']
+import { ChartNoAxesColumn, ChevronRight, Clock, Lock } from 'lucide-react'
+import { DIFFICULTY_INFO, MAPS, MATCH_DURATION_MIN, type GameMap } from '../data/catalog'
 
 interface MatchSettingsProps {
   map: GameMap
@@ -77,13 +75,9 @@ export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDi
             </button>
           </div>
         </div>
-        <ul className="mt-auto flex flex-wrap pt-3 phone:hidden gap-x-4 gap-y-1 font-terminal text-base text-ug-muted">
-          {CHECKS.map((c) => (
-            <li key={c} className="flex items-center gap-1.5">
-              <CircleCheck size="1rem" className="text-ug-green" fill="currentColor" stroke="#0b0f17" /> {c}
-            </li>
-          ))}
-        </ul>
+        <p className="mt-auto pt-3 phone:pt-1 font-terminal text-base phone:text-sm leading-tight text-ug-muted" data-testid="difficulty-info">
+          {DIFFICULTY_INFO[difficulty as keyof typeof DIFFICULTY_INFO] ?? ''}
+        </p>
       </div>
     </section>
   )

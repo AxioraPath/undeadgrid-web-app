@@ -1,11 +1,11 @@
-import { Castle, Mountain, TreePine, Waves } from 'lucide-react'
+import { Castle, Package, TreePine, Waves } from 'lucide-react'
 import type { GameMap } from '../data/catalog'
 
 const FEATURES = [
   { icon: Castle, label: '2 bases 8 × 8' },
-  { icon: Mountain, label: 'Obstáculos dinámicos' },
-  { icon: TreePine, label: 'Spawns en las 4 orillas' },
-  { icon: Waves, label: 'Agua no transitable' },
+  { icon: Package, label: 'Caja de armamento al centro' },
+  { icon: TreePine, label: 'Zombis desde las 4 orillas' },
+  { icon: Waves, label: 'Estanques no transitables' },
 ]
 
 interface MapPanelProps {

@@ -21,15 +21,8 @@ export function SurvivorSelectPage() {
     setSelectedId(UNLOCKED_SURVIVORS[(i + dir + UNLOCKED_SURVIVORS.length) % UNLOCKED_SURVIVORS.length].id)
   }
 
-  // En el lobby solo se cambia el personaje; en la fase de selección se confirma y se espera al rival.
-  const selecting = room.status === 'selection'
-  const confirmed = selecting && room.me.survivorConfirmed
-
+  // Se elige en el lobby; la partida empieza con este personaje cuando el host la inicia.
   const confirm = async () => {
-    if (selecting) {
-      await room.confirmSurvivor(selectedId)
-      return
-    }
     await room.selectSurvivor(selectedId)
     backToRoom()
   }
@@ -57,20 +50,17 @@ export function SurvivorSelectPage() {
       </main>
 
       <footer className="relative mt-auto flex flex-col items-center gap-3 pb-1 phone:col-span-3 phone:row-start-3 phone:gap-2 phone:pb-0 sm:flex-row sm:justify-center">
-        {!selecting && (
-          <button
-            type="button"
-            onClick={backToRoom}
-            className="ug-panel flex items-center gap-3 px-6 py-2 phone:px-3 phone:py-1 phone:text-xl text-2xl hover:border-ug-border-hi sm:absolute sm:left-0"
-          >
-            <ArrowLeft size="1.375rem" /> VOLVER
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={backToRoom}
+          className="ug-panel flex items-center gap-3 px-6 py-2 phone:px-3 phone:py-1 phone:text-xl text-2xl hover:border-ug-border-hi sm:absolute sm:left-0"
+        >
+          <ArrowLeft size="1.375rem" /> VOLVER
+        </button>
         <div className="flex flex-col items-center gap-1">
           <button
             type="button"
             onClick={confirm}
-            disabled={confirmed}
             data-testid="confirm-survivor"
             className="flex disabled:opacity-60 disabled:saturate-50 items-center gap-4 border-2 border-ug-red-hi bg-gradient-to-b from-[#d0181f] to-[#8c0d12] px-6 py-2 phone:py-1 sm:px-10 shadow-[0_0_24px_rgb(255_30_40/0.35),inset_0_0_0_2px_rgb(0_0_0/0.35),0_4px_0_rgb(0_0_0/0.55)] transition hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0.5"
           >
@@ -78,11 +68,7 @@ export function SurvivorSelectPage() {
             <span className="ug-title-shadow text-3xl phone:text-2xl leading-none whitespace-nowrap">CONFIRMAR PERSONAJE</span>
           </button>
           <p className="font-terminal text-base phone:text-sm phone:leading-none text-ug-muted" data-testid="selection-hint">
-            {confirmed
-              ? 'Listo. Esperando a que el rival confirme…'
-              : selecting
-                ? 'Confirma tu superviviente: la partida empieza cuando ambos confirmen.'
-                : 'Elige tu superviviente y confírmalo para volver a la sala.'}
+            Elige tu superviviente y confírmalo para volver a la sala.
           </p>
         </div>
       </footer>

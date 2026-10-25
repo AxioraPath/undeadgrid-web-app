@@ -16,7 +16,7 @@ import { MissionsModal } from './components/MissionsModal'
 import { authApi } from '../../shared/lib/authApi'
 import { HomeBackground } from './components/HomeBackground'
 import { useServerStatus } from '../../shared/hooks/useServerStatus'
-import { randomRoomCode } from '../Lobby/data/catalog'
+import { NEW_ROOM_CODE } from '../Lobby/hooks/useLobbyRoom'
 import { useAuth } from '../Auth/context/authContext'
 
 const GUEST_PROFILE = { level: 1, xp: 0, xpToNext: 100 }
@@ -53,8 +53,8 @@ export function HomePage() {
   const openProfile = () => (user ? setProfileOpen(true) : navigate('/login'))
   const openMissions = () => (user ? setMissionsOpen(true) : navigate('/login'))
 
-  // TODO: emitir lobby:create / lobby:join por socket cuando exista el servidor.
-  const createRoom = () => navigate(`/sala/${randomRoomCode()}`, { state: { isHost: true } })
+  // La sala la crea el servidor al entrar; la URL cambia al código real en cuanto responde.
+  const createRoom = () => navigate(`/sala/${NEW_ROOM_CODE.toLowerCase()}`, { state: { isHost: true } })
   const joinRoom = (code: string) => navigate(`/sala/${code}`)
 
   return (

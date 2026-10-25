@@ -42,7 +42,7 @@ export const STAT_MAX = 6
 
 const P = '/assets/survivors/'
 
-// Valores de stats provisionales (solo visuales) hasta que el equipo defina diferencias por personaje.
+// Las habilidades describen las ventajas reales del servidor (SURVIVOR_PERKS en service-undeadgrid).
 export const SURVIVORS: Survivor[] = [
   {
     id: 'explorador',
@@ -55,9 +55,9 @@ export const SURVIVORS: Survivor[] = [
     locked: false,
     stats: { vida: 3, velocidad: 4, dano: 3, capacidad: 3 },
     skills: [
-      { icon: 'run', title: 'Movilidad', text: 'Se mueve rápido en el mapa.' },
-      { icon: 'aim', title: 'Precisión', text: 'Mayor precisión con armas.' },
-      { icon: 'pack', title: 'Capacidad', text: 'Puede llevar más munición.' },
+      { icon: 'run', title: 'Movilidad', text: 'Camina 15 % más rápido.' },
+      { icon: 'pack', title: 'Munición', text: 'Empieza con 8 cartuchos extra.' },
+      { icon: 'aim', title: 'Versátil', text: 'Sirve para atacar y defender.' },
     ],
     playstyle: 'Sal de la base a cazar zombis para juntar madera y metal, y presiona el núcleo rival.',
   },
@@ -72,9 +72,9 @@ export const SURVIVORS: Survivor[] = [
     locked: false,
     stats: { vida: 3, velocidad: 3, dano: 2, capacidad: 5 },
     skills: [
-      { icon: 'wrench', title: 'Construcción', text: 'Construye y repara más rápido.' },
-      { icon: 'gear', title: 'Eficiencia', text: 'Usa menos recursos en reparaciones.' },
-      { icon: 'box', title: 'Gestión', text: 'Mayor capacidad de materiales.' },
+      { icon: 'wrench', title: 'Reparación', text: 'Sus reparaciones curan el doble.' },
+      { icon: 'box', title: 'Madera', text: 'Empieza con 12 de madera extra.' },
+      { icon: 'gear', title: 'Metal', text: 'Empieza con 4 de metal extra.' },
     ],
     playstyle: 'Fortifica tu base 8 × 8 con paredes reforzadas y trampas, y aguanta las oleadas.',
   },
@@ -129,7 +129,8 @@ export const MATCH_DURATION_MIN = 4
 
 export const CODE_LENGTH = 5
 
-export function randomRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  return Array.from({ length: CODE_LENGTH }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+/** Qué cambia cada dificultad (igual que el servidor). */
+export const DIFFICULTY_INFO: Record<(typeof DIFFICULTIES)[number], string> = {
+  'Estándar': 'Oleadas normales de zombis.',
+  'Difícil': '50 % más zombis, con más vida y daño.',
 }

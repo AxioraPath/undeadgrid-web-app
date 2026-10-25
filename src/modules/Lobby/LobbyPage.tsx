@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Settings, Users } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import { GameLogo } from '../../shared/components/GameLogo'
 import { MenuButton } from '../../shared/components/MenuButton'
 import { PlayerCard } from '../../shared/components/PlayerCard'
 import { SettingsModal } from '../../shared/components/SettingsModal'
+import { PixelModal } from '../../shared/components/PixelModal'
+import { useAuth } from '../Auth/context/authContext'
 import { RoomHeader } from './components/RoomHeader'
 import { PlayerSlot } from './components/PlayerSlot'
 import { MatchSettings } from './components/MatchSettings'
@@ -22,6 +24,21 @@ export function LobbyPage() {
   }
   const [settingsOpen, setSettingsOpen] = useState(false)
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  const { user } = useAuth()
+  const goHome = useCallback(() => navigate('/'), [navigate])
+
+  // Aviso cuando el rival se va de la sala.
+  const [rivalLeft, setRivalLeft] = useState(false)
+  const [prevCount, setPrevCount] = useState(room.playerCount)
+  if (prevCount !== room.playerCount) {
+    setPrevCount(room.playerCount)
+    setRivalLeft(prevCount === 2 && room.playerCount < 2)
+  }
+  useEffect(() => {
+    if (!rivalLeft) return
+    const t = window.setTimeout(() => setRivalLeft(false), 5000)
+    return () => window.clearTimeout(t)
+  }, [rivalLeft])
 
   const slotProps = (slot: 1 | 2) => ({
     slot,
@@ -57,16 +74,15 @@ export function LobbyPage() {
 
       {/* Barra superior */}
       <div className="mb-4 flex flex-wrap items-start justify-center gap-3 phone:col-start-2 phone:row-start-1 phone:mb-0 phone:justify-end phone:gap-2 lg:col-span-2 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:justify-end">
-        <RoomHeader code={room.code} playerCount={room.playerCount} />
+        <RoomHeader code={room.joined ? room.code : null} playerCount={room.playerCount} />
         <div className="hidden xl:block">
-          <PlayerCard name={room.me.name} level={1} xp={0} xpToNext={100} />
+          <PlayerCard name={room.me.name} {...(user?.profile ?? {})} />
         </div>
       </div>
 
       {/* Menú lateral + chat */}
       <aside className="hidden flex-col gap-3 lg:col-start-1 lg:row-start-2 lg:flex lg:self-start">
         <nav className="flex flex-col gap-3" aria-label="Menú de sala">
-          <MenuButton primary size="sm" icon={Users} title="Sala" subtitle="Multijugador 1v1" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
           <MenuButton size="sm" icon={Settings} title="Ajustes" subtitle="Controles y gráficos" onClick={() => setSettingsOpen(true)} />
           <MenuButton size="sm" icon={LogOut} title="Salir" subtitle="Volver al menú" onClick={leaveRoom} testId="leave-room" />
         </nav>
@@ -100,7 +116,27 @@ export function LobbyPage() {
         <RoomChat messages={room.messages} onSend={room.sendMessage} />
       </div>
 
+      {rivalLeft && (
+        <p
+          role="status"
+          data-testid="rival-left"
+          className="ug-panel fixed left-1/2 top-4 z-40 -translate-x-1/2 px-4 py-2 font-terminal text-xl text-ug-red-hi"
+        >
+          El rival salió de la sala
+        </p>
+      )}
+
       <SettingsModal open={settingsOpen} onClose={closeSettings} />
+      <PixelModal open={room.joinError !== null} title="No se pudo entrar" onClose={goHome} testId="join-error">
+        <p className="font-terminal text-xl text-ug-muted">{room.joinError}</p>
+        <button
+          type="button"
+          onClick={goHome}
+          className="mt-4 w-full border-2 border-ug-red-hi bg-gradient-to-b from-[#d0181f] to-[#8c0d12] py-2 text-2xl"
+        >
+          VOLVER AL INICIO
+        </button>
+      </PixelModal>
     </div>
   )
 }

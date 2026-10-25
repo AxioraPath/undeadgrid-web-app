@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Check, Copy, Swords, Users } from 'lucide-react'
 
 interface RoomHeaderProps {
-  code: string
+  /** null mientras el servidor crea/confirma la sala. */
+  code: string | null
   playerCount: number
 }
 
@@ -10,6 +11,7 @@ export function RoomHeader({ code, playerCount }: RoomHeaderProps) {
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
+    if (!code) return
     try {
       await navigator.clipboard.writeText(code)
       setCopied(true)
@@ -24,13 +26,14 @@ export function RoomHeader({ code, playerCount }: RoomHeaderProps) {
       <div className="ug-panel flex items-center gap-4 px-5 py-2 phone:gap-2 phone:px-2.5 phone:py-1">
         <div className="text-center">
           <p className="ug-title-shadow text-4xl phone:text-3xl leading-none tracking-wide whitespace-nowrap">
-            SALA: <span data-testid="room-code">{code}</span>
+            SALA: <span data-testid="room-code">{code ?? '·····'}</span>
           </p>
           <p className="font-terminal text-lg leading-tight text-ug-muted phone:hidden">Código para unirse</p>
         </div>
         <button
           type="button"
           onClick={copy}
+          disabled={!code}
           aria-label="Copiar código"
           title="Copiar código"
           className="grid size-10 phone:size-8 place-items-center border-2 border-ug-border bg-ug-panel-2 text-ug-text hover:border-ug-border-hi"
