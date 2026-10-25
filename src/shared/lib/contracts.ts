@@ -219,7 +219,7 @@ export interface MapObject {
 }
 
 /** Tema del mapa (lo decide el servidor según el mapa de la sala). */
-export type MapTheme = 'ciudad' | 'industrial'
+export type MapTheme = 'ciudad' | 'industrial' | 'desierto'
 
 export interface GameMap {
   seed: number
@@ -397,4 +397,7 @@ export const BUILDINGS = [
   { name: 'urb-parada-autobus', w: 2, h: 2 },
   { name: 'valla-metal-v-sana', w: 1, h: 2 },
   { name: 'ind-control-h', w: 3, h: 2 },
+  { name: 'meseta', w: 2, h: 2 },
+  { name: 'roca-desierto-1', w: 2, h: 2 },
+  { name: 'roca-desierto-2', w: 2, h: 2 },
 ] as const

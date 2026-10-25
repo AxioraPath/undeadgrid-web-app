@@ -41,6 +41,8 @@ const FLOOR_FAMILIES = [
   'pasto', 'tierra', 'grava', 'asfalto', 'metal', 'concreto', 'agua', 'barro', 'madera',
   // Paquete de mapas extra (distrito industrial)
   'mapa-cemento-bunker', 'mapa-hormigon-industrial', 'mapa-rejilla-oxidada', 'mapa-asfalto-claro', 'mapa-caucho-verde',
+  // Desierto ferroviario
+  'arena', 'mapa-arena-gris', 'mapa-tierra-roja', 'mapa-caliza',
 ] as const
 /** Calles urbanas: las 16 piezas según con qué lados conectan. */
 const URBAN_ROADS = [
@@ -65,6 +67,7 @@ const OBJECTS = [
   'almacen', 'tienda', 'torre-vigilancia', 'torre-agua', 'generador', 'tanque-combustible', 'muro-piedra-h', 'valla-madera',
   'nucleo-azul', 'nucleo-azul-danado', 'nucleo-azul-destruido', 'nucleo-rojo', 'nucleo-rojo-danado', 'nucleo-rojo-destruido',
   'vagon-h', 'via-tren-h', 'hidrante', 'cohete',
+  'vagon-v', 'via-tren-v', 'palmera', 'cactus-alto', 'cactus-redondo', 'roca-desierto-1', 'roca-desierto-2', 'meseta',
   'torreta-abajo', 'torreta-arriba', 'torreta-izquierda', 'torreta-derecha',
   'torreta-abajo-disparo', 'torreta-arriba-disparo', 'torreta-izquierda-disparo', 'torreta-derecha-disparo',
 ]

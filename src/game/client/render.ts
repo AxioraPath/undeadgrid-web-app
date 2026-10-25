@@ -65,29 +65,39 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
   const groundAt = (x: number, y: number) => (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? -1 : map.ground[y * MAP_W + x])
   // Distrito industrial: cemento de búnker con calles urbanas (sus bordes están hechos para ese suelo).
   const industrial = map.theme === 'industrial'
+  // Desierto: arena, caminos de tierra roja, plazoleta de caliza y vías del tren.
+  const desert = map.theme === 'desierto'
 
   for (let y = 0; y < MAP_H; y++) {
     for (let x = 0; x < MAP_W; x++) {
       const gk = map.ground[y * MAP_W + x]
       let tex: string
-      if (gk === Ground.ROAD) tex = industrial ? roadPiece(map, x, y).replace('camino-', 'via-urbana-') : roadPiece(map, x, y)
+      if (gk === Ground.ROAD)
+        tex = industrial ? roadPiece(map, x, y).replace('camino-', 'via-urbana-') : desert ? `mapa-tierra-roja-${v()}` : roadPiece(map, x, y)
       else if (gk === Ground.WATER || gk === Ground.BRIDGE) tex = waterPiece(groundAt, x, y, v())
-      else if (gk === Ground.PLAZA) tex = industrial ? `mapa-asfalto-claro-${v()}` : `concreto-${v()}`
+      else if (gk === Ground.PLAZA) tex = industrial ? `mapa-asfalto-claro-${v()}` : desert ? `mapa-caliza-${v()}` : `concreto-${v()}`
       else if (gk === Ground.BASE) tex = `metal-${v()}`
       else if (gk === Ground.GRAVEL) tex = `grava-${v()}`
       else if (gk === Ground.DIRT)
         tex = industrial
           ? rng.next() < 0.85 ? `mapa-hormigon-industrial-${v()}` : `mapa-rejilla-oxidada-${v()}`
-          : rng.next() < 0.7 ? `tierra-${v()}` : `barro-${v()}`
-      else tex = industrial ? `mapa-cemento-bunker-${v()}` : `pasto-${v()}`
+          : desert
+            ? `arena-${v()}`
+            : rng.next() < 0.7 ? `tierra-${v()}` : `barro-${v()}`
+      else tex = industrial ? `mapa-cemento-bunker-${v()}` : desert ? `arena-${v()}` : `pasto-${v()}`
       g.drawImage(sp[tex], x * T2, y * T2, T2, T2)
     }
   }
 
-  // Vías del tren: la pieza mide 2 casillas, se dibuja la mitad que toca.
+  // Vías del tren: la pieza tiene bordes vacíos, así que cada casilla usa su franja central (vertical si la vía
+  // sigue arriba o abajo); así se ve continua.
   for (let y = 0; y < MAP_H; y++)
-    for (let x = 0; x < MAP_W; x++)
-      if (map.ground[y * MAP_W + x] === Ground.RAIL) g.drawImage(sp['via-tren-h'], (x % 2) * 64, 0, 64, 64, x * T2, y * T2, T2, T2)
+    for (let x = 0; x < MAP_W; x++) {
+      if (map.ground[y * MAP_W + x] !== Ground.RAIL) continue
+      if (groundAt(x, y - 1) === Ground.RAIL || groundAt(x, y + 1) === Ground.RAIL)
+        g.drawImage(sp['via-tren-v'], 0, 48, 64, 64, x * T2, y * T2, T2, T2)
+      else g.drawImage(sp['via-tren-h'], 32, 0, 64, 64, x * T2, y * T2, T2, T2)
+    }
 
   // Puentes: tablones de madera continuos con barandal a los lados (sobre el agua ya dibujada)
   const isPath = (x: number, y: number) => [Ground.ROAD, Ground.BRIDGE, Ground.PLAZA].includes(groundAt(x, y) as 2 | 6 | 7)
@@ -135,7 +145,7 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
 
   // Todo lo que tiene altura, ordenado por la base para que se tape bien
   type Item = { y: number; draw: () => void }
-  const items: Item[] = map.objects.filter((o) => o.kind !== 'water' && !isExplosive(o)).map((o) => ({ y: o.y + o.h, draw: () => drawObject(g, sp, o) }))
+  const items: Item[] = map.objects.filter((o) => o.kind !== 'water' && !isExplosive(o)).map((o) => ({ y: o.y + o.h, draw: () => drawObject(g, sp, o, map.theme) }))
 
   for (let y = 1; y < MAP_H - 1; y++)
     for (let x = 1; x < MAP_W - 1; x++) {
@@ -149,6 +159,14 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
         continue
       }
       const nearWater = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => groundAt(x + dx, y + dy) === Ground.WATER)
+      if (desert) {
+        // Arena: matorrales secos y cactus pequeños; juncos junto al oasis.
+        if (map.ground[i] !== Ground.GRASS || rng.next() > 0.6) continue
+        const name = nearWater ? 'juncos' : rng.pick(['arbusto-seco', 'arbusto-seco', 'cactus-redondo'] as const)
+        const jx = (rng.next() - 0.5) * 0.4
+        items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5 + jx) * T2, (y + 1) * T2, name === 'cactus-redondo' ? 0.55 : 0.75) })
+        continue
+      }
       const name = nearWater ? 'juncos' : rng.pick(['hierba-alta', 'hierba-alta', 'arbusto-1', 'arbusto-seco'] as const)
       const jx = (rng.next() - 0.5) * 0.4
       items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5 + jx) * T2, (y + 1) * T2, 0.8) })
@@ -162,6 +180,13 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
         const name = rng.pick(['barrera-concreto', 'barrera-concreto', 'barrera-concreto', 'valla-metal', 'valla-metal', 'barrera-concreto', 'neumaticos', 'barril-explosivo', 'barrera-concreto', 'valla-metal'] as const)
         const scale = name === 'barril-explosivo' || name === 'neumaticos' ? 0.9 : 0.5
         items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5) * T2, (y + 1) * T2, scale) })
+        continue
+      }
+      if (desert) {
+        // Cañón: rocas rojizas y mesetas, con algún cactus.
+        const name = rng.pick(['roca-desierto-1', 'roca-desierto-2', 'roca-desierto-2', 'meseta', 'roca-desierto-1', 'cactus-alto'] as const)
+        const jx = (rng.next() - 0.5) * 0.3
+        items.push({ y: y + 1, draw: () => drawAnchored(g, sp[name], (x + 0.5 + jx) * T2, (y + 1.15) * T2, name === 'cactus-alto' ? 0.8 : 0.62) })
         continue
       }
       const name = rng.pick(['arbol-1', 'arbol-1', 'arbol-2', 'arbol-1', 'arbusto-1'] as const)
@@ -268,16 +293,24 @@ function waterPiece(groundAt: (x: number, y: number) => number, x: number, y: nu
   return `agua-${variant}`
 }
 
-function drawObject(g: Ctx, sp: Sprites, o: MapObject) {
+function drawObject(g: Ctx, sp: Sprites, o: MapObject, theme?: string) {
+  const desert = theme === 'desierto'
   const cx = (o.x + o.w / 2) * T2
   const bottom = (o.y + o.h) * T2
   const horizontal = o.w > o.h
   switch (o.kind) {
     case 'tree':
+      if (desert) {
+        // Palmeras del oasis y cactus.
+        const name = (['palmera', 'cactus-alto', 'cactus-redondo'] as const)[o.variant % 3]
+        drawAnchored(g, sp[name], cx, bottom + 6, name === 'palmera' ? 0.7 : name === 'cactus-alto' ? 0.85 : 0.75)
+        break
+      }
       drawAnchored(g, sp[(['arbol-1', 'arbol-2', 'arbol-seco'] as const)[o.variant % 3]], cx, bottom + 6, 0.8)
       break
     case 'rock':
-      drawAnchored(g, sp[o.variant ? 'roca-1' : 'roca-1'], cx, bottom, 1.05)
+      if (desert) drawAnchored(g, sp[o.variant ? 'roca-desierto-2' : 'roca-desierto-1'], cx, bottom, 0.55)
+      else drawAnchored(g, sp[o.variant ? 'roca-1' : 'roca-1'], cx, bottom, 1.05)
       break
     case 'debris':
       drawAnchored(g, sp[o.variant ? 'escombros-2' : 'escombros-1'], cx, bottom, 1.05)
@@ -305,7 +338,8 @@ function drawObject(g: Ctx, sp: Sprites, o: MapObject) {
       drawAnchored(g, sp['farol-poste'], cx, bottom, 0.85)
       break
     case 'train':
-      drawAnchored(g, sp['vagon-h'], cx, bottom, (o.w * T2) / sp['vagon-h'].width)
+      if (o.h > o.w) drawAnchored(g, sp['vagon-v'], cx, bottom, T2 / sp['vagon-v'].width)
+      else drawAnchored(g, sp['vagon-h'], cx, bottom, (o.w * T2) / sp['vagon-h'].width)
       break
     case 'car':
       drawAnchored(g, sp[`auto-${o.variant % 2 ? 'destruido' : 'rojo'}-${horizontal ? 'h' : 'v'}`], cx, bottom, 1)
@@ -572,7 +606,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
       draw: () => {
         ctx.save()
         ctx.scale(ART, ART)
-        drawObject(ctx, sp, obj)
+        drawObject(ctx, sp, obj, map.theme)
         ctx.restore()
         if (pct !== undefined) hpBar(ctx, (obj.x + obj.w / 2) * TILE, (obj.y - (obj.h > 1 ? 1 : 0.3)) * TILE, 22, pct, '#ffb020')
       },

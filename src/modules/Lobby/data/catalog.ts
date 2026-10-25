@@ -158,7 +158,7 @@ export const MAPS: GameMap[] = [
     biome: 'Desierto',
     description: 'Una estación olvidada entre cañones y oasis. Las vías dividen el mapa y la torre central controla el paso.',
     preview: '/assets/maps/desierto.jpg',
-    available: false,
+    available: true,
   },
   {
     id: 'distrito-industrial',
