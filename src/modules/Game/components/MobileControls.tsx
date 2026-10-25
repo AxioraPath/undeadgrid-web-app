@@ -7,7 +7,7 @@ import { HEAVY_WEAPONS, type WeaponId } from '../../../shared/lib/contracts'
 /** Knob travel as a fraction of the base diameter. */
 const TRAVEL_RATIO = 0.3
 /** Right stick: below this fraction of the travel nothing is aimed or fired. */
-export const AIM_DEAD_ZONE = 0.25
+export const AIM_DEAD_ZONE = 0.45
 
 interface StickProps {
   testId: string

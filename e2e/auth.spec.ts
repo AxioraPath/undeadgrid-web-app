@@ -88,4 +88,17 @@ test.describe('Flow 1 - Authentication', () => {
     await expect(page.locator('#confirm-error')).toHaveText('Las contraseñas no coinciden')
     await expect(page.locator('#confirm')).toBeFocused()
   })
+
+  test('sin cuenta: crear cuenta desde una sala lleva directo a esa sala (no al inicio)', async ({ page }) => {
+    await page.goto('/sala/ABCDE')
+    await expect(page).toHaveURL(/\/login$/)
+    await page.getByTestId('go-register').click()
+    await expect(page).toHaveURL(/\/registro$/)
+    await page.locator('#name').fill('Nuevo')
+    await page.locator('#email').fill(`nuevo-${Date.now()}@undeadgrid.dev`)
+    await page.locator('#password').fill('correct-horse-battery')
+    await page.locator('#confirm').fill('correct-horse-battery')
+    await page.getByRole('button', { name: 'CREAR CUENTA' }).click()
+    await expect(page).toHaveURL(/\/sala\/ABCDE$/)
+  })
 })

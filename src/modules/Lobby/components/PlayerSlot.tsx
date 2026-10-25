@@ -15,12 +15,14 @@ interface PlayerSlotProps {
   waitingText?: string
   player: LobbyPlayer | undefined
   isMe: boolean
+  /** Compañero de equipo (2v2): su personaje se ve; el de los rivales no se revela. */
+  ally?: boolean
   onToggleReady: () => void
   onRename: (name: string) => void
   onChangeSurvivor: () => void
 }
 
-export function PlayerSlot({ slot, team, compact = false, waitingText = 'Esperando rival…', player, isMe, onToggleReady, onRename, onChangeSurvivor }: PlayerSlotProps) {
+export function PlayerSlot({ slot, team, compact = false, waitingText = 'Esperando rival…', player, isMe, ally = false, onToggleReady, onRename, onChangeSurvivor }: PlayerSlotProps) {
   const t = SLOT_THEME[team]
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -41,7 +43,7 @@ export function PlayerSlot({ slot, team, compact = false, waitingText = 'Esperan
 
   const survivor = getSurvivor(player.survivor)
   // El personaje del rival no se revela hasta que lo confirma.
-  const hidden = !isMe && !player.survivorConfirmed
+  const hidden = !isMe && !ally && !player.survivorConfirmed
 
   const submitName = (e: FormEvent) => {
     e.preventDefault()

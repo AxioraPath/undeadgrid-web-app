@@ -35,7 +35,8 @@ type InputState = {
 }
 
 const TOUCH_DEAD_ZONE = 0.35
-const TOUCH_AIM_DEAD_ZONE = 0.25
+// Arrastre mínimo para apuntar a mano: con menos, el temblor del dedo no anula el autoapuntado.
+const TOUCH_AIM_DEAD_ZONE = 0.45
 /** Toque corto (ms) en el botón de apuntar = un disparo autoapuntado; mantenerlo sin arrastrar = ráfaga autoapuntada. */
 const AUTO_TAP_MS = 250
 
@@ -153,6 +154,9 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
     s.aimPressAt = null
   }, [])
 
+  /** Botón de apuntar mantenido sin arrastrar (disparo autoapuntado en curso): para marcar el objetivo. */
+  const readAutoHold = useCallback(() => state.current.aimPressAt !== null && !state.current.aimDragged, [])
+
   /** Current touch aim (unit vector) or null; read every frame by the game loop. */
   const readTouchAim = useCallback(() => state.current.touchAim, [])
 
@@ -162,5 +166,5 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
     state.current.mouse = on
   }, [])
 
-  return { read, setTouchDirection, setTouchAim, setAimPressed, readTouchAim, setMouseAction }
+  return { read, setTouchDirection, setTouchAim, setAimPressed, readTouchAim, readAutoHold, setMouseAction }
 }

@@ -70,6 +70,7 @@ export function TeamBoard({ byTeam, myId, myTeam, onSetTeam, onToggleReady, onRe
                     waitingText="Esperando jugador…"
                     player={player}
                     isMe={player?.id === myId}
+                    ally={mine}
                     onToggleReady={onToggleReady}
                     onRename={onRename}
                     onChangeSurvivor={onChangeSurvivor}

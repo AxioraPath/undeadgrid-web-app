@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Lock, Mail, User } from 'lucide-react'
 import { AuthLayout } from './components/AuthLayout'
 import { AuthField } from './components/AuthField'
@@ -20,6 +20,8 @@ const ORDER: Key[] = ['name', 'email', 'password', 'confirm']
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  // A dónde iba antes de que le pidieran cuenta (p. ej. a crear una sala): al registrarse sigue directo ahí.
+  const returnTo = useLocation().state as { from?: string; fromState?: unknown } | null
   const { register } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -50,7 +52,7 @@ export function RegisterPage() {
     setLoading(true)
     try {
       await register(name.trim(), email.trim(), password)
-      navigate('/')
+      navigate(returnTo?.from ?? '/', { replace: true, state: returnTo?.fromState })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta.')
     } finally {
@@ -79,12 +81,12 @@ export function RegisterPage() {
         <AuthButton loading={loading}>CREAR CUENTA</AuthButton>
 
         <p className="text-center font-terminal text-lg phone:text-base text-ug-muted phone:order-last phone:col-span-2">
-          ¿Ya tienes cuenta? <Link to="/login" className="text-ug-accent hover:underline" data-testid="go-login">INICIAR SESIÓN</Link>
+          ¿Ya tienes cuenta? <Link to="/login" state={returnTo} className="text-ug-accent hover:underline" data-testid="go-login">INICIAR SESIÓN</Link>
         </p>
 
         <button
           type="button"
-          onClick={() => navigate('/login')}
+          onClick={() => navigate('/login', { state: returnTo })}
           className="ug-panel flex items-center justify-center gap-2 px-4 py-2 phone:py-1 text-xl hover:border-ug-border-hi"
         >
           <ArrowLeft size="1.25rem" /> VOLVER

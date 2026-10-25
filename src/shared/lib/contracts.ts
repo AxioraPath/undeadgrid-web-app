@@ -175,6 +175,8 @@ export interface PlayerInput {
   fire?: boolean
   /** Con `fire`: el servidor apunta solo al objetivo más cercano (toque en el celular, como Brawl Stars). */
   autoAim?: boolean
+  /** Apuntado manual en celular con asistencia: el servidor corrige hacia un objetivo cercano a la mira. */
+  aimAssist?: boolean
 }
 
 /** Direction from the local player to the mouse in world space (server normalizes it). Omitted when mouse aiming is off. */
@@ -364,6 +366,9 @@ export const Tile = { GRASS: 0, BORDER: 1, BASE: 5, ROAD: 6, WATER: 7 } as const
 export const Ground = { GRASS: 0, DIRT: 1, ROAD: 2, BASE: 3, WATER: 4, GRAVEL: 5, BRIDGE: 6, PLAZA: 7, RAIL: 8 } as const
 
 export const ZOMBIE_KINDS: ZombieKind[] = ['normal', 'fast', 'tank']
+
+/** Alcance de cada arma en casillas (igual que el servidor): para marcar el objetivo del autoapuntado. */
+export const WEAPON_RANGE: Record<WeaponId, number> = { pistol: 9, shotgun: 9, smg: 9, sniper: 18, rocket: 11 }
 export const STRUCTURE_TYPES = ['wood', 'reinforced', 'trap', 'turret'] as const
 
 /** Caja de armamento: segundos para abrirla (igual que el servidor). */

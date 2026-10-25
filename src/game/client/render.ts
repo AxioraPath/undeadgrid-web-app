@@ -534,6 +534,8 @@ export interface FrameOptions {
   effects: boolean
   /** Local player's aim direction (world space) while mouse aiming is on; drives the sprite facing. */
   aim?: { x: number; y: number } | null
+  /** Objetivo del autoapuntado táctil (casillas): se marca con un aro rojo. */
+  autoTarget?: { x: number; y: number } | null
 }
 
 export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
@@ -689,6 +691,23 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   }
   ctx.globalAlpha = 1
 
+  // Objetivo del autoapuntado (celular, botón mantenido sin arrastrar)
+  if (o.autoTarget) {
+    const { x, y } = o.autoTarget
+    const pulse = 1 + Math.sin(fx.clock * 10) * 0.12
+    ctx.strokeStyle = '#ff2a2f'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.ellipse(x * TILE, y * TILE + 4, 14 * pulse, 7 * pulse, 0, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.beginPath()
+    for (const a of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+      ctx.moveTo(x * TILE + Math.cos(a) * 18 * pulse, y * TILE - 6 + Math.sin(a) * 18 * pulse)
+      ctx.lineTo(x * TILE + Math.cos(a) * 11 * pulse, y * TILE - 6 + Math.sin(a) * 11 * pulse)
+    }
+    ctx.stroke()
+  }
+
   // Casilla bajo el mouse (clic derecho = construir ahí): lo que se pondría, con su textura, en verde (o rojo si no se puede)
   if (o.ghost) drawBuildGhost(ctx, v, sp, o.ghost)
 
@@ -763,6 +782,43 @@ function drawBuildGhost(ctx: Ctx, v: View, sp: Sprites, g: { x: number; y: numbe
   ctx.strokeStyle = ok ? '#2ee86a' : '#ff2a2f'
   ctx.lineWidth = 2
   ctx.strokeRect(x * TILE + 1, y * TILE + 1, TILE - 2, TILE - 2)
+}
+
+/** Casillas que frenan balas (igual que el servidor: el agua no). */
+const BULLET_BLOCKERS = new Set([1, 2, 3, 4, 8, 9, 10, 11])
+
+/**
+ * Objetivo aproximado del autoapuntado para marcarlo en pantalla (el servidor decide el real): el rival de otro
+ * equipo o zombi más cercano dentro del alcance y sin obstáculos del mapa ni paredes enemigas en medio.
+ */
+export function autoAimTarget(v: View, meSlot: Slot, range: number): { x: number; y: number } | null {
+  const me = v.players.find((p) => p.slot === meSlot)
+  if (!me || !me.alive) return null
+  const map = v.map
+  const clear = (x1: number, y1: number) => {
+    const d = Math.hypot(x1 - me.x, y1 - me.y)
+    const n = Math.ceil(d / 0.25)
+    for (let i = 1; i < n; i++) {
+      const tx = Math.floor(me.x + ((x1 - me.x) * i) / n)
+      const ty = Math.floor(me.y + ((y1 - me.y) * i) / n)
+      if (BULLET_BLOCKERS.has(map.tiles[ty * map.w + tx])) return false
+      const st = v.structures.get(ty * map.w + tx)
+      if (st && st.type !== 'trap' && teamOf(st.owner) !== me.team) return false
+    }
+    return true
+  }
+  let best: { x: number; y: number } | null = null
+  let bestD = range
+  const consider = (x: number, y: number) => {
+    const d = Math.hypot(x - me.x, y - me.y)
+    if (d < bestD && d > 1e-3 && clear(x, y)) {
+      best = { x, y }
+      bestD = d
+    }
+  }
+  for (const p of v.players) if (p.alive && p.team !== me.team) consider(p.x, p.y)
+  for (const z of v.zombies) if (z.hp > 0) consider(z.x, z.y)
+  return best
 }
 
 /** Restos de un barril o tanque que explotó. */

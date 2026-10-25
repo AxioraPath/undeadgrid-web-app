@@ -4,10 +4,10 @@ import { GameChat } from './components/GameChat'
 import type { ChatMessage } from '../Lobby/hooks/useLobbyRoom'
 import { SettingsModal } from '../../shared/components/SettingsModal'
 import { useFullscreen } from '../../shared/lib/fullscreen'
-import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
+import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, WEAPON_RANGE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
-import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
+import { autoAimTarget, consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
 import { drawAimLine } from '../../game/client/aimLine'
 import { loadSprites, type Sprites } from '../../game/client/sprites'
 import { useGameInput } from './hooks/useGameInput'
@@ -207,7 +207,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
     },
     [sendCommand, selectWeapon],
   )
-  const { read: readInput, setTouchDirection, setTouchAim, setAimPressed, readTouchAim, setMouseAction } = useGameInput(onCommand, swapToPreviousWeapon)
+  const { read: readInput, setTouchDirection, setTouchAim, setAimPressed, readTouchAim, readAutoHold, setMouseAction } = useGameInput(onCommand, swapToPreviousWeapon)
   const finished = status === 'results'
   const aimEnabled = settings.mouseAim && !isTouch
   const aimEnabledRef = useRef(aimEnabled)
@@ -479,7 +479,9 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
         }
       }
       if (!lastSent || !sameInput(input, lastSent) || !sameAim(aim, lastSentAim) || now - lastSentAt >= INPUT_HEARTBEAT_MS) {
-        const payload = aim ? { seq: seq++, ...input, aim: { x: +aim.x.toFixed(2), y: +aim.y.toFixed(2) } } : { seq: seq++, ...input }
+        // Apuntado manual con el dedo: el servidor corrige un poco hacia un objetivo cercano a la mira (asistencia).
+        const assist = touchAim ? { aimAssist: true } : {}
+        const payload = aim ? { seq: seq++, ...input, ...assist, aim: { x: +aim.x.toFixed(2), y: +aim.y.toFixed(2) } } : { seq: seq++, ...input }
         socket.emit('game:input', payload)
         lastSent = input
         lastSentAim = aim
@@ -523,6 +525,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
         effects: prefs.effects,
         aim,
         ghost,
+        autoTarget: touchRef.current && readAutoHold() && meNow ? autoAimTarget(view, mySlot, WEAPON_RANGE[meNow.weapon] ?? 9) : null,
       })
       const meView = view.players.find((p) => p.slot === mySlot)
       mePos = meView ? { x: meView.x, y: meView.y } : null
@@ -574,7 +577,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
       document.removeEventListener('fullscreenchange', resize)
       vv?.removeEventListener('resize', resize)
     }
-  }, [sprites, map, mySlot, readInput, readTouchAim])
+  }, [sprites, map, mySlot, readInput, readTouchAim, readAutoHold])
 
   const armoryProgress = hud?.armory?.available ? hud.armory.progress[mySlot] : undefined
   const layout = settings.hudLayout

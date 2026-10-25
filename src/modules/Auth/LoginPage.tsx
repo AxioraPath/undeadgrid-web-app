@@ -75,7 +75,7 @@ export function LoginPage() {
           <div className="mb-2 phone:mb-0.5 flex items-center gap-3">
             <span className="h-0.5 flex-1 bg-ug-border" /> ¿Aún no tienes cuenta? <span className="h-0.5 flex-1 bg-ug-border" />
           </div>
-          <Link to="/registro" className="text-2xl phone:text-xl text-ug-accent hover:underline" data-testid="go-register">CREAR CUENTA</Link>
+          <Link to="/registro" state={returnTo} className="text-2xl phone:text-xl text-ug-accent hover:underline" data-testid="go-register">CREAR CUENTA</Link>
         </div>
 
         <button
