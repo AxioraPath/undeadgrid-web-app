@@ -19,8 +19,15 @@ import { HudSlot } from './components/HudSlot'
 import { CrateMenu } from './components/CrateMenu'
 import { MatchResultsScreen, type ResultsPlayer, type ResultsSummary } from './components/MatchResultsScreen'
 import type { MatchSummary } from '../Lobby/hooks/useLobbyRoom'
+import { isSoftwareRendering } from '../../shared/lib/gpu'
 
 const HUD_MS = 100
+/**
+ * Resolución dinámica: si los FPS se quedan bajos, el canvas se dibuja a menos píxeles y el navegador lo estira
+ * (pixel art, casi no se nota). Pasos sobre la densidad de la pantalla; 45 FPS durante 2 s baja un paso.
+ */
+const RENDER_SCALES = [1, 0.8, 0.65, 0.5]
+const LOW_FPS = 45
 const MINIMAP_MS = 200
 const PING_MS = 2000
 /** Latido del input: aunque no cambie, se reenvía para que el servidor no se quede con uno viejo. */
@@ -88,6 +95,23 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const [map, setMap] = useState<GameMap | null>(null)
   const [hud, setHud] = useState<HudSnapshot | null>(null)
   const [fps, setFps] = useState(0)
+  // Aviso si el navegador no usa la tarjeta gráfica (aceleración por hardware apagada).
+  const [gpuWarning, setGpuWarning] = useState(() => {
+    try {
+      // En pruebas automatizadas (webdriver) el navegador siempre va sin GPU: no se avisa.
+      return !navigator.webdriver && !sessionStorage.getItem('ug:gpu-warning-closed') && isSoftwareRendering()
+    } catch {
+      return false
+    }
+  })
+  const closeGpuWarning = () => {
+    setGpuWarning(false)
+    try {
+      sessionStorage.setItem('ug:gpu-warning-closed', '1')
+    } catch {
+      // sin almacenamiento: solo se cierra en esta vista
+    }
+  }
   const [pingMs, setPingMs] = useState<number | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [sprites, setSprites] = useState<Sprites | null>(null)
@@ -366,6 +390,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
     let miniAt = 0
     let cam: Camera | null = null
     let size = { w: 0, h: 0, dpr: 1 }
+    let scaleStep = 0
+    let lowFpsWindows = 0
     let seq = 0
     let lastSent: PlayerInput | null = null
     let lastSentAim: Aim | null = null
@@ -376,7 +402,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
     // The canvas fills the fixed container; the camera scales the map to cover it (see computeCamera).
     // Re-fit on any size change: window resize, fullscreen toggle, rotation, mobile toolbar show/hide.
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const dpr = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[scaleStep]
       const w = canvas.clientWidth
       const h = canvas.clientHeight
       const pw = Math.round(w * dpr)
@@ -476,9 +502,17 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
 
       frames++
       if (now - fpsAt >= 500) {
-        setFps(Math.round((frames * 1000) / (now - fpsAt)))
+        const current = Math.round((frames * 1000) / (now - fpsAt))
+        setFps(current)
         frames = 0
         fpsAt = now
+        // 4 mediciones seguidas (2 s) por debajo de LOW_FPS: se baja un paso de resolución.
+        lowFpsWindows = current < LOW_FPS && !document.hidden ? lowFpsWindows + 1 : 0
+        if (lowFpsWindows >= 4 && scaleStep < RENDER_SCALES.length - 1) {
+          scaleStep++
+          lowFpsWindows = 0
+          resize()
+        }
       }
       if (now - hudAt >= HUD_MS) {
         hudAt = now
@@ -567,7 +601,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         } as React.CSSProperties
       }
     >
-      <canvas ref={canvasRef} className={`absolute inset-0 size-full ${aimEnabled ? 'cursor-none' : ''}`} data-testid="game-canvas" />
+      <canvas ref={canvasRef} className={`absolute inset-0 size-full [image-rendering:pixelated] ${aimEnabled ? 'cursor-none' : ''}`} data-testid="game-canvas" />
       <div ref={posRef} data-testid="player-pos" data-x="0" data-y="0" className="sr-only" />
 
       {(!sprites || !map) && (
@@ -596,6 +630,18 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
               </button>
             </div>
           </div>
+
+          {gpuWarning && (
+            <div className="pointer-events-auto absolute top-12 left-1/2 z-20 flex w-[min(36rem,92vw)] -translate-x-1/2 items-start gap-2 border-2 border-yellow-500/70 bg-black/85 p-2 font-terminal text-sm leading-tight text-yellow-200" role="status" data-testid="gpu-warning">
+              <p>
+                Tu navegador está dibujando sin la tarjeta gráfica, por eso van pocos FPS. En Chrome: Configuración → Sistema → activa
+                “Usar aceleración de gráficos cuando esté disponible” y reinicia el navegador.
+              </p>
+              <button type="button" onClick={closeGpuWarning} aria-label="Cerrar aviso" className="shrink-0 border-2 border-yellow-500/70 px-2 hover:bg-yellow-500/20">
+                ✕
+              </button>
+            </div>
+          )}
 
           {/* Toasts */}
           <div className="absolute top-1/3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
