@@ -28,7 +28,7 @@
 |---|---|---|
 | **1v1** | 2 | Destruye el núcleo rival (o ten ventaja al terminar el tiempo) |
 | **2v2** | 4 | Igual, pero cada equipo comparte base y núcleo, sin fuego amigo |
-| **Todos contra todos** | 2 a 4 | Sin núcleos: cada quien tiene 3 o 5 vidas y gana el último en pie. Hay armas tiradas en el mapa y se construye en cualquier parte |
+| **Todos contra todos** | 2 a 4 | Sin núcleos: cada quien tiene 3 o 5 vidas y gana el último en pie (tope de 5 minutos: después gana quien tenga más vidas y bajas). Hay armas tiradas en el mapa y se construye en cualquier parte |
 
 **5 supervivientes** (Explorador, Mecánica, Militar, Médica, Obrero) y **3 mapas** (Ciudad Abandonada, Desierto Ferroviario,
 Distrito Industrial). Zombis normales, rápidos y tanques; los barriles explotan si les disparas.

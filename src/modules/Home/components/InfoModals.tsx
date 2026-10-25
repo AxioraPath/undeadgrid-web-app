@@ -11,7 +11,7 @@ const TITLES: Record<InfoModalKind, string> = {
 }
 
 const PHASES = [
-  ['0:00 – 0:25', 'Preparación', 'Construye tu base 8 × 8. Sin zombis ni PvP. En todos contra todos dura solo 5 s.'],
+  ['0:00 – 0:25', 'Preparación', 'Construye tu base 8 × 8. Sin zombis ni PvP. En todos contra todos dura solo 5 s y la partida sigue hasta que quede uno (máximo 5 min).'],
   ['0:25 – 1:25', 'Oleada 1', 'Zombis normales. La caja se rellena.'],
   ['1:25 – 2:25', 'Oleada 2', 'Más zombis, con más vida y daño.'],
   ['2:25 – 3:25', 'Horda final', 'Oleada enorme para cerrar la partida.'],

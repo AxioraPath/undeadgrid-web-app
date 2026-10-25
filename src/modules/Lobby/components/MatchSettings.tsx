@@ -64,7 +64,7 @@ export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDi
           <div>
             <Label>DURACIÓN</Label>
             <div className="flex items-center gap-3 border-2 border-ug-border bg-black/30 px-3 py-3 phone:px-2 phone:py-1.5 font-terminal text-xl phone:text-lg">
-              <Clock size="1.5rem" /> <span className="flex-1" data-testid="match-duration">{minutes(lives !== null ? MATCH_DURATION_FFA : MATCH_DURATION)} min</span>
+              <Clock size="1.5rem" /> <span className="flex-1" data-testid="match-duration">{lives !== null ? `Hasta ${minutes(MATCH_DURATION_FFA)}` : minutes(MATCH_DURATION)} min</span>
             </div>
           </div>
           <div>
