@@ -1,8 +1,8 @@
-import type { Slot } from '../hooks/useLobbyRoom'
+import type { Team } from '../hooks/useLobbyRoom'
 
-// Jugador 1 = azul, Jugador 2 = rojo (igual que sus bases en el mapa).
+// Equipo 1 = azul, equipo 2 = rojo (igual que sus bases en el mapa).
 export const SLOT_THEME: Record<
-  Slot,
+  Team,
   { border: string; glow: string; accent: string; button: string; pedestal: string; bar: string; tab: string; base: string }
 > = {
   1: {

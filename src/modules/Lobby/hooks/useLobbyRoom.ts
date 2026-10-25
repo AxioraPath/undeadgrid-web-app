@@ -10,17 +10,22 @@ import type {
   MatchSlotStats,
   MatchXp,
   RematchState,
+  GameMode,
   PlayerSnapshot,
   RoomSnapshot,
   RoomStatus,
+  Slot,
+  Team,
 } from '../../../shared/lib/contracts'
+import { MODE_CAPACITY, TEAM_SIZE } from '../../../shared/lib/contracts'
 
-export type Slot = 1 | 2
+export type { Slot, Team }
 
 export interface LobbyPlayer {
   id: string
   name: string
   slot: Slot
+  team: Team
   ready: boolean
   survivor: string
   // true cuando el jugador confirmó su superviviente en la pantalla de selección
@@ -40,7 +45,8 @@ export interface ChatMessage {
 export interface MatchSummary {
   stats: { [slot: number]: MatchSlotStats }
   durationS: number
-  winner: 1 | 2 | null
+  /** Winning team (1v1: same number as the slot). */
+  winner: Team | null
   reason: MatchEndReason
   mapName?: string
 }
@@ -58,10 +64,26 @@ const sessionKey = (code: string) => `undeadgrid:session:${code}`
 /** Código de la URL mientras el servidor crea la sala; luego se reemplaza por el real. */
 export const NEW_ROOM_CODE = 'NUEVA-SALA'
 
+/** Spanish text for the errors a lobby action can answer with. */
+const ACTION_ERRORS: Record<string, string> = {
+  TEAM_FULL: 'Ese equipo ya está completo',
+  TOO_MANY_PLAYERS: 'Hay demasiados jugadores para 1v1: máximo 2',
+  ROOM_FULL: 'La sala está llena',
+  NOT_HOST: 'Solo el anfitrión puede hacer esto',
+  BAD_STATE: 'No se puede hacer eso ahora',
+  TIMEOUT: 'El servidor no respondió a tiempo',
+}
+
+const actionErrorText = (err: unknown) => {
+  const e = err as { code?: string; message?: string }
+  return (e.code && ACTION_ERRORS[e.code]) || e.message || 'No se pudo completar la acción'
+}
+
 const toLobbyPlayer = (p: PlayerSnapshot): LobbyPlayer => ({
   id: p.id,
   name: p.name,
   slot: p.slot,
+  team: p.team ?? (p.slot % 2 === 1 ? 1 : 2),
   ready: p.ready,
   survivor: p.survivor,
   survivorConfirmed: p.survivorConfirmed,
@@ -89,7 +111,11 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   const [rematchRequested, setRematchRequested] = useState<number[]>([])
   // Bumped each time the room leaves `results`, so the match screen remounts clean for a rematch.
   const [matchRound, setMatchRound] = useState(0)
-  const [mySlot, setMySlot] = useState<Slot>(isHost ? 1 : 2)
+  // Stable player id of this client: slot and team can change in the lobby, so `me` is looked up by id.
+  const [myId, setMyId] = useState<string | null>(null)
+  const [fallbackSlot, setFallbackSlot] = useState<Slot>(isHost ? 1 : 2)
+  // Last failed lobby action (setMode, setTeam, start), shown inline.
+  const [actionError, setActionError] = useState<string | null>(null)
   // Mensaje si no se pudo crear/unirse (sala inexistente, llena, sin conexión…).
   const [joinError, setJoinError] = useState<string | null>(null)
 
@@ -97,10 +123,6 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   const { user } = useAuth()
   const defaultName = resolvePlayerName(user?.name, isHost ? 1 : 2)
   const defaultSurvivor = UNLOCKED_SURVIVORS[isHost ? 0 : 1].id
-
-  // Slot efectivo del cliente en una ref para que los listeners lean el valor vigente.
-  const mySlotRef = useRef<Slot>(mySlot)
-  mySlotRef.current = mySlot
 
   // Código de la sala en la que ya estamos: si la URL cambia a ese código no hay que volver a crear/unirse.
   const joinedCodeRef = useRef<string | null>(null)
@@ -132,7 +154,8 @@ export function useLobbyRoom(code: string, isHost: boolean) {
 
         const applyJoined = (joined: JoinedData) => {
           if (cancelled) return
-          setMySlot(joined.slot as Slot)
+          setFallbackSlot(joined.slot)
+          setMyId(joined.room.players.find((p) => p.slot === joined.slot)?.id ?? null)
           setRoom(joined.room)
           persist(joined)
           // Al crear sala, el servidor asigna el código real; RoomProvider lo pone en la URL.
@@ -160,7 +183,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
           e.code === 'ROOM_NOT_FOUND'
             ? 'La sala no existe. Revisa el código.'
             : e.code === 'ROOM_FULL'
-              ? 'La sala está llena.'
+              ? 'La sala está llena (máximo 4 jugadores en 2v2).'
               : (e.message ?? 'No se pudo entrar a la sala.'),
         )
       }
@@ -219,33 +242,48 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   }, [roomStatus])
 
   const players = useMemo<LobbyPlayer[]>(
-    () => (room ? room.players.map(toLobbyPlayer) : []),
+    () => (room ? room.players.map(toLobbyPlayer).sort((a, b) => a.slot - b.slot) : []),
     [room],
   )
+  const mode: GameMode = room?.mode ?? '1v1'
+  const capacity = room?.capacity ?? MODE_CAPACITY[mode]
 
-  // "me" es el jugador con el slot asignado al cliente; rival es el otro.
+  // "me" is looked up by player id (slot / team can change after setMode / setTeam).
   const me = useMemo<LobbyPlayer>(() => {
-    const found = players.find((p) => p.slot === mySlot)
+    const found = players.find((p) => p.id === myId)
     if (found) return found
     // Fallback mientras llega el primer snapshot: jugador placeholder coherente.
     return {
       id: 'me',
       name: defaultName,
-      slot: mySlot,
+      slot: fallbackSlot,
+      team: fallbackSlot % 2 === 1 ? 1 : 2,
       ready: false,
       survivor: defaultSurvivor,
       survivorConfirmed: false,
       isHost,
       connected: true,
     }
-  }, [players, mySlot, defaultName, defaultSurvivor, isHost])
+  }, [players, myId, fallbackSlot, defaultName, defaultSurvivor, isHost])
 
-  const rival = useMemo(() => players.find((p) => p.slot !== mySlot), [players, mySlot])
+  // Opponents (1 in 1v1, 2 in 2v2) and my teammate (2v2 only).
+  const rivals = useMemo(() => players.filter((p) => p.team !== me.team), [players, me.team])
+  const rival = rivals[0]
+  const teammate = useMemo(() => players.find((p) => p.team === me.team && p.id !== me.id), [players, me.team, me.id])
 
   const bySlot = useMemo(
     () => ({
       1: players.find((p) => p.slot === 1),
       2: players.find((p) => p.slot === 2),
+      3: players.find((p) => p.slot === 3),
+      4: players.find((p) => p.slot === 4),
+    }),
+    [players],
+  )
+  const byTeam = useMemo(
+    () => ({
+      1: players.filter((p) => p.team === 1),
+      2: players.filter((p) => p.team === 2),
     }),
     [players],
   )
@@ -279,10 +317,42 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     }
   }, [])
 
-  /** El host inicia: lobby → preparación (el servidor valida sala llena y ambos listos). */
-  const start = useCallback(() => {
-    emitAck('lobby:start').catch((err) => console.error('[useLobbyRoom] lobby:start falló', err))
+  /** Runs a lobby action whose ack is a RoomSnapshot; failures show up inline in Spanish. */
+  const lobbyAction = useCallback(async (event: 'lobby:setMode' | 'room:setTeam' | 'lobby:start', payload?: unknown) => {
+    setActionError(null)
+    try {
+      const snapshot = await emitAck<RoomSnapshot>(event, payload)
+      // Keep the freshest snapshot (the lobby:state broadcast may already have arrived).
+      if (snapshot) setRoom((cur) => (cur && cur.version > snapshot.version ? cur : snapshot))
+    } catch (err) {
+      console.error(`[useLobbyRoom] ${event} falló`, err)
+      setActionError(actionErrorText(err))
+    }
   }, [])
+
+  /** El host inicia: lobby → preparación (el servidor valida sala llena, equipos de 2 y todos listos). */
+  const start = useCallback(() => {
+    void lobbyAction('lobby:start')
+  }, [lobbyAction])
+
+  /** Host only: switch between 1v1 and 2v2 (slots can be remapped by the server). */
+  const setMode = useCallback(
+    (next: GameMode) => {
+      if (!me.isHost || next === mode) return
+      void lobbyAction('lobby:setMode', { mode: next })
+    },
+    [me.isHost, mode, lobbyAction],
+  )
+
+  /** 2v2: move to a team. */
+  const setTeam = useCallback(
+    (team: Team) => {
+      if (mode !== '2v2' || team === me.team) return
+      void lobbyAction('room:setTeam', { team })
+    },
+    [mode, me.team, lobbyAction],
+  )
+  const clearActionError = useCallback(() => setActionError(null), [])
 
   const leave = useCallback(async () => {
     try {
@@ -350,6 +420,21 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   }, [])
 
   const playerCount = players.length
+  const teamsBalanced = mode === '1v1' || (byTeam[1].length === TEAM_SIZE && byTeam[2].length === TEAM_SIZE)
+  /** Spanish reason why the host cannot start yet (null when everything is in place). */
+  const missing = capacity - playerCount
+  const startBlocker =
+    missing > 0
+      ? mode === '2v2'
+        ? `Faltan ${missing} jugador${missing === 1 ? '' : 'es'} para empezar`
+        : 'Falta un rival para empezar'
+      : !teamsBalanced
+        ? 'Cada equipo debe tener 2 jugadores'
+        : !players.every((p) => p.ready)
+          ? mode === '2v2'
+            ? 'Esperando a que todos estén listos'
+            : 'Espera a que ambos jugadores estén listos'
+          : null
   const status: RoomStatus = room?.status ?? 'lobby'
   const seed = room?.seed ?? 0
 
@@ -361,13 +446,23 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     joinError,
     me,
     rival,
+    rivals,
+    teammate,
     bySlot,
+    byTeam,
+    mode,
+    capacity,
+    setMode,
+    setTeam,
+    actionError,
+    clearActionError,
+    startBlocker,
     playerCount,
     messages,
     map: MAPS[mapIndex],
     mapIndex,
     difficulty: room?.difficulty ?? DIFFICULTIES[0],
-    canStart: me.isHost && playerCount === 2 && players.every((p) => p.ready),
+    canStart: me.isHost && startBlocker === null,
     toggleReady,
     rename,
     selectSurvivor,

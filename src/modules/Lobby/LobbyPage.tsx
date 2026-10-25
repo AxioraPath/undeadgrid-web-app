@@ -13,6 +13,8 @@ import { MatchSettings } from './components/MatchSettings'
 import { MapPanel } from './components/MapPanel'
 import { RoomChat } from './components/RoomChat'
 import { StartButton } from './components/StartButton'
+import { ModeToggle } from './components/ModeToggle'
+import { TeamBoard } from './components/TeamBoard'
 import { useRoom } from './context/roomContext'
 
 export function LobbyPage() {
@@ -32,7 +34,7 @@ export function LobbyPage() {
   const [prevCount, setPrevCount] = useState(room.playerCount)
   if (prevCount !== room.playerCount) {
     setPrevCount(room.playerCount)
-    setRivalLeft(prevCount === 2 && room.playerCount < 2)
+    setRivalLeft(room.playerCount < prevCount)
   }
   useEffect(() => {
     if (!rivalLeft) return
@@ -42,6 +44,7 @@ export function LobbyPage() {
 
   const slotProps = (slot: 1 | 2) => ({
     slot,
+    team: slot,
     player: room.bySlot[slot],
     isMe: room.bySlot[slot]?.id === room.me.id,
     onToggleReady: room.toggleReady,
@@ -74,7 +77,7 @@ export function LobbyPage() {
 
       {/* Barra superior */}
       <div className="mb-4 flex flex-wrap items-start justify-center gap-3 phone:col-start-2 phone:row-start-1 phone:mb-0 phone:justify-end phone:gap-2 lg:col-span-2 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:justify-end">
-        <RoomHeader code={room.joined ? room.code : null} playerCount={room.playerCount} />
+        <RoomHeader code={room.joined ? room.code : null} playerCount={room.playerCount} capacity={room.capacity} mode={room.mode} />
         <div className="hidden xl:block">
           <PlayerCard name={room.me.name} {...(user?.profile ?? {})} />
         </div>
@@ -90,10 +93,35 @@ export function LobbyPage() {
 
       {/* Centro: jugadores, configuración y comenzar */}
       <main className="flex flex-col gap-4 phone:col-start-1 phone:row-start-2 phone:row-span-2 phone:gap-2 lg:col-start-2 lg:row-start-2">
-        <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-4 sm:gap-10 phone:gap-3 lg:gap-24 lg:pt-2">
-          <div><PlayerSlot {...slotProps(1)} /></div>
-          <div><PlayerSlot {...slotProps(2)} /></div>
-        </div>
+        <ModeToggle mode={room.mode} canEdit={room.me.isHost} onChange={room.setMode} />
+        {room.mode === '2v2' ? (
+          <TeamBoard
+            byTeam={room.byTeam}
+            myId={room.me.id}
+            myTeam={room.me.team}
+            onSetTeam={room.setTeam}
+            onToggleReady={room.toggleReady}
+            onRename={room.rename}
+            onChangeSurvivor={() => navigate('personaje')}
+          />
+        ) : (
+          <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-4 sm:gap-10 phone:gap-3 lg:gap-24 lg:pt-2">
+            <div><PlayerSlot {...slotProps(1)} /></div>
+            <div><PlayerSlot {...slotProps(2)} /></div>
+          </div>
+        )}
+        {room.actionError && (
+          <p
+            role="alert"
+            data-testid="lobby-error"
+            className="ug-panel mx-auto flex w-full max-w-3xl items-center justify-between gap-3 border-ug-red-hi px-3 py-1.5 font-terminal text-xl leading-tight text-ug-red-hi phone:text-base"
+          >
+            <span>{room.actionError}</span>
+            <button type="button" onClick={room.clearActionError} aria-label="Cerrar aviso" className="shrink-0 border-2 border-ug-border px-2 text-ug-text hover:border-ug-border-hi">
+              OK
+            </button>
+          </p>
+        )}
         <div className="mt-2 phone:mt-0 lg:mt-auto">
           <MatchSettings
             map={room.map}
@@ -103,7 +131,7 @@ export function LobbyPage() {
             onCycleDifficulty={room.cycleDifficulty}
           />
         </div>
-        <StartButton canStart={room.canStart} isHost={room.me.isHost} onStart={room.start} />
+        <StartButton canStart={room.canStart} isHost={room.me.isHost} blocker={room.startBlocker} onStart={room.start} />
       </main>
 
       {/* Panel del mapa */}
@@ -122,7 +150,7 @@ export function LobbyPage() {
           data-testid="rival-left"
           className="ug-panel fixed left-1/2 top-4 z-40 -translate-x-1/2 px-4 py-2 font-terminal text-xl text-ug-red-hi"
         >
-          El rival salió de la sala
+          {room.mode === '2v2' ? 'Un jugador salió de la sala' : 'El rival salió de la sala'}
         </p>
       )}
 

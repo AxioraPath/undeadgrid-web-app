@@ -3,14 +3,16 @@ import { Play } from 'lucide-react'
 interface StartButtonProps {
   canStart: boolean
   isHost: boolean
+  /** Why the host cannot start yet (shown as the hint). */
+  blocker?: string | null
   onStart: () => void
 }
 
-export function StartButton({ canStart, isHost, onStart }: StartButtonProps) {
+export function StartButton({ canStart, isHost, blocker, onStart }: StartButtonProps) {
   const hint = canStart
     ? '¡Todo listo! Comienza cuando quieras'
     : isHost
-      ? 'Espera a que ambos jugadores estén listos'
+      ? (blocker ?? 'Espera a que ambos jugadores estén listos')
       : 'El anfitrión iniciará la partida'
 
   return (
@@ -25,7 +27,7 @@ export function StartButton({ canStart, isHost, onStart }: StartButtonProps) {
         <Play size="2rem" fill="currentColor" className="shrink-0" />
         <span className="ug-title-shadow text-3xl leading-none tracking-wide whitespace-nowrap sm:text-4xl phone:text-3xl">COMENZAR PARTIDA</span>
       </button>
-      <p className="font-terminal text-lg phone:text-base phone:leading-none text-ug-muted">{hint}</p>
+      <p className="font-terminal text-lg phone:text-base phone:leading-none text-ug-muted" data-testid="start-hint">{hint}</p>
     </div>
   )
 }

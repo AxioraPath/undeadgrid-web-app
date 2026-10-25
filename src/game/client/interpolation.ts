@@ -1,5 +1,5 @@
-import type { GameMap, GameState, ProjectileKind, Slot, WeaponId, ZombieKind } from '../../shared/lib/contracts'
-import { PROJECTILE_KINDS, STRUCTURE_TYPES, ZOMBIE_KINDS } from '../../shared/lib/contracts'
+import type { GameMap, GameState, ProjectileKind, Slot, Team, WeaponId, ZombieKind } from '../../shared/lib/contracts'
+import { PROJECTILE_KINDS, STRUCTURE_TYPES, ZOMBIE_KINDS, teamOf } from '../../shared/lib/contracts'
 
 /** Retraso de dibujo: se pinta ~100 ms en el pasado para tener siempre dos estados entre los que interpolar. */
 const INTERP_DELAY_S = 0.1
@@ -13,6 +13,8 @@ export const lerp = (a: number, b: number, t: number) => a + (b - a) * clamp(t, 
 export interface PlayerView {
   id: string
   slot: Slot
+  team: Team
+  name: string
   survivor: string
   x: number
   y: number
@@ -61,7 +63,7 @@ export interface View {
   zombies: ZombieView[]
   bullets: { x: number; y: number; vx: number; vy: number; kind: ProjectileKind }[]
   structures: Map<number, StructureView>
-  cores: Record<Slot, number>
+  cores: Record<Team, number>
   /** Torretas por casilla: hacia dónde apuntan, si recargan y si acaban de disparar. */
   turrets: Map<number, TurretView>
   armory: { available: boolean; progress: Partial<Record<Slot, number>> } | null
@@ -129,6 +131,8 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
     return {
       id: p.id,
       slot: p.slot,
+      team: p.team ?? teamOf(p.slot),
+      name: p.name,
       survivor: p.survivor,
       x: lerp(q.x, p.x, t),
       y: lerp(q.y, p.y, t),

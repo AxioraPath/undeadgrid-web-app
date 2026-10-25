@@ -28,7 +28,7 @@ function Instructions() {
   return (
     <div className="space-y-4 font-terminal text-xl leading-tight text-ug-muted">
       <p>
-        Defiende tu <b className="text-ug-text">núcleo</b> (500 HP) y destruye el del rival. Mientras tu núcleo viva,
+        Defiende tu <b className="text-ug-text">núcleo</b> (500 HP) y destruye el del rival. En 2v2 el núcleo es compartido con tu compañero (sin fuego amigo). Mientras tu núcleo viva,
         reapareces a los 5 s.
       </p>
       <ul className="space-y-1">

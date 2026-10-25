@@ -1,7 +1,20 @@
 // Contratos del servidor (espejo de service-undeadgrid/src/contracts).
 // Mantener sincronizado con EVENTS.md. Son los tipos que viajan por el socket.
 
-export type Slot = 1 | 2
+/** Seat in the room: 1v1 uses 1-2, 2v2 uses 1-4. */
+export type Slot = 1 | 2 | 3 | 4
+/** Team. 1v1: team == slot. 2v2: team 1 (blue) = slots 1 and 3, team 2 (red) = slots 2 and 4. */
+export type Team = 1 | 2
+export type GameMode = '1v1' | '2v2'
+
+export const GAME_MODES: readonly GameMode[] = ['1v1', '2v2']
+export const MODE_CAPACITY: Record<GameMode, number> = { '1v1': 2, '2v2': 4 }
+export const TEAM_SIZE = 2
+
+export const teamOf = (slot: Slot): Team => (slot % 2 === 1 ? 1 : 2)
+/** 0 for slots 1/2, 1 for slots 3/4. */
+export const seatOf = (slot: Slot): 0 | 1 => (slot > 2 ? 1 : 0)
+export const slotFor = (team: Team, seat: 0 | 1): Slot => (seat * 2 + team) as Slot
 
 export type RoomStatus = 'lobby' | 'selection' | 'preparation' | 'combat' | 'results'
 export type PhaseId = 'prep' | 'wave1' | 'wave2' | 'horde'
@@ -20,6 +33,7 @@ export interface PlayerSnapshot {
   id: string
   name: string
   slot: Slot
+  team: Team
   isHost: boolean
   ready: boolean
   survivor: string
@@ -39,13 +53,15 @@ export interface CombatSnapshot {
   elapsed: number
   phase: PhaseId
   wave: number
-  cores: Record<Slot, number>
+  /** Shared core HP keyed by team. */
+  cores: Record<Team, number>
 }
 
 export interface MatchResult {
-  winner: Slot | null
+  /** Winning team (1v1: same as the slot), null = draw. */
+  winner: Team | null
   reason: 'core_destroyed' | 'opponent_left' | 'time_out'
-  cores: Record<Slot, number>
+  cores: Record<Team, number>
 }
 
 export interface RoomSnapshot {
@@ -54,6 +70,9 @@ export interface RoomSnapshot {
   seed: number
   mapId: string
   difficulty: string
+  mode: GameMode
+  /** Max players for the mode (2 or 4). */
+  capacity: number
   hostSlot: Slot
   players: PlayerSnapshot[]
   combat: CombatSnapshot | null
@@ -67,6 +86,8 @@ export type MatchXp = Partial<Record<number, number>>
 
 /** Per-slot end-of-match stats reported by the server. */
 export interface MatchSlotStats {
+  /** Team of this player (missing on old servers: derive it from the slot). */
+  team?: Team
   zombieKills: number
   structuresBuilt: number
   /** HP of damage dealt to the rival core. */
@@ -80,7 +101,8 @@ export type MatchOverPayload = RoomSnapshot & {
   xp?: MatchXp
   stats: { [slot: number]: MatchSlotStats }
   durationS: number
-  winner: Slot | null
+  /** Winning team, null = draw. */
+  winner: Team | null
   reason: MatchEndReason
   mapName?: string
 }
@@ -126,6 +148,10 @@ export interface ClientToServerEvents {
   'lobby:confirmSurvivor': (ack: (r: Ack<RoomSnapshot>) => void) => void
   'lobby:setMap': (p: { mapId: string }, ack: (r: Ack<RoomSnapshot>) => void) => void
   'lobby:setDifficulty': (p: { difficulty: string }, ack: (r: Ack<RoomSnapshot>) => void) => void
+  /** Host only, lobby only. Slots may be remapped: re-read yours from the snapshot by player id. */
+  'lobby:setMode': (p: { mode: GameMode }, ack: (r: Ack<RoomSnapshot>) => void) => void
+  /** 2v2 lobby only: move to a team (max 2 per team). */
+  'room:setTeam': (p: { team: Team }, ack: (r: Ack<RoomSnapshot>) => void) => void
   'lobby:start': (ack: (r: Ack<RoomSnapshot>) => void) => void
   'match:rematchRequest': (ack: (r: Ack) => void) => void
   'match:rematchCancel': (ack: (r: Ack) => void) => void
@@ -204,9 +230,10 @@ export interface GameMap {
   /** Capa de suelo por casilla, solo visual (ver Ground). */
   ground: number[]
   objects: MapObject[]
-  bases: Record<Slot, Rect>
-  cores: Record<Slot, Point>
-  crates: Record<Slot, Point>
+  /** Keyed by team: both teammates share base, core and crate. */
+  bases: Record<Team, Rect>
+  cores: Record<Team, Point>
+  crates: Record<Team, Point>
   spawns: Point[]
   /** Punto de la caja de armamento (centro de la plazoleta). */
   armory?: Point
@@ -224,6 +251,7 @@ export interface BuildHint {
 export interface GamePlayer {
   id: string
   slot: Slot
+  team: Team
   name: string
   survivor: string
   x: number
@@ -274,7 +302,7 @@ export const HEAVY_WEAPONS: Record<HeavyId, { name: string; icon: string }> = {
   sniper: { name: 'Sniper', icon: 'sniper' },
   rocket: { name: 'Lanzacohetes', icon: 'lanzacohetes' },
 }
-/** [casilla, tipo(0 madera | 1 reforzada | 2 trampa), hp, maxHp, dueño, orientación('h' | 'v')] */
+/** [casilla, tipo(0 madera | 1 reforzada | 2 trampa | 3 torreta), hp, maxHp, dueño (SLOT que la construyó; equipo = teamOf), orientación('h' | 'v')] */
 export type StructureTuple = [number, number, number, number, Slot, 'h' | 'v']
 
 export type ZombieKind = 'normal' | 'fast' | 'tank'
@@ -290,7 +318,8 @@ export type GameEvent =
   | { type: 'built'; x: number; y: number; what: string }
   | { type: 'rejected'; slot: Slot; reason: string }
   | { type: 'phase'; label: string }
-  | { type: 'coreHit'; slot: Slot }
+  /** `slot` is the legacy name of `team` (same value): the team whose core was hit. */
+  | { type: 'coreHit'; slot: Team; team?: Team }
   | { type: 'armoryOpened'; slot: Slot; weapon?: HeavyId }
   | { type: 'armoryReady'; weapon?: HeavyId }
 
@@ -303,15 +332,15 @@ export interface GameState {
   zombies: ZombieTuple[]
   bullets: BulletTuple[]
   structures: StructureTuple[]
-  cores: Record<Slot, number>
-  crates: Record<Slot, Stock>
+  cores: Record<Team, number>
+  crates: Record<Team, Stock>
   armory?: { available: boolean; openedBy: Slot | null; progress: Partial<Record<Slot, number>> }
   /** Barriles y tanques del mapa (índice en `map.objects`): los que explotaron y los dañados [índice, hp, maxHp]. */
   props?: { destroyed: number[]; damaged: [number, number, number][] }
   /** Torretas: [casilla, aimX, aimY, tiros en el cargador, recargando (0/1), disparando (0/1)]. */
   turrets?: [number, number, number, number, number, number?][]
   events: GameEvent[]
-  result: { winner: Slot | 0; reason: string; durationS: number; byTime: boolean } | null
+  result: { winner: Team | 0; reason: string; durationS: number; byTime: boolean } | null
 }
 
 export interface GameSyncData {

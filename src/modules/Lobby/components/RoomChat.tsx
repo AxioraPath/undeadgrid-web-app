@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { SendHorizontal } from 'lucide-react'
 import type { ChatMessage } from '../hooks/useLobbyRoom'
+import { teamOf } from '../../../shared/lib/contracts'
 import { CHAT_MAX, validateChatMessage } from '../../../shared/lib/validation'
 
 const AUTHOR_COLOR = { 1: 'text-[#4d9bff]', 2: 'text-ug-red-hi' } as const
@@ -39,7 +40,7 @@ export function RoomChat({ messages, onSend }: RoomChatProps) {
         {messages.length === 0 && <li className="text-ug-muted">Aún no hay mensajes.</li>}
         {messages.map((m) => (
           <li key={m.id}>
-            <span className={AUTHOR_COLOR[m.slot]}>{m.author}:</span> {m.text}
+            <span className={AUTHOR_COLOR[teamOf(m.slot)]}>{m.author}:</span> {m.text}
           </li>
         ))}
       </ul>

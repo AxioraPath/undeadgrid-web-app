@@ -17,9 +17,9 @@ export function ModeCard() {
           className="pixelated aspect-[406/210] w-full phone:aspect-[406/130] border-2 border-ug-border object-cover"
         />
         <div className="px-3 pt-2 pb-3 phone:px-2 phone:pt-1 phone:pb-1.5">
-          <h3 className="ug-title-shadow text-3xl phone:text-2xl">1 vs 1 - SUPERVIVENCIA ZOMBI</h3>
+          <h3 className="ug-title-shadow text-3xl phone:text-2xl">1 VS 1 / 2 VS 2 - SUPERVIVENCIA ZOMBI</h3>
           <p className="mt-1 font-terminal text-xl leading-tight phone:text-lg phone:leading-[1.05] text-ug-muted">
-            Construye tu base, resiste las oleadas y destruye el núcleo enemigo.
+            Construye tu base, resiste las oleadas y destruye el núcleo enemigo, solo o en equipo.
           </p>
         </div>
       </section>

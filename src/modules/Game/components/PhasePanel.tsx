@@ -1,11 +1,11 @@
 import { Skull } from 'lucide-react'
-import { CORE_HP, type Slot } from '../../../shared/lib/contracts'
+import { CORE_HP, type Team } from '../../../shared/lib/contracts'
 import { formatTime, TOTAL_WAVES, type HudSnapshot } from '../hud'
 
-function CoreBar({ slot, hp, mine }: { slot: Slot; hp: number; mine: boolean }) {
-  const color = slot === 1 ? 'bg-[#3d8bff]' : 'bg-ug-red-hi'
+function CoreBar({ team, hp, mine }: { team: Team; hp: number; mine: boolean }) {
+  const color = team === 1 ? 'bg-[#3d8bff]' : 'bg-ug-red-hi'
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2" data-testid={mine ? 'hud-core-mine' : 'hud-core-rival'} data-team={team} data-hp={hp}>
       <span className="w-16 text-left font-terminal text-xs leading-none text-ug-muted short:w-12 short:text-[0.625rem] lg:w-20 lg:text-sm">{mine ? 'Tu núcleo' : 'Núcleo rival'}</span>
       <div className="h-2.5 flex-1 short:h-2 border border-black/60 bg-black/60">
         <div className={`h-full ${color}`} style={{ width: `${(hp / CORE_HP) * 100}%` }} />
@@ -17,7 +17,6 @@ function CoreBar({ slot, hp, mine }: { slot: Slot; hp: number; mine: boolean }) 
 
 export function PhasePanel({ hud }: { hud: HudSnapshot }) {
   const prep = hud.wave === 0
-  const rivalSlot: Slot = hud.me.slot === 1 ? 2 : 1
 
   return (
     <div className="ug-panel w-[min(15rem,60vw)] px-3 py-1.5 text-center sm:w-[clamp(15rem,32vw,22rem)] lg:px-4 lg:py-2 short:w-44 short:px-2 short:py-0.5" data-testid="hud-phase" data-phase={hud.phaseId}>
@@ -47,8 +46,8 @@ export function PhasePanel({ hud }: { hud: HudSnapshot }) {
         </>
       )}
       <div className="mt-1.5 space-y-1 short:mt-1 short:space-y-0.5 lg:mt-2">
-        <CoreBar slot={hud.me.slot} hp={hud.cores[hud.me.slot]} mine />
-        <CoreBar slot={rivalSlot} hp={hud.cores[rivalSlot]} mine={false} />
+        <CoreBar team={hud.myTeam} hp={hud.cores[hud.myTeam]} mine />
+        <CoreBar team={hud.rivalTeam} hp={hud.cores[hud.rivalTeam]} mine={false} />
       </div>
     </div>
   )

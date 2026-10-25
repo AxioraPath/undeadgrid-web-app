@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { Slot } from '../../shared/lib/contracts'
 import { useRoom } from '../Lobby/context/roomContext'
 import { GamePage } from './GamePage'
 
@@ -14,14 +15,19 @@ export function RoomGamePage() {
   }
 
   const players = useMemo(
-    () => ({
-      1: room.bySlot[1] && { name: room.bySlot[1].name, survivor: room.bySlot[1].survivor },
-      2: room.bySlot[2] && { name: room.bySlot[2].name, survivor: room.bySlot[2].survivor },
-    }),
+    () => {
+      const byPlayer: Partial<Record<Slot, { name: string; survivor: string }>> = {}
+      for (const slot of [1, 2, 3, 4] as Slot[]) {
+        const p = room.bySlot[slot]
+        if (p) byPlayer[slot] = { name: p.name, survivor: p.survivor }
+      }
+      return byPlayer
+    },
     [room.bySlot],
   )
 
-  const rivalPresent = Boolean(room.rival) && room.rival?.connected !== false
+  // A rematch needs every seat of the mode filled and connected (the server rejects it otherwise).
+  const rivalPresent = room.playerCount === room.capacity && room.rivals.length > 0 && room.rivals.every((p) => p.connected) && (room.teammate?.connected ?? true)
 
   return (
     <GamePage

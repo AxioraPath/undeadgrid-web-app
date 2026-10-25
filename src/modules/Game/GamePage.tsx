@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LogOut } from 'lucide-react'
-import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, type RoomStatus, type Slot, type Stock, type WeaponId } from '../../shared/lib/contracts'
+import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
@@ -36,10 +36,10 @@ export interface GamePageProps {
   /** Estado de la sala (lo decide el servidor). */
   status: RoomStatus
   /** Resultado de la sala cuando la partida terminó fuera del motor (p. ej. abandono). */
-  roomResult: { winner: Slot | null; reason: string } | null
+  roomResult: { winner: Team | null; reason: string } | null
   /** Leaves the room (HUD button and the results screen's SALIR). */
   onExit: () => void | Promise<void>
-  /** XP gained per slot, when the server reports it. */
+  /** XP gained per slot, when the server reports it (only players still in the room). */
   xp?: MatchXp | null
   /** Everything the end-of-match screen needs besides what the game itself knows. */
   results: {
@@ -49,6 +49,7 @@ export interface GamePageProps {
     players: Partial<Record<Slot, ResultsPlayer>>
     /** `match:over` payload data (null until it arrives). */
     summary: MatchSummary | null
+    /** True while at least one opponent is still in the room (a rematch needs everybody). */
     rivalPresent: boolean
     rematchRequested: number[]
     onRematch: () => void
@@ -292,7 +293,9 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
           pushToast(
             e.slot === mySlot
               ? `¡${e.weapon ? HEAVY_WEAPONS[e.weapon].name : 'Arma pesada'}, torreta y botiquín conseguidos!`
-              : 'El rival abrió la caja de armamento',
+              : teamOf(e.slot) === teamOf(mySlot)
+                ? 'Tu compañero abrió la caja de armamento'
+                : 'El rival abrió la caja de armamento',
           )
       }
     },
@@ -431,7 +434,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
         const w = screenToWorld(cam, (mouse.x - rect.left) * (size.w / rect.width), (mouse.y - rect.top) * (size.h / rect.height))
         const gx = Math.floor(w.x / TILE)
         const gy = Math.floor(w.y / TILE)
-        const b = map.bases[mySlot]
+        const b = map.bases[teamOf(mySlot)]
         if (gx >= b.x && gx < b.x + b.w && gy >= b.y && gy < b.y + b.h)
           ghost = { x: gx, y: gy, inReach: Math.hypot(gx + 0.5 - mePos.x, gy + 0.5 - mePos.y) <= BUILD_REACH }
       }
@@ -509,24 +512,31 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const { summary: serverSummary, mapId, mapName } = results
   const summary = useMemo<ResultsSummary | null>(() => {
     if (serverSummary) {
-      const zero = { zombieKills: 0, structuresBuilt: 0, coreDamageDealt: 0, coreHpPct: 0 }
+      // Keyed by slot (1-2 in 1v1, 1-4 in 2v2); only players that took part have an entry.
+      const stats: ResultsSummary['stats'] = {}
+      for (const [key, s] of Object.entries(serverSummary.stats)) stats[Number(key) as Slot] = { ...s, team: s.team ?? teamOf(Number(key) as Slot) }
       return {
         winner: serverSummary.winner,
         reason: serverSummary.reason,
         durationS: serverSummary.durationS,
         mapId,
         mapName: serverSummary.mapName ?? mapName,
-        stats: { 1: serverSummary.stats[1] ?? zero, 2: serverSummary.stats[2] ?? zero },
+        stats,
       }
     }
     if (!hud) return null
-    const side = (slot: Slot) => {
-      const other: Slot = slot === 1 ? 2 : 1
-      return {
-        zombieKills: hud.stats[slot].zombieKills,
+    // Until match:over arrives: per-player zombie kills, core numbers per team.
+    const stats: ResultsSummary['stats'] = {}
+    for (const [key, s] of Object.entries(hud.stats)) {
+      const slot = Number(key) as Slot
+      const team = teamOf(slot)
+      const other: Team = team === 1 ? 2 : 1
+      stats[slot] = {
+        team,
+        zombieKills: s.zombieKills,
         structuresBuilt: 0,
         coreDamageDealt: Math.max(0, CORE_HP - hud.cores[other]),
-        coreHpPct: Math.round((hud.cores[slot] / CORE_HP) * 100),
+        coreHpPct: Math.round((hud.cores[team] / CORE_HP) * 100),
       }
     }
     const winner = hud.result ? hud.result.winner : (roomResult?.winner ?? 0)
@@ -536,7 +546,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
       durationS: hud.result?.durationS ?? 0,
       mapId,
       mapName,
-      stats: { 1: side(1), 2: side(2) },
+      stats,
     }
   }, [serverSummary, hud, roomResult, mapId, mapName])
 

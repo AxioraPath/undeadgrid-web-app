@@ -45,8 +45,8 @@ export function SurvivorSelectPage() {
       </div>
 
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-5 phone:col-span-3 phone:row-start-2 phone:grid phone:max-w-none phone:grid-cols-[1.15fr_1fr] phone:items-center phone:gap-3 phone:px-4">
-        <SurvivorSelector slot={room.me.slot} survivor={survivor} onSelect={setSelectedId} onCycle={cycle} />
-        <SurvivorDetails slot={room.me.slot} survivor={survivor} />
+        <SurvivorSelector team={room.me.team} survivor={survivor} onSelect={setSelectedId} onCycle={cycle} />
+        <SurvivorDetails team={room.me.team} survivor={survivor} />
       </main>
 
       <footer className="relative mt-auto flex flex-col items-center gap-3 pb-1 phone:col-span-3 phone:row-start-3 phone:gap-2 phone:pb-0 sm:flex-row sm:justify-center">

@@ -38,7 +38,7 @@ export function PlayModal({ open, onClose, onCreate, onJoin }: PlayModalProps) {
         <Plus size="1.75rem" />
         <span>
           <span className="block text-2xl leading-none">CREAR SALA</span>
-          <span className="font-terminal text-base leading-none text-white/85">Comparte el código con tu rival</span>
+          <span className="font-terminal text-base leading-none text-white/85">Comparte el código con tu rival o tu equipo</span>
         </span>
       </button>
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Backpack, Cog, Crosshair, Footprints, Package, Wrench, type LucideIcon } from 'lucide-react'
 import { STARTING_WEAPONS, type Skill, type Survivor } from '../data/catalog'
 import { SLOT_THEME } from '../data/slotTheme'
-import type { Slot } from '../hooks/useLobbyRoom'
+import type { Team } from '../hooks/useLobbyRoom'
 
 const SKILL_ICONS: Record<Skill['icon'], LucideIcon> = {
   run: Footprints,
@@ -16,12 +16,12 @@ const SKILL_ICONS: Record<Skill['icon'], LucideIcon> = {
 const TABS = ['Habilidades', 'Armas iniciales', 'Estilo de juego'] as const
 
 interface SurvivorDetailsProps {
-  slot: Slot
+  team: Team
   survivor: Survivor
 }
 
-export function SurvivorDetails({ slot, survivor }: SurvivorDetailsProps) {
-  const t = SLOT_THEME[slot]
+export function SurvivorDetails({ team, survivor }: SurvivorDetailsProps) {
+  const t = SLOT_THEME[team]
   const [tab, setTab] = useState<(typeof TABS)[number]>('Habilidades')
 
   return (
@@ -52,7 +52,7 @@ export function SurvivorDetails({ slot, survivor }: SurvivorDetailsProps) {
                 const Icon = SKILL_ICONS[s.icon]
                 return (
                   <li key={s.title} className="flex flex-col items-center border-2 border-ug-border bg-black/30 px-2 py-2 text-center">
-                    <Icon size="1.875rem" className={slot === 2 ? 'text-ug-red-hi' : 'text-ug-text'} />
+                    <Icon size="1.875rem" className={team === 2 ? 'text-ug-red-hi' : 'text-ug-text'} />
                     <span className="mt-1 text-lg leading-none">{s.title}</span>
                     <span className="font-terminal text-sm leading-tight text-ug-muted">{s.text}</span>
                   </li>

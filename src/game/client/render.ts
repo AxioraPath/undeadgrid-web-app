@@ -7,11 +7,13 @@ import {
   TILE,
   Tile,
   isExplosive,
+  teamOf,
   type BuildHint,
   type GameEvent,
   type GameMap,
   type MapObject,
   type Slot,
+  type Team,
   type ZombieKind,
 } from '../../shared/lib/contracts'
 import type { PlayerView, TurretView, View, ZombieView } from './interpolation'
@@ -19,7 +21,8 @@ import { createRng } from './rng'
 import { wallHalf, wallPlacement, wallSpriteName, type WallLookup, type WallOrient } from './wallSprite'
 import { drawFrame as drawSheetFrame, frameAt, sheetAnimations, sheetColumns, survivorSheet, type SheetName, type Sprites } from './sprites'
 
-const SLOT_COLOR: Record<Slot, { main: string; light: string; dark: string; tint: string }> = {
+/** Team colors: team 1 = blue, team 2 = red (same as the bases on the map). */
+const SLOT_COLOR: Record<Team, { main: string; light: string; dark: string; tint: string }> = {
   1: { main: '#3d8bff', light: '#8fc1ff', dark: '#173d78', tint: 'rgba(61, 139, 255, 0.14)' },
   2: { main: '#ff2a2f', light: '#ff8a8d', dark: '#6e0b0f', tint: 'rgba(255, 42, 47, 0.12)' },
 }
@@ -106,7 +109,7 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
   }
 
   // Bases: tinte del equipo y borde
-  for (const slot of [1, 2] as Slot[]) {
+  for (const slot of [1, 2] as Team[]) {
     const b = map.bases[slot]
     g.fillStyle = SLOT_COLOR[slot].tint
     g.fillRect(b.x * T2, b.y * T2, b.w * T2, b.h * T2)
@@ -334,7 +337,7 @@ export interface Fx {
   explosions: { x: number; y: number; life: number; big: boolean }[]
   deadPlayers: Partial<Record<Slot, { x: number; y: number; at: number }>>
   facing: Map<number, Dir>
-  coreFlash: Record<Slot, number>
+  coreFlash: Record<Team, number>
   shake: number
   clock: number
 }
@@ -375,8 +378,10 @@ export function consumeEvents(fx: Fx, events: GameEvent[], meSlot: Slot) {
       }
       fx.shake = Math.max(fx.shake, 0.18)
     } else if (e.type === 'coreHit') {
-      fx.coreFlash[e.slot] = 0.2
-      if (e.slot === meSlot) fx.shake = Math.max(fx.shake, 0.15)
+      // `slot` is the legacy name of `team` (same value): the team whose shared core was hit.
+      const hitTeam = e.team ?? e.slot
+      fx.coreFlash[hitTeam] = 0.2
+      if (hitTeam === teamOf(meSlot)) fx.shake = Math.max(fx.shake, 0.15)
     } else if (e.type === 'playerDied') {
       fx.deadPlayers[e.slot] = { x: e.x, y: e.y, at: fx.clock }
       fx.decals.push({ x: e.x, y: e.y, r: 0.45, a: 0.65 })
@@ -523,7 +528,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     ctx.fill()
   }
 
-  if (o.hint) drawBuildGrid(ctx, map, o.meSlot)
+  if (o.hint) drawBuildGrid(ctx, map, teamOf(o.meSlot))
 
   // Trampas (al ras del suelo)
   for (const [key, st] of v.structures) {
@@ -575,7 +580,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   })
   const armoryAt = map.armory
   if (armoryAt) list.push({ y: armoryAt.y + 0.5, draw: () => drawArmory(ctx, v, sp, armoryAt.x, armoryAt.y, o.meSlot, fx.clock) })
-  for (const slot of [1, 2] as Slot[]) {
+  for (const slot of [1, 2] as Team[]) {
     const c = map.crates[slot]
     list.push({ y: c.y + 1, draw: () => drawAnchored(ctx, sp[slot === 1 ? 'caja-azul' : 'caja-roja'], (c.x + 0.5) * TILE, (c.y + 1) * TILE, ART * 1.05) })
     const core = map.cores[slot]
@@ -589,7 +594,9 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   for (const id of fx.facing.keys()) if (!alive.has(id)) fx.facing.delete(id)
   for (const p of v.players) {
     if (p.alive) {
-      list.push({ y: p.y, draw: () => drawPlayer(ctx, v, sp, fx, p, p.slot === o.meSlot, p.slot === o.meSlot ? o.aim : null) })
+      const isMe = p.slot === o.meSlot
+      const isMate = !isMe && p.team === teamOf(o.meSlot)
+      list.push({ y: p.y, draw: () => drawPlayer(ctx, v, sp, fx, p, isMe, isMate, isMe ? o.aim : null) })
     } else {
       const d = fx.deadPlayers[p.slot]
       if (d) {
@@ -681,9 +688,10 @@ const TURRET_DIR: Record<Dir, string> = { down: 'abajo', up: 'arriba', left: 'iz
 
 /** Torreta: sprite en la dirección de su objetivo (con fogonazo al disparar); parpadea en ámbar al recargar. */
 function drawTurret(ctx: Ctx, sp: Sprites, t: TurretView | undefined, tx: number, ty: number, pct: number, owner: Slot, time: number) {
+  const team = teamOf(owner)
   const cx = (tx + 0.5) * TILE
   const bottom = (ty + 1) * TILE + 2
-  ctx.fillStyle = SLOT_COLOR[owner].main
+  ctx.fillStyle = SLOT_COLOR[team].main
   ctx.globalAlpha = 0.55
   ctx.beginPath()
   ctx.ellipse(cx, bottom - 3, 14, 5, 0, 0, Math.PI * 2)
@@ -722,16 +730,17 @@ function drawArmory(ctx: Ctx, v: View, sp: Sprites, x: number, y: number, meSlot
     ctx.fillRect(cx - TILE * 2, cy - TILE * 2, TILE * 4, TILE * 4)
   }
   drawAnchored(ctx, sp[available ? 'caja-suministros' : 'caja-suministros-abierta'], cx, cy + TILE * 0.5, ART * 1.1)
-  for (const slot of [1, 2] as Slot[]) {
+  // One ring per player opening the crate (up to 4 in 2v2); each radius is distinct so rings never overlap.
+  for (const slot of [1, 2, 3, 4] as Slot[]) {
     const prog = v.armory?.progress[slot]
     if (!available || prog === undefined) continue
-    const r = slot === meSlot ? 22 : 26
+    const r = slot === meSlot ? 22 : 24 + slot * 2
     ctx.strokeStyle = 'rgba(0,0,0,0.6)'
     ctx.lineWidth = 4
     ctx.beginPath()
     ctx.arc(cx, cy - 6, r, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.strokeStyle = SLOT_COLOR[slot].main
+    ctx.strokeStyle = SLOT_COLOR[teamOf(slot)].main
     ctx.beginPath()
     ctx.arc(cx, cy - 6, r, -Math.PI / 2, -Math.PI / 2 + (Math.min(prog, ARMORY_OPEN_S) / ARMORY_OPEN_S) * Math.PI * 2)
     ctx.stroke()
@@ -750,8 +759,8 @@ function drawSheet(ctx: Ctx, sheet: HTMLImageElement, frame: number, feetX: numb
   ctx.restore()
 }
 
-function drawBuildGrid(ctx: Ctx, map: GameMap, slot: Slot) {
-  const b = map.bases[slot]
+function drawBuildGrid(ctx: Ctx, map: GameMap, team: Team) {
+  const b = map.bases[team]
   ctx.fillStyle = 'rgba(46, 232, 106, 0.08)'
   ctx.fillRect(b.x * TILE, b.y * TILE, b.w * TILE, b.h * TILE)
   ctx.strokeStyle = 'rgba(46, 232, 106, 0.3)'
@@ -796,7 +805,8 @@ function drawWall(ctx: Ctx, sp: Sprites, tx: number, ty: number, type: 'wood' | 
   if (pct < 1) hpBar(ctx, x + TILE / 2, y - (orient === 'v' ? 16 : 6), 24, pct, pct > 0.5 ? '#2ee86a' : '#ffb020')
 }
 
-function drawCore(ctx: Ctx, v: View, sp: Sprites, slot: Slot, fx: Fx) {
+/** Core of a team (shared by both teammates in 2v2). */
+function drawCore(ctx: Ctx, v: View, sp: Sprites, slot: Team, fx: Fx) {
   const c = v.map.cores[slot]
   const hp = v.cores[slot]
   const color = slot === 1 ? 'azul' : 'rojo'
@@ -845,10 +855,10 @@ function drawZombie(ctx: Ctx, v: View, sp: Sprites, fx: Fx, z: ZombieView) {
   if (z.hp < z.maxHp) hpBar(ctx, x, y - (z.kind === 'tank' ? 34 : 26), 18, z.hp / z.maxHp)
 }
 
-function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe: boolean, aim?: { x: number; y: number } | null) {
+function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe: boolean, isMate: boolean, aim?: { x: number; y: number } | null) {
   const x = p.x * TILE
   const y = p.y * TILE
-  const col = SLOT_COLOR[p.slot]
+  const col = SLOT_COLOR[p.team]
   const base = survivorSheet(p.survivor)
   let dir = aim ? dirOf(aim.x, aim.y) : dirOf(p.dirX, p.dirY)
   const sinceShot = v.time - p.shotAt
@@ -878,24 +888,44 @@ function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe:
   ctx.strokeStyle = col.main
   ctx.lineWidth = 2
   ctx.globalAlpha = 0.85
+  // Teammates get a dashed ring so they read differently from you (solid) and from rivals (other color).
+  if (isMate) ctx.setLineDash([4, 3])
   ctx.beginPath()
   ctx.ellipse(x, y + 10, 11, 5, 0, 0, Math.PI * 2)
   ctx.stroke()
+  ctx.setLineDash([])
   ctx.globalAlpha = 1
   drawSheet(ctx, sp[`sheet-${sheet}`], frame, x, y + 11, false, sheetColumns(sheet))
 
-  // Etiqueta J1 / J2
+  // Name tag: J1 / J2 in 1v1, the player name in 2v2 (4 players on screen).
   ctx.font = 'bold 9px monospace'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+  const text = v.players.length > 2 ? (p.name || `J${p.slot}`).slice(0, 10) : `J${p.slot}`
+  const tagW = Math.max(18, Math.ceil(ctx.measureText(text).width) + 8)
+  const tagX = Math.round(x - tagW / 2)
   ctx.fillStyle = col.dark
-  ctx.fillRect(Math.round(x - 9), Math.round(y - 33), 18, 11)
+  ctx.fillRect(tagX, Math.round(y - 33), tagW, 11)
   ctx.strokeStyle = isMe ? '#ffffff' : col.main
   ctx.lineWidth = 1
-  ctx.strokeRect(Math.round(x - 9), Math.round(y - 33), 18, 11)
+  ctx.strokeRect(tagX, Math.round(y - 33), tagW, 11)
   ctx.fillStyle = '#ffffff'
-  ctx.fillText(`J${p.slot}`, Math.round(x), Math.round(y - 27))
+  ctx.fillText(text, Math.round(x), Math.round(y - 27))
   if (p.hp < PLAYER_MAX_HP) hpBar(ctx, x, y - 38, 22, p.hp / PLAYER_MAX_HP, '#2ee86a')
+  // Marker above the tag: white for you, team color for your teammate.
+  if (isMe || isMate) {
+    const my = Math.round(y - (p.hp < PLAYER_MAX_HP ? 48 : 42))
+    ctx.fillStyle = isMe ? '#ffffff' : col.light
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(Math.round(x) - 4, my)
+    ctx.lineTo(Math.round(x) + 4, my)
+    ctx.lineTo(Math.round(x), my + 6)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -911,7 +941,7 @@ export function drawMinimap(ctx: Ctx, v: View, staticLayer: HTMLCanvasElement, m
   ctx.imageSmoothingEnabled = true
   ctx.drawImage(staticLayer, 0, 0, map.w * TILE * k, map.h * TILE * k)
   ctx.setTransform(k, 0, 0, k, 0, 0)
-  for (const slot of [1, 2] as Slot[]) {
+  for (const slot of [1, 2] as Team[]) {
     const c = map.cores[slot]
     ctx.fillStyle = v.cores[slot] > 0 ? SLOT_COLOR[slot].main : '#333'
     ctx.fillRect(c.x * TILE, c.y * TILE, TILE * 2, TILE * 2)
@@ -920,10 +950,16 @@ export function drawMinimap(ctx: Ctx, v: View, staticLayer: HTMLCanvasElement, m
   for (const z of v.zombies) ctx.fillRect(z.x * TILE - 12, z.y * TILE - 12, 24, 24)
   for (const p of v.players) {
     if (!p.alive) continue
-    ctx.fillStyle = p.slot === meSlot ? '#ffffff' : SLOT_COLOR[p.slot].light
+    ctx.fillStyle = p.slot === meSlot ? '#ffffff' : SLOT_COLOR[p.team].light
     ctx.beginPath()
     ctx.arc(p.x * TILE, p.y * TILE, 26, 0, Math.PI * 2)
     ctx.fill()
+    // Teammate: ring in the team color so the four dots read as 2 + 2.
+    if (p.slot !== meSlot && p.team === teamOf(meSlot)) {
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = 8
+      ctx.stroke()
+    }
   }
   if (cam) {
     ctx.strokeStyle = 'rgba(255,255,255,0.8)'

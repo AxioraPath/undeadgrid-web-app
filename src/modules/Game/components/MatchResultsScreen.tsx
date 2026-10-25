@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { Flame, Home, LogOut, Minus, RotateCcw, Skull, TriangleAlert, Trophy, Wrench, X, type LucideIcon } from 'lucide-react'
 import { GameLogo } from '../../../shared/components/GameLogo'
 import { useAuth } from '../../Auth/context/authContext'
-import type { MatchEndReason, MatchSlotStats, Slot } from '../../../shared/lib/contracts'
+import { teamOf, type MatchEndReason, type MatchSlotStats, type Slot, type Team } from '../../../shared/lib/contracts'
 import { MAPS, getSurvivor } from '../../Lobby/data/catalog'
 import { SPRITE_MASK } from '../../Lobby/data/slotTheme'
 import { formatTime } from '../hud'
@@ -10,13 +10,14 @@ import { MatchXpReward } from './MatchXpReward'
 import { ResultsDialog } from './ResultsDialog'
 
 export interface ResultsSummary {
-  /** null = draw. */
-  winner: Slot | null
+  /** Winning TEAM (1v1: same number as the slot); null = draw. */
+  winner: Team | null
   reason: MatchEndReason
   durationS: number
   mapId: string
   mapName?: string
-  stats: Record<Slot, MatchSlotStats>
+  /** Keyed by slot: 1-2 in 1v1, 1-4 in 2v2 (only players that took part). */
+  stats: Partial<Record<Slot, MatchSlotStats>>
 }
 
 export interface ResultsPlayer {
@@ -31,7 +32,7 @@ export interface MatchResultsScreenProps {
   summary: ResultsSummary
   /** XP earned by the local player (signed-in players only). */
   xp?: number
-  /** False when the rival left the room: a rematch is impossible. */
+  /** False when someone left the room: a rematch needs every seat filled. */
   rivalPresent: boolean
   /** Slots currently asking for a rematch. */
   rematchRequested: number[]
@@ -43,10 +44,10 @@ export interface MatchResultsScreenProps {
 
 type Outcome = 'victory' | 'defeat' | 'draw'
 
-const SLOTS: Slot[] = [1, 2]
+const ALL_SLOTS: Slot[] = [1, 2, 3, 4]
 
-// Player 1 = blue, player 2 = red (same as their bases on the map).
-const TONE: Record<Slot, { text: string; border: string; glow: string; tint: string; badge: string; head: string }> = {
+// Team 1 = blue, team 2 = red (same as their bases on the map).
+const TONE: Record<Team, { text: string; border: string; glow: string; tint: string; badge: string; head: string }> = {
   1: {
     text: 'text-[#4d9bff]',
     border: 'border-[#2f6fd6]',
@@ -72,17 +73,33 @@ const TITLE: Record<Outcome, { text: string; color: string; shadow: string }> = 
 }
 
 /** Subtitle + footer sentence for every outcome / reason combination. */
-function resultCopy(outcome: Outcome, reason: MatchEndReason): { subtitle: string; footer: string } {
+function resultCopy(outcome: Outcome, reason: MatchEndReason, teams: boolean): { subtitle: string; footer: string } {
   if (outcome === 'draw') {
-    return { subtitle: 'Tiempo agotado sin ganador', footer: 'Ningún núcleo cayó. La revancha decide quién manda.' }
+    return { subtitle: 'Tiempo agotado sin ganador', footer: teams ? 'Ningún núcleo cayó. La revancha decide qué equipo manda.' : 'Ningún núcleo cayó. La revancha decide quién manda.' }
   }
   if (outcome === 'victory') {
-    if (reason === 'opponent_left') return { subtitle: 'El rival abandonó la partida', footer: 'Ganas por abandono. El resultado se conserva.' }
-    if (reason === 'time_out') return { subtitle: 'Tiempo agotado: tu núcleo resistió más', footer: 'Tu núcleo terminó con más vida que el del rival.' }
-    return { subtitle: 'Destruiste el núcleo enemigo', footer: 'Tu base resistió las oleadas y destruyó el núcleo rival.' }
+    if (reason === 'opponent_left') {
+      return teams
+        ? { subtitle: 'El equipo rival abandonó la partida', footer: 'Ganan por abandono. El resultado se conserva.' }
+        : { subtitle: 'El rival abandonó la partida', footer: 'Ganas por abandono. El resultado se conserva.' }
+    }
+    if (reason === 'time_out') {
+      return teams
+        ? { subtitle: 'Tiempo agotado: tu equipo resistió más', footer: 'El núcleo de tu equipo terminó con más vida que el rival.' }
+        : { subtitle: 'Tiempo agotado: tu núcleo resistió más', footer: 'Tu núcleo terminó con más vida que el del rival.' }
+    }
+    return teams
+      ? { subtitle: 'Tu equipo destruyó el núcleo enemigo', footer: 'Su base resistió las oleadas y destruyó el núcleo rival.' }
+      : { subtitle: 'Destruiste el núcleo enemigo', footer: 'Tu base resistió las oleadas y destruyó el núcleo rival.' }
   }
-  if (reason === 'time_out') return { subtitle: 'Tiempo agotado: el rival resistió más', footer: 'Refuerza tu estrategia para la próxima partida.' }
-  return { subtitle: 'Tu núcleo fue destruido', footer: 'El rival destruyó tu núcleo. Refuerza tu estrategia para la próxima partida.' }
+  if (reason === 'time_out') {
+    return teams
+      ? { subtitle: 'Tiempo agotado: el equipo rival resistió más', footer: 'Refuercen su estrategia para la próxima partida.' }
+      : { subtitle: 'Tiempo agotado: el rival resistió más', footer: 'Refuerza tu estrategia para la próxima partida.' }
+  }
+  return teams
+    ? { subtitle: 'El núcleo de tu equipo fue destruido', footer: 'El equipo rival destruyó su núcleo. Refuercen su estrategia para la próxima partida.' }
+    : { subtitle: 'Tu núcleo fue destruido', footer: 'El rival destruyó tu núcleo. Refuerza tu estrategia para la próxima partida.' }
 }
 
 const STAT_ROWS: { key: 'zombieKills' | 'structuresBuilt' | 'coreDamageDealt'; label: string; icon: LucideIcon; testId: string }[] = [
@@ -95,39 +112,52 @@ function Spinner() {
   return <span className="size-6 shrink-0 animate-spin rounded-full border-4 border-ug-border border-t-ug-text motion-reduce:animate-none short:size-5" aria-hidden />
 }
 
-function TeamPanel({ slot, isMe, player, outcome }: { slot: Slot; isMe: boolean; player?: ResultsPlayer; outcome: Outcome }) {
-  const t = TONE[slot]
-  const survivor = getSurvivor(player?.survivor ?? '')
-  const color = slot === 1 ? 'azul' : 'rojo'
-  const myOutcome: Outcome = outcome === 'draw' ? 'draw' : (outcome === 'victory') === isMe ? 'victory' : 'defeat'
+interface Member {
+  slot: Slot
+  player?: ResultsPlayer
+}
+
+/** One team (a base on the map): 1 player in 1v1, 2 in 2v2. */
+function TeamPanel({ team, isMine, members, outcome, mates }: { team: Team; isMine: boolean; members: Member[]; outcome: Outcome; mates: boolean }) {
+  const t = TONE[team]
+  const color = team === 1 ? 'azul' : 'rojo'
+  const myOutcome: Outcome = outcome === 'draw' ? 'draw' : (outcome === 'victory') === isMine ? 'victory' : 'defeat'
   const BadgeIcon = myOutcome === 'victory' ? Trophy : myOutcome === 'defeat' ? Skull : Minus
   const badgeText = myOutcome === 'victory' ? 'GANADOR' : myOutcome === 'defeat' ? 'DERROTA' : 'EMPATE'
   const core = myOutcome === 'defeat' ? `nucleo-${color}-destruido` : `nucleo-${color}`
+  const first = members[0]
+  const survivor = getSurvivor(first?.player?.survivor ?? '')
 
   return (
     <section
-      data-testid={`results-team-${slot}`}
+      data-testid={`results-team-${team}`}
       data-outcome={myOutcome}
       className={`relative flex min-h-0 flex-1 flex-col overflow-hidden border-2 ${t.border} ${t.glow} bg-gradient-to-b ${t.tint} via-[#0d1522]/85 to-[#0b0f17]/95 ${myOutcome === 'defeat' ? 'saturate-[0.7]' : ''}`}
     >
       <header className={`relative z-10 min-w-0 px-[clamp(0.5rem,1.8vmin,1rem)] py-[clamp(0.25rem,1vmin,0.625rem)] ${t.head}`}>
         <p className={`text-[clamp(0.9rem,2.2vmin,1.125rem)] leading-none tracking-wider ${t.text}`}>
-          BASE {slot} · {isMe ? 'TÚ' : 'RIVAL'}
+          {mates ? `EQUIPO ${team} · ${isMine ? 'TU EQUIPO' : 'RIVALES'}` : `BASE ${team} · ${isMine ? 'TÚ' : 'RIVAL'}`}
         </p>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <p className="ug-title-shadow min-w-0 max-w-full truncate text-[clamp(1.25rem,3.6vmin,2rem)] leading-none" data-testid={`results-name-${slot}`}>
-            {player?.name ?? `Jugador ${slot}`}
-          </p>
+          <div className="min-w-0 max-w-full">
+            {members.map(({ slot, player }) => (
+              <p key={slot} className="ug-title-shadow min-w-0 max-w-full truncate text-[clamp(1.25rem,3.6vmin,2rem)] leading-none" data-testid={`results-name-${slot}`}>
+                {player?.name ?? `Jugador ${slot}`}
+              </p>
+            ))}
+          </div>
           <span
             className={`flex shrink-0 items-center gap-1 border px-1.5 py-0.5 text-[clamp(0.85rem,2vmin,1.1rem)] leading-none text-white ${t.badge}`}
-            data-testid={`results-badge-${slot}`}
+            data-testid={`results-badge-${team}`}
           >
             <BadgeIcon size={14} aria-hidden /> {badgeText}
           </span>
         </div>
-        <p className="mt-1 truncate font-terminal text-[clamp(0.85rem,2vmin,1.1rem)] leading-none text-ug-muted short:hidden">
-          {survivor.name}: {survivor.tagline}
-        </p>
+        {!mates && (
+          <p className="mt-1 truncate font-terminal text-[clamp(0.85rem,2vmin,1.1rem)] leading-none text-ug-muted short:hidden">
+            {survivor.name}: {survivor.tagline}
+          </p>
+        )}
       </header>
       <div className="relative min-h-0 flex-1">
         <img
@@ -136,15 +166,21 @@ function TeamPanel({ slot, isMe, player, outcome }: { slot: Slot; isMe: boolean;
           draggable={false}
           className="pixelated absolute right-[2%] bottom-[4%] h-[72%] max-h-full w-auto object-contain"
         />
-        {survivor.sprite && (
-          <img
-            src={survivor.sprite}
-            alt={survivor.name}
-            draggable={false}
-            className="pixelated absolute bottom-0 left-0 h-full max-h-full w-auto object-contain"
-            style={{ maskImage: SPRITE_MASK, WebkitMaskImage: SPRITE_MASK }}
-          />
-        )}
+        <div className={`absolute bottom-0 left-0 flex h-full items-end ${mates ? 'max-w-[75%]' : ''}`}>
+          {members.map(({ slot, player }, i) => {
+            const sv = getSurvivor(player?.survivor ?? '')
+            return sv.sprite ? (
+              <img
+                key={slot}
+                src={sv.sprite}
+                alt={sv.name}
+                draggable={false}
+                className={`pixelated w-auto max-w-[60%] object-contain ${mates ? 'h-[88%]' : 'h-full max-w-none'} ${i > 0 ? '-ml-[12%]' : ''}`}
+                style={{ maskImage: SPRITE_MASK, WebkitMaskImage: SPRITE_MASK }}
+              />
+            ) : null
+          })}
+        </div>
       </div>
     </section>
   )
@@ -206,19 +242,43 @@ export function MatchResultsScreen({
   const [busy, setBusy] = useState(false)
   const closeDialog = useCallback(() => setDialog(null), [])
 
-  const rivalSlot: Slot = mySlot === 1 ? 2 : 1
-  const outcome: Outcome = summary.winner === null ? 'draw' : summary.winner === mySlot ? 'victory' : 'defeat'
+  const myTeam = teamOf(mySlot)
+  const rivalTeam: Team = myTeam === 1 ? 2 : 1
+  // A slot took part when it is still in the room or reported stats. 3 / 4 only exist in 2v2.
+  const taken = (slot: Slot) => Boolean(players[slot] || summary.stats[slot])
+  const teams = taken(3) || taken(4)
+  const membersOf = (team: Team): Member[] =>
+    ALL_SLOTS.filter((s) => teamOf(s) === team && (taken(s) || s === mySlot || (!teams && s === team))).map((slot) => ({ slot, player: players[slot] }))
+  const myMembers = membersOf(myTeam)
+  const rivalMembers = membersOf(rivalTeam)
+  // Stat columns: me, teammate (2v2), then the rivals.
+  const columns = [
+    { key: 'me', label: 'TÚ', slot: mySlot },
+    ...myMembers.filter((m) => m.slot !== mySlot).map((m) => ({ key: 'mate', label: 'ALIADO', slot: m.slot })),
+    ...rivalMembers.map((m, i) => ({ key: i === 0 ? 'rival' : 'rival2', label: teams ? 'RIVAL' : 'RIVAL', slot: m.slot })),
+  ]
+  const outcome: Outcome = summary.winner === null ? 'draw' : summary.winner === myTeam ? 'victory' : 'defeat'
   const title = TITLE[outcome]
-  const copy = resultCopy(outcome, summary.reason)
+  const copy = resultCopy(outcome, summary.reason, teams)
   const mapName = summary.mapName ?? MAPS.find((m) => m.id === summary.mapId)?.name ?? MAPS[0].name
   const mapPreview = (MAPS.find((m) => m.id === summary.mapId) ?? MAPS[0]).preview
 
   const iAsked = rematchRequested.includes(mySlot)
-  const rivalAsked = rematchRequested.includes(rivalSlot)
+  const othersAsked = rematchRequested.filter((s) => s !== mySlot).length
+  const rivalAsked = othersAsked > 0
   const canRematch = rivalPresent && summary.reason !== 'opponent_left'
   const waiting = iAsked && canRematch
-  const mySurvivor = getSurvivor(players[mySlot]?.survivor ?? '')
-  const rivalSurvivor = getSurvivor(players[rivalSlot]?.survivor ?? '')
+  // Everybody in the room, me first (rows of the waiting modal).
+  const rematchRows = [
+    { slot: mySlot, testId: 'rematch-me', fallback: 'Tú' },
+    ...myMembers.filter((m) => m.slot !== mySlot).map((m) => ({ slot: m.slot, testId: 'rematch-mate', fallback: 'Aliado' })),
+    ...rivalMembers.map((m, i) => ({ slot: m.slot, testId: i === 0 ? 'rematch-rival' : 'rematch-rival-2', fallback: 'Rival' })),
+  ].map((row) => ({
+    ...row,
+    name: players[row.slot]?.name ?? row.fallback,
+    portrait: getSurvivor(players[row.slot]?.survivor ?? '').portrait,
+    ready: row.slot === mySlot ? true : rematchRequested.includes(row.slot),
+  }))
 
   const confirm = async (fn: () => void | Promise<void>) => {
     if (busy) return
@@ -231,7 +291,15 @@ export function MatchResultsScreen({
     }
   }
 
-  const footerText = !canRematch ? 'Revancha no disponible: el rival salió de la sala.' : rivalAsked && !iAsked ? 'El rival quiere la revancha.' : copy.footer
+  const footerText = !canRematch
+    ? teams
+      ? 'Revancha no disponible: un jugador salió de la sala.'
+      : 'Revancha no disponible: el rival salió de la sala.'
+    : rivalAsked && !iAsked
+      ? teams
+        ? `${othersAsked} de ${rematchRows.length - 1} jugadores quieren la revancha.`
+        : 'El rival quiere la revancha.'
+      : copy.footer
   const footerTestId = !canRematch ? 'rematch-hint' : rivalAsked && !iAsked ? 'rematch-rival-asked' : 'results-footer'
 
   return (
@@ -240,6 +308,7 @@ export function MatchResultsScreen({
       data-testid="match-end"
       data-winner={summary.winner ?? 0}
       data-outcome={outcome}
+      data-mode={teams ? '2v2' : '1v1'}
     >
       <div
         aria-hidden
@@ -306,10 +375,10 @@ export function MatchResultsScreen({
         {/* Team panels + stats */}
         <main className="ug-results-main">
           <div className="ug-results-p1 flex min-h-0 flex-col">
-            <TeamPanelSlot slot={1} mySlot={mySlot} players={players} outcome={outcome} />
+            <TeamPanel team={1} isMine={myTeam === 1} members={myTeam === 1 ? myMembers : rivalMembers} outcome={outcome} mates={teams} />
           </div>
           <div className="ug-results-p2 flex min-h-0 flex-col">
-            <TeamPanelSlot slot={2} mySlot={mySlot} players={players} outcome={outcome} />
+            <TeamPanel team={2} isMine={myTeam === 2} members={myTeam === 2 ? myMembers : rivalMembers} outcome={outcome} mates={teams} />
           </div>
           <div className="ug-results-stats flex flex-col gap-[var(--ug-r-gap)]">
             <table className="ug-panel w-full table-fixed border-separate border-spacing-0 text-left" data-testid="results-stats">
@@ -317,14 +386,15 @@ export function MatchResultsScreen({
               <thead>
                 <tr className="text-[clamp(0.95rem,2.2vmin,1.25rem)] leading-none">
                   <th scope="col" className="bg-black/30 px-2 py-1.5 font-normal tracking-wide">ESTADÍSTICA</th>
-                  {SLOTS.map((slot) => (
+                  {columns.map((col) => (
                     <th
-                      key={slot}
+                      key={col.slot}
                       scope="col"
-                      className={`w-[22%] px-1 py-1.5 text-center font-normal ${slot === mySlot ? 'bg-[#1d5fc4]/30 text-[#4d9bff]' : 'bg-ug-red-dark/50 text-ug-red-hi'}`}
-                      data-testid={`results-col-${slot === mySlot ? 'me' : 'rival'}`}
+                      className={`${teams ? 'w-[17%]' : 'w-[22%]'} min-w-0 px-1 py-1.5 text-center font-normal ${teamOf(col.slot) === myTeam ? 'bg-[#1d5fc4]/30 text-[#4d9bff]' : 'bg-ug-red-dark/50 text-ug-red-hi'}`}
+                      data-testid={`results-col-${col.key}`}
                     >
-                      {slot === mySlot ? 'TÚ' : 'RIVAL'}
+                      {col.label}
+                      {teams && <span className="block truncate font-terminal text-[clamp(0.7rem,1.7vmin,0.95rem)] leading-none text-ug-text/80">{players[col.slot]?.name ?? `Jugador ${col.slot}`}</span>}
                     </th>
                   ))}
                 </tr>
@@ -332,19 +402,19 @@ export function MatchResultsScreen({
               <tbody>
                 {STAT_ROWS.map((row) => (
                   <tr key={row.key} data-testid={`stat-${row.testId}`}>
-                    <th scope="row" className="border-t border-ug-border px-2 py-[clamp(0.125rem,0.8vmin,0.375rem)] text-left font-terminal text-[clamp(0.95rem,2.3vmin,1.25rem)] leading-[1.05] font-normal">
+                    <th scope="row" className={`border-t border-ug-border px-2 py-[clamp(0.125rem,0.8vmin,0.375rem)] text-left font-terminal ${teams ? 'text-[clamp(0.8rem,2vmin,1.1rem)]' : 'text-[clamp(0.95rem,2.3vmin,1.25rem)]'} leading-[1.05] font-normal`}>
                       <span className="flex items-center gap-2">
-                        <row.icon size={18} className="shrink-0 text-ug-muted max-sm:hidden" aria-hidden />
+                        <row.icon size={18} className={`shrink-0 text-ug-muted ${teams ? 'max-lg:hidden' : 'max-sm:hidden'}`} aria-hidden />
                         <span className="min-w-0">{row.label}</span>
                       </span>
                     </th>
-                    {SLOTS.map((slot) => (
+                    {columns.map((col) => (
                       <td
-                        key={slot}
-                        className={`border-t border-ug-border px-1 text-center text-[clamp(1.4rem,4.2vmin,2.25rem)] leading-none ${TONE[slot].text}`}
-                        data-testid={`stat-${row.testId}-${slot === mySlot ? 'me' : 'rival'}`}
+                        key={col.slot}
+                        className={`border-t border-ug-border px-1 text-center ${teams ? 'text-[clamp(1.1rem,3.2vmin,1.75rem)]' : 'text-[clamp(1.4rem,4.2vmin,2.25rem)]'} leading-none ${TONE[teamOf(col.slot)].text}`}
+                        data-testid={`stat-${row.testId}-${col.key}`}
                       >
-                        {Math.round(summary.stats[slot]?.[row.key] ?? 0)}
+                        {Math.round(summary.stats[col.slot]?.[row.key] ?? 0)}
                       </td>
                     ))}
                   </tr>
@@ -384,18 +454,15 @@ export function MatchResultsScreen({
         <ResultsDialog title="Revancha solicitada" onCancel={onCancelRematch} testId="rematch-modal" initialFocusId="rematch-cancel" describedBy="rematch-desc" dismissOnBackdrop={false}>
           <h3 className="ug-title-shadow text-center text-[clamp(1.5rem,4.5vmin,2.25rem)] leading-none tracking-wide">REVANCHA SOLICITADA</h3>
           <p id="rematch-desc" className="mt-1 text-center font-terminal text-[clamp(1rem,2.6vmin,1.25rem)] leading-tight text-ug-muted">
-            Esperando la respuesta del rival...
+            {teams ? 'Esperando a que todos acepten la revancha...' : 'Esperando la respuesta del rival...'}
           </p>
           <ul className="mt-[clamp(0.5rem,2vmin,1rem)] flex flex-col gap-2">
-            {[
-              { slot: mySlot, name: players[mySlot]?.name ?? 'Tú', portrait: mySurvivor.portrait, ready: true, testId: 'rematch-me' },
-              { slot: rivalSlot, name: players[rivalSlot]?.name ?? 'Rival', portrait: rivalSurvivor.portrait, ready: rivalAsked, testId: 'rematch-rival' },
-            ].map((row) => (
+            {rematchRows.map((row) => (
               <li
                 key={row.slot}
                 data-testid={row.testId}
                 data-ready={row.ready}
-                className={`flex items-center gap-3 border-2 bg-black/40 p-1.5 ${TONE[row.slot].border}`}
+                className={`flex items-center gap-3 border-2 bg-black/40 p-1.5 ${TONE[teamOf(row.slot)].border}`}
               >
                 <img src={row.portrait} alt="" draggable={false} className="pixelated size-[clamp(2.5rem,8vmin,3.5rem)] shrink-0 border border-ug-border" />
                 <div className="min-w-0 flex-1">
@@ -463,6 +530,3 @@ export function MatchResultsScreen({
   )
 }
 
-function TeamPanelSlot({ slot, mySlot, players, outcome }: { slot: Slot; mySlot: Slot; players: Partial<Record<Slot, ResultsPlayer>>; outcome: Outcome }) {
-  return <TeamPanel slot={slot} isMe={slot === mySlot} player={players[slot]} outcome={outcome} />
-}

@@ -1,10 +1,10 @@
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { STAT_LABELS, STAT_MAX, SURVIVORS, type StatKey, type Survivor } from '../data/catalog'
 import { SLOT_THEME, SPRITE_MASK } from '../data/slotTheme'
-import type { Slot } from '../hooks/useLobbyRoom'
+import type { Team } from '../hooks/useLobbyRoom'
 
 interface SurvivorSelectorProps {
-  slot: Slot
+  team: Team
   survivor: Survivor
   onSelect: (id: string) => void
   onCycle: (dir: 1 | -1) => void
@@ -20,8 +20,8 @@ function StatBar({ value, color }: { value: number; color: string }) {
   )
 }
 
-export function SurvivorSelector({ slot, survivor, onSelect, onCycle }: SurvivorSelectorProps) {
-  const t = SLOT_THEME[slot]
+export function SurvivorSelector({ team, survivor, onSelect, onCycle }: SurvivorSelectorProps) {
+  const t = SLOT_THEME[team]
 
   return (
     <section

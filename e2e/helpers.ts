@@ -26,7 +26,7 @@ export async function createRoom(page: Page): Promise<string> {
 }
 
 /** Second player: a plain socket.io client that joins the room and marks itself ready. */
-export async function joinAsBot(code: string, ready = true) {
+export async function joinAsBot(code: string, ready = true, name = 'Bot') {
   const socket = io(API, { transports: ['websocket'] })
   await new Promise<void>((resolve, reject) => {
     socket.on('connect', () => resolve())
@@ -38,9 +38,37 @@ export async function joinAsBot(code: string, ready = true) {
         res.ok ? resolve(res.data) : reject(res.error),
       )
     })
-  await emit('lobby:join', { code, name: 'Bot', survivor: 'mecanica' })
+  await emit('lobby:join', { code, name, survivor: 'mecanica' })
   if (ready) await emit('lobby:ready', { ready: true })
   return socket
+}
+
+/** Emits an event with an ack and resolves with the raw ack (ok or error), never throws on server errors. */
+export const botCall = (bot: ReturnType<typeof io>, event: string, payload?: unknown) =>
+  new Promise<{ ok: boolean; data?: any; error?: { code: string; message: string } }>((resolve) => {
+    bot.emit(event, ...(payload === undefined ? [] : [payload]), resolve)
+  })
+
+/** Host (the page) switches the room to 2v2 through the lobby toggle. */
+export async function switchTo2v2(page: Page) {
+  await page.getByTestId('mode-2v2').click()
+  await expect(page.getByTestId('team-board')).toBeVisible()
+}
+
+/**
+ * Creates a room, switches it to 2v2, joins three bots (slots 2, 3, 4) and starts the match.
+ * Teams end up as: team 1 = host (slot 1) + Ana (slot 3), team 2 = Rojo (slot 2) + Luz (slot 4).
+ */
+export async function enterMatch2v2(page: Page) {
+  const code = await createRoom(page)
+  await switchTo2v2(page)
+  await page.getByTestId('ready-toggle').click()
+  const bots = [await joinAsBot(code, true, 'Rojo'), await joinAsBot(code, true, 'Ana'), await joinAsBot(code, true, 'Luz')]
+  await expect(page.getByTestId('start-match')).toBeEnabled()
+  await page.getByTestId('start-match').click()
+  await expect(page.getByTestId('game-canvas')).toBeVisible()
+  await expect(page.getByTestId('hud-phase')).toBeVisible()
+  return bots
 }
 
 export async function serverState(): Promise<{ sockets: number; rooms: { code: string; status: string; players: number }[] }> {

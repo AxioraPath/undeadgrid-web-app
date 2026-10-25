@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Check, Copy, Swords, Users } from 'lucide-react'
+import type { GameMode } from '../../../shared/lib/contracts'
 
 interface RoomHeaderProps {
   /** null mientras el servidor crea/confirma la sala. */
   code: string | null
   playerCount: number
+  capacity?: number
+  mode?: GameMode
 }
 
-export function RoomHeader({ code, playerCount }: RoomHeaderProps) {
+export function RoomHeader({ code, playerCount, capacity = 2, mode = '1v1' }: RoomHeaderProps) {
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
@@ -28,7 +31,7 @@ export function RoomHeader({ code, playerCount }: RoomHeaderProps) {
           <p className="ug-title-shadow text-4xl phone:text-3xl leading-none tracking-wide whitespace-nowrap">
             SALA: <span data-testid="room-code">{code ?? '·····'}</span>
           </p>
-          <p className="font-terminal text-lg leading-tight text-ug-muted phone:hidden">Código para unirse</p>
+          <p className="font-terminal text-lg leading-tight text-ug-muted phone:hidden">{mode === '2v2' ? 'Código para unirse (hasta 4)' : 'Código para unirse'}</p>
         </div>
         <button
           type="button"
@@ -46,7 +49,7 @@ export function RoomHeader({ code, playerCount }: RoomHeaderProps) {
         <Users size="1.875rem" />
         <div className="text-center">
           <p className="font-terminal text-lg phone:hidden leading-none text-ug-muted">Jugadores</p>
-          <p className="ug-title-shadow text-3xl phone:text-2xl leading-none whitespace-nowrap" data-testid="player-count">{playerCount} / 2</p>
+          <p className="ug-title-shadow text-3xl phone:text-2xl leading-none whitespace-nowrap" data-testid="player-count">{playerCount} / {capacity}</p>
         </div>
       </div>
 
@@ -54,7 +57,7 @@ export function RoomHeader({ code, playerCount }: RoomHeaderProps) {
         <Swords size="1.875rem" />
         <div className="text-center">
           <p className="font-terminal text-lg leading-none text-ug-muted">Modo</p>
-          <p className="ug-title-shadow text-3xl leading-none">1 vs 1</p>
+          <p className="ug-title-shadow text-3xl leading-none" data-testid="room-mode">{mode === '2v2' ? '2 vs 2' : '1 vs 1'}</p>
         </div>
       </div>
     </div>
