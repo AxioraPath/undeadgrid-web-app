@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import { Flame, Home, LogOut, Minus, RotateCcw, Skull, TriangleAlert, Trophy, Wrench, X, type LucideIcon } from 'lucide-react'
+import { Crosshair, Flame, HeartCrack, Home, LogOut, Minus, RotateCcw, Skull, TriangleAlert, Trophy, Wrench, X, type LucideIcon } from 'lucide-react'
 import { GameLogo } from '../../../shared/components/GameLogo'
 import { useAuth } from '../../Auth/context/authContext'
 import { teamOf, type MatchEndReason, type MatchSlotStats, type Slot, type Team } from '../../../shared/lib/contracts'
@@ -121,6 +121,100 @@ const STAT_ROWS: { key: 'zombieKills' | 'structuresBuilt' | 'coreDamageDealt'; l
   { key: 'structuresBuilt', label: 'Estructuras construidas', icon: Wrench, testId: 'structures' },
   { key: 'coreDamageDealt', label: 'Daño al núcleo', icon: Flame, testId: 'core-damage' },
 ]
+
+/** Todos contra todos: un color por jugador (igual que en el lobby y la partida). */
+const FFA_TONE: Record<Slot, { text: string; border: string; bg: string }> = {
+  1: { text: 'text-[#6aa8ff]', border: 'border-[#2f6fd6]', bg: 'bg-[#1d5fc4]/25' },
+  2: { text: 'text-ug-red-hi', border: 'border-ug-red-hi', bg: 'bg-ug-red-dark/40' },
+  3: { text: 'text-[#5fe07f]', border: 'border-[#2fa84f]', bg: 'bg-[#124a22]/40' },
+  4: { text: 'text-[#ffd166]', border: 'border-[#d6a12f]', bg: 'bg-[#5e4212]/40' },
+}
+
+const FFA_STATS: { key: 'kills' | 'zombieKills' | 'deaths' | 'structuresBuilt'; label: string; icon: LucideIcon }[] = [
+  { key: 'kills', label: 'Bajas', icon: Crosshair },
+  { key: 'zombieKills', label: 'Zombis', icon: Skull },
+  { key: 'deaths', label: 'Muertes', icon: HeartCrack },
+  { key: 'structuresBuilt', label: 'Construido', icon: Wrench },
+]
+
+/** Todos contra todos: el ganador (o "sin ganador") y una tabla con todos los jugadores. */
+function FfaResults({ summary, players, mySlot, slots }: { summary: ResultsSummary; players: Partial<Record<Slot, ResultsPlayer>>; mySlot: Slot; slots: Slot[] }) {
+  const winner = summary.winnerSlot ?? null
+  const stat = (slot: Slot, key: (typeof FFA_STATS)[number]['key']) => Math.round(summary.stats[slot]?.[key] ?? 0)
+  // Ganador primero; luego por bajas, zombis y menos muertes.
+  const rows = [...slots].sort(
+    (a, b) => Number(b === winner) - Number(a === winner) || stat(b, 'kills') - stat(a, 'kills') || stat(b, 'zombieKills') - stat(a, 'zombieKills') || stat(a, 'deaths') - stat(b, 'deaths'),
+  )
+  const w = winner ? players[winner] : undefined
+  const tone = winner ? FFA_TONE[winner] : null
+  return (
+    <main className="mx-auto flex min-h-0 w-full max-w-[56rem] flex-1 flex-col items-stretch gap-[var(--ug-r-gap)] sm:flex-row" data-testid="results-ffa">
+      <section
+        className={`ug-panel flex min-h-0 shrink-0 flex-col items-center justify-center gap-1 border-2 px-4 py-2 sm:w-[38%] short:flex-row short:flex-wrap short:gap-x-3 short:py-1 ${tone ? `${tone.border} ${tone.bg}` : ''}`}
+        data-testid="results-winner"
+        data-slot={winner ?? 0}
+      >
+        {winner ? (
+          <>
+            <span className="flex items-center gap-2 font-terminal text-[clamp(1rem,2.4vmin,1.4rem)] text-yellow-300">
+              <Trophy size={20} aria-hidden /> GANADOR
+            </span>
+            <img
+              src={getSurvivor(w?.survivor ?? '').sprite}
+              alt=""
+              className="pixelated h-[clamp(5rem,22vh,12rem)] w-auto object-contain short:h-[22vh]"
+              style={{ maskImage: SPRITE_MASK, WebkitMaskImage: SPRITE_MASK }}
+            />
+            <p className={`ug-title-shadow max-w-full truncate text-[clamp(1.5rem,4vmin,2.5rem)] leading-none ${tone?.text ?? ''}`} data-testid="results-winner-name">
+              {w?.name ?? `Jugador ${winner}`}
+              {winner === mySlot ? ' (tú)' : ''}
+            </p>
+          </>
+        ) : (
+          <p className="ug-title-shadow text-[clamp(1.5rem,4vmin,2.5rem)] text-yellow-300">SIN GANADOR</p>
+        )}
+      </section>
+      {/* En pantallas bajas la tabla se desplaza en vez de quedar tapada por la barra de XP. */}
+      <div className="ug-panel min-h-0 w-full flex-1 overflow-y-auto">
+      <table className="w-full table-fixed border-separate border-spacing-0 text-left" data-testid="results-stats">
+        <caption className="sr-only">Estadísticas de todos los jugadores</caption>
+        <thead>
+          <tr className="text-[clamp(0.85rem,2vmin,1.1rem)] leading-none">
+            <th scope="col" className="w-[34%] bg-black/30 px-2 py-1.5 font-normal tracking-wide">JUGADOR</th>
+            {FFA_STATS.map((c) => (
+              <th key={c.key} scope="col" className="bg-black/30 px-1 py-1.5 text-center font-normal">
+                <c.icon size={16} className="mx-auto mb-0.5 text-ug-muted max-sm:hidden" aria-hidden />
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((slot, i) => (
+            <tr key={slot} data-testid={`results-row-${slot}`} className={slot === mySlot ? 'bg-white/5' : ''}>
+              <th scope="row" className="border-t border-ug-border px-2 py-[clamp(0.25rem,1vmin,0.5rem)] font-normal">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="font-terminal text-ug-muted">{i + 1}.</span>
+                  <span className={`truncate text-[clamp(1rem,2.6vmin,1.5rem)] leading-none ${FFA_TONE[slot].text}`}>
+                    {players[slot]?.name ?? `Jugador ${slot}`}
+                    {slot === mySlot ? ' (tú)' : ''}
+                  </span>
+                  {slot === winner && <Trophy size={16} className="shrink-0 text-yellow-300" aria-label="Ganador" />}
+                </span>
+              </th>
+              {FFA_STATS.map((c) => (
+                <td key={c.key} className="border-t border-ug-border px-1 text-center text-[clamp(1.1rem,3vmin,1.75rem)] leading-none" data-testid={`results-${c.key}-${slot}`}>
+                  {stat(slot, c.key)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      </div>
+    </main>
+  )
+}
 
 function Spinner() {
   return <span className="size-6 shrink-0 animate-spin rounded-full border-4 border-ug-border border-t-ug-text motion-reduce:animate-none short:size-5" aria-hidden />
@@ -337,7 +431,7 @@ export function MatchResultsScreen({
       data-testid="match-end"
       data-winner={summary.winner ?? 0}
       data-outcome={outcome}
-      data-mode={teams ? '2v2' : '1v1'}
+      data-mode={ffa ? 'ffa' : teams ? '2v2' : '1v1'}
     >
       <div
         aria-hidden
@@ -401,7 +495,10 @@ export function MatchResultsScreen({
           </p>
         </div>
 
-        {/* Team panels + stats */}
+        {/* Todos contra todos: solo el ganador y la tabla de todos. Otros modos: paneles de equipo + estadísticas. */}
+        {ffa ? (
+          <FfaResults summary={summary} players={players} mySlot={mySlot} slots={[mySlot, ...rivalMembers.map((m) => m.slot)]} />
+        ) : (
         <main className="ug-results-main">
           <div className="ug-results-p1 flex min-h-0 flex-col">
             <TeamPanel team={1} isMine={myTeam === 1} members={myTeam === 1 ? myMembers : rivalMembers} outcome={outcome} mates={teams} />
@@ -453,6 +550,8 @@ export function MatchResultsScreen({
             {user && typeof xp === 'number' && xp > 0 && <MatchXpReward gained={xp} />}
           </div>
         </main>
+        )}
+        {ffa && user && typeof xp === 'number' && xp > 0 && <MatchXpReward gained={xp} />}
 
         {/* Footer: sentence + actions */}
         <footer className="mx-auto flex w-full max-w-[46rem] flex-col gap-[var(--ug-r-gap)]">

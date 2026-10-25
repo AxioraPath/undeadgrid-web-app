@@ -99,6 +99,9 @@ export interface MatchSlotStats {
   /** HP of damage dealt to the rival core. */
   coreDamageDealt: number
   coreHpPct: number
+  /** Jugadores eliminados y muertes propias (todos contra todos; faltan en servidores viejos). */
+  kills?: number
+  deaths?: number
 }
 
 export type MatchEndReason = 'core_destroyed' | 'time_out' | 'opponent_left' | 'last_standing'

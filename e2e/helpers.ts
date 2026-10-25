@@ -89,9 +89,10 @@ export async function enterMatch(page: Page) {
 export const roomCodeFromUrl = (page: Page) => /\/sala\/([A-Z0-9]{5})/.exec(page.url())![1]
 
 /** Ends the running match through the mock server's test endpoint (emits match:over). */
-export async function forceMatchOver(page: Page, opts: { winner?: 0 | 1 | 2; reason?: string; xp?: boolean; left?: 1 | 2 } = {}) {
+export async function forceMatchOver(page: Page, opts: { winner?: 0 | 1 | 2; winnerSlot?: 1 | 2 | 3 | 4; reason?: string; xp?: boolean; left?: 1 | 2 } = {}) {
   const q = new URLSearchParams({ code: roomCodeFromUrl(page), winner: String(opts.winner ?? 1), reason: opts.reason ?? 'core_destroyed' })
   if (opts.xp) q.set('xp', '1')
+  if (opts.winnerSlot) q.set('winnerSlot', String(opts.winnerSlot))
   if (opts.left) q.set('left', String(opts.left))
   const res = await fetch(`${API}/__test/match-over?${q}`, { method: 'POST' })
   expect(res.ok).toBe(true)

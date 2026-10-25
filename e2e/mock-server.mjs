@@ -1,7 +1,7 @@
 // Minimal in-memory stand-in for service-undeadgrid used by the E2E suite.
 // REST: /health, /api/auth/{login,register,refresh,logout}, /api/me, /api/me/missions(+/:key/claim), /__test/state
 // Socket.IO: the lobby + game events the web app uses (see src/shared/lib/contracts.ts).
-// Results flow: POST /__test/match-over?code=&winner=1|2|0&reason=&xp=1&left=1 ends the match deterministically
+// Results flow: POST /__test/match-over?code=&winner=1|2|0&winnerSlot=1-4&reason=&xp=1&left=1 ends the match deterministically
 // (emits match:over; `winner` is the winning TEAM); match:rematchRequest/Cancel, match:rematchState and
 // lobby:backToLobby behave like the real server.
 // Modes: rooms start as 1v1; the host switches with lobby:setMode ('1v1' | '2v2' | 'ffa'; ffa = todos contra todos, 2-4 jugadores, lobby:setLives 3|5); in 2v2 players pick a team with
@@ -109,7 +109,9 @@ const http = createServer(async (req, res) => {
     const winnerParam = Number(url.searchParams.get('winner') ?? 1)
     const reason = url.searchParams.get('reason') ?? 'core_destroyed'
     // Stats exist for every seat that took part, also for the player that leaves (`left` = slot).
-    const statSlots = [1, 2, 3, 4].slice(0, room.capacity)
+    // Todos contra todos: solo los asientos ocupados (se juega de 2 a 4), con bajas y muertes.
+    const statSlots = room.mode === 'ffa' ? room.players.map((p) => p.slot) : [1, 2, 3, 4].slice(0, room.capacity)
+    const winnerSlot = url.searchParams.get('winnerSlot') ? Number(url.searchParams.get('winnerSlot')) : null
     const STATS = [
       { zombieKills: 47, structuresBuilt: 12, coreDamageDealt: 1000, coreHpPct: 100 },
       { zombieKills: 39, structuresBuilt: 10, coreDamageDealt: 640, coreHpPct: 68 },
@@ -121,9 +123,10 @@ const http = createServer(async (req, res) => {
     room.rematch = new Set()
     const payload = {
       ...snapshot(room),
-      stats: Object.fromEntries(statSlots.map((slot) => [slot, { team: teamOf(slot), ...STATS[slot - 1] }])),
+      stats: Object.fromEntries(statSlots.map((slot) => [slot, { team: teamOf(slot), ...STATS[slot - 1], kills: 5 - slot, deaths: slot - 1 }])),
       durationS: 240,
-      winner: winnerParam === 1 || winnerParam === 2 ? winnerParam : null,
+      winner: room.mode === 'ffa' ? null : winnerParam === 1 || winnerParam === 2 ? winnerParam : null,
+      ...(room.mode === 'ffa' ? { winnerSlot } : {}),
       reason,
       mapName: 'Ciudad Abandonada',
       // XP only for the players still in the room.

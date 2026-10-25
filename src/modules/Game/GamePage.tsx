@@ -630,6 +630,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
         structuresBuilt: 0,
         coreDamageDealt: Math.max(0, CORE_HP - hud.cores[other]),
         coreHpPct: Math.round((hud.cores[team] / CORE_HP) * 100),
+        kills: s.kills,
+        deaths: s.deaths,
       }
     }
     const winner = hud.result ? hud.result.winner : (roomResult?.winner ?? 0)
