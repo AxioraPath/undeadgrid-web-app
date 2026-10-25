@@ -38,6 +38,7 @@ export function RoomGamePage() {
       roomResult={room.result}
       xp={room.matchXp}
       onExit={exit}
+      chat={{ messages: room.messages, onSend: room.sendMessage }}
       results={{
         roomCode: room.code,
         mapId: room.map.id,

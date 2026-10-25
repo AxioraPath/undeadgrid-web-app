@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LogOut, Maximize, Settings } from 'lucide-react'
+import { LogOut, Maximize, MessageSquare, Settings } from 'lucide-react'
+import { GameChat } from './components/GameChat'
+import type { ChatMessage } from '../Lobby/hooks/useLobbyRoom'
 import { SettingsModal } from '../../shared/components/SettingsModal'
 import { useFullscreen } from '../../shared/lib/fullscreen'
 import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
@@ -49,6 +51,8 @@ export interface GamePageProps {
   onExit: () => void | Promise<void>
   /** XP gained per slot, when the server reports it (only players still in the room). */
   xp?: MatchXp | null
+  /** Chat de la sala dentro de la partida. */
+  chat?: { messages: ChatMessage[]; onSend: (text: string) => void }
   /** Everything the end-of-match screen needs besides what the game itself knows. */
   results: {
     roomCode: string
@@ -90,7 +94,7 @@ const asReason = (r: string | undefined): MatchEndReason =>
  * Partida: el servidor simula todo a 30 ticks/s. Aquí solo se mandan los controles
  * (game:input / game:command) y se dibuja lo que llega en game:state, interpolado.
  */
-export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: GamePageProps) {
+export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat }: GamePageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const minimapRef = useRef<HTMLCanvasElement>(null)
   const posRef = useRef<HTMLDivElement>(null)
@@ -101,6 +105,26 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const [settingsOpen, setSettingsOpen] = useState(false)
   const closeSettings = useCallback(() => setSettingsOpen(false), [])
   const fullscreen = useFullscreen()
+  // Chat en la partida: Enter (PC) o el botón de mensajes lo abre; mensajes sin leer de los demás mientras está cerrado.
+  const [chatOpen, setChatOpen] = useState(false)
+  const closeChat = useCallback(() => setChatOpen(false), [])
+  const chatMessages = chat?.messages ?? []
+  const [chatSeenId, setChatSeenId] = useState(() => chatMessages[chatMessages.length - 1]?.id ?? 0)
+  const lastChatId = chatMessages[chatMessages.length - 1]?.id ?? 0
+  if (chatOpen && chatSeenId !== lastChatId) setChatSeenId(lastChatId)
+  const unreadChat = chatOpen ? 0 : chatMessages.filter((m) => m.id > chatSeenId && m.slot !== mySlot).length
+  useEffect(() => {
+    if (!chat) return
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+      if (e.key === 'Enter' && !typing && !e.repeat) {
+        e.preventDefault()
+        setChatOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [chat])
   // Aviso si el navegador no usa la tarjeta gráfica (aceleración por hardware apagada).
   const [gpuWarning, setGpuWarning] = useState(() => {
     try {
@@ -646,6 +670,23 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
                   <Maximize size={16} />
                 </button>
               )}
+              {chat && (
+                <button
+                  type="button"
+                  onClick={() => setChatOpen((o) => !o)}
+                  aria-label="Chat"
+                  title="Chat (Enter)"
+                  className="ug-panel relative grid size-9 place-items-center hover:border-ug-border-hi short:size-8"
+                  data-testid="game-chat-button"
+                >
+                  <MessageSquare size={16} />
+                  {unreadChat > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 grid min-w-4 place-items-center bg-ug-red-hi px-0.5 font-terminal text-xs leading-4 text-white" data-testid="game-chat-unread">
+                      {unreadChat}
+                    </span>
+                  )}
+                </button>
+              )}
               <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Ajustes" className="ug-panel grid size-9 place-items-center hover:border-ug-border-hi short:size-8" data-testid="game-settings">
                 <Settings size={16} />
               </button>
@@ -666,6 +707,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
               </button>
             </div>
           )}
+
+          {chat && !finished && <GameChat messages={chatMessages} onSend={chat.onSend} open={chatOpen} onClose={closeChat} mySlot={mySlot} />}
 
           {/* Toasts */}
           <div className="absolute top-1/3 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">

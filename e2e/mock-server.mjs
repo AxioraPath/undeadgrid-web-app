@@ -272,6 +272,9 @@ setInterval(() => {
   }
 }, 1000 / TICK_HZ)
 
+// Ids de chat únicos para todo el servidor (el cliente descarta ids repetidos).
+let chatSeq = 0
+
 io.on('connection', (socket) => {
   const roomOf = () => rooms.get(socket.data?.code)
   const me = () => roomOf()?.players.find((p) => p.socketId === socket.id)
@@ -419,7 +422,16 @@ io.on('connection', (socket) => {
     }
     return ok(undefined)
   })
-  for (const ev of ['lobby:rename', 'lobby:selectSurvivor', 'lobby:confirmSurvivor', 'lobby:setMap', 'lobby:setDifficulty', 'chat:send']) {
+  // chat:send reenvía el mensaje a toda la sala (como el servidor real), también durante la partida.
+  handle('chat:send', (p) => {
+    const room = roomOf()
+    const player = me()
+    if (!room || !player) return fail('NOT_IN_ROOM', 'No estás en una sala')
+    const msg = { id: ++chatSeq, slot: player.slot, author: player.name, text: String(p?.text ?? '').slice(0, 120), at: Date.now() }
+    io.to(room.code).emit('chat:message', msg)
+    return ok(msg)
+  })
+  for (const ev of ['lobby:rename', 'lobby:selectSurvivor', 'lobby:confirmSurvivor', 'lobby:setMap', 'lobby:setDifficulty']) {
     handle(ev, () => ok(roomOf() ? snapshot(roomOf()) : undefined))
   }
   handle('ping', (p) => ok({ t: p?.t ?? Date.now() }))
