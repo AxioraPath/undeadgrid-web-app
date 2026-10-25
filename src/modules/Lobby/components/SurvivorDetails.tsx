@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Backpack, Cog, Crosshair, Footprints, Package, Wrench, type LucideIcon } from 'lucide-react'
-import { STARTING_WEAPONS, type Skill, type Survivor } from '../data/catalog'
+import type { Skill, Survivor } from '../data/catalog'
 import { SLOT_THEME } from '../data/slotTheme'
 import type { Team } from '../hooks/useLobbyRoom'
 
@@ -13,7 +13,7 @@ const SKILL_ICONS: Record<Skill['icon'], LucideIcon> = {
   box: Package,
 }
 
-const TABS = ['Habilidades', 'Armas iniciales', 'Estilo de juego'] as const
+const TABS = ['Habilidades', 'Estilo de juego'] as const
 
 interface SurvivorDetailsProps {
   team: Team
@@ -25,10 +25,10 @@ export function SurvivorDetails({ team, survivor }: SurvivorDetailsProps) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Habilidades')
 
   return (
-    <section className="ug-panel grid gap-3 p-3 phone:gap-1 phone:p-2 md:grid-cols-[1fr_auto]" aria-label="Detalles del superviviente">
+    <section className="ug-panel p-3 phone:p-2" aria-label="Detalles del superviviente">
       <div>
         <h2 className="ug-title-shadow text-2xl phone:text-xl tracking-wide">DETALLES DEL SUPERVIVIENTE</h2>
-        <div className="mt-2 grid grid-cols-3 gap-1" role="tablist">
+        <div className="mt-2 grid grid-cols-2 gap-1" role="tablist">
           {TABS.map((name) => (
             <button
               key={name}
@@ -60,23 +60,9 @@ export function SurvivorDetails({ team, survivor }: SurvivorDetailsProps) {
               })}
             </ul>
           )}
-          {tab === 'Armas iniciales' && (
-            <ul className="space-y-2">
-              {STARTING_WEAPONS.map((w) => (
-                <li key={w.name} className="border-2 border-ug-border bg-black/30 px-3 py-2">
-                  <span className="text-xl">{w.name}</span>
-                  <span className="block font-terminal text-base text-ug-muted">{w.detail}</span>
-                </li>
-              ))}
-            </ul>
-          )}
           {tab === 'Estilo de juego' && <p className="font-terminal text-lg leading-snug text-ug-muted">{survivor.playstyle}</p>}
         </div>
       </div>
-
-      {survivor.preview && (
-        <img src={survivor.preview} alt="" className="pixelated hidden h-full max-h-40 w-60 border-2 border-ug-border object-cover md:block" />
-      )}
     </section>
   )
 }

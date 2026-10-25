@@ -15,7 +15,6 @@ export interface Survivor {
   locked: boolean
   // Solo los desbloqueados tienen sprite, stats y detalles.
   sprite?: string
-  preview?: string
   stats?: Record<StatKey, number>
   skills?: Skill[]
   playstyle?: string
@@ -51,7 +50,6 @@ export const SURVIVORS: Survivor[] = [
     description: 'Un superviviente preparado para cualquier situación. Buena movilidad y daño estable.',
     portrait: `${P}explorador.png`,
     sprite: `${P}explorador-sprite.png`,
-    preview: `${P}explorador-preview.png`,
     locked: false,
     stats: { vida: 3, velocidad: 4, dano: 3, capacidad: 3 },
     skills: [
@@ -68,7 +66,6 @@ export const SURVIVORS: Survivor[] = [
     description: 'Especialista en construcción y reparación. Aprovecha mejor los recursos de la caja.',
     portrait: `${P}mecanica.png`,
     sprite: `${P}mecanica-sprite.png`,
-    preview: `${P}mecanica-preview.png`,
     locked: false,
     stats: { vida: 3, velocidad: 3, dano: 2, capacidad: 5 },
     skills: [
@@ -85,7 +82,6 @@ export const SURVIVORS: Survivor[] = [
     description: 'Veterano entrenado para el combate. Cada disparo pega más fuerte.',
     portrait: `${P}militar.png`,
     sprite: `${P}militar-sprite.png`,
-    preview: `${P}militar-preview.png`,
     locked: false,
     stats: { vida: 3, velocidad: 3, dano: 5, capacidad: 3 },
     skills: [
@@ -102,7 +98,6 @@ export const SURVIVORS: Survivor[] = [
     description: 'Sabe mantenerse en pie. Empieza con más botiquines y los aprovecha mejor.',
     portrait: `${P}medica.png`,
     sprite: `${P}medica-sprite.png`,
-    preview: `${P}medica-preview.png`,
     locked: false,
     stats: { vida: 5, velocidad: 3, dano: 3, capacidad: 3 },
     skills: [
@@ -119,7 +114,6 @@ export const SURVIVORS: Survivor[] = [
     description: 'Constructor de oficio. Sus paredes resisten mucho más.',
     portrait: `${P}obrero.png`,
     sprite: `${P}obrero-sprite.png`,
-    preview: `${P}obrero-preview.png`,
     locked: false,
     stats: { vida: 4, velocidad: 3, dano: 2, capacidad: 4 },
     skills: [
@@ -134,14 +128,6 @@ export const SURVIVORS: Survivor[] = [
 export const UNLOCKED_SURVIVORS = SURVIVORS.filter((s) => !s.locked)
 
 export const getSurvivor = (id: string) => SURVIVORS.find((s) => s.id === id) ?? UNLOCKED_SURVIVORS[0]
-
-// Armas iniciales iguales para todos (sección 5 del documento).
-export const STARTING_WEAPONS = [
-  { name: 'Pistola', detail: '15 de daño · 3 disparos/s · munición infinita' },
-  { name: 'Escopeta', detail: '10 × 5 perdigones · 1 disparo/s · 12 cartuchos en la caja' },
-  { name: 'Cuchillo', detail: 'Automático con un zombi pegado · 25 de daño · no gasta munición' },
-  { name: 'Caja del centro', detail: 'Ametralladora (oleada 1) · Sniper (oleada 2) · Lanzacohetes (horda)' },
-]
 
 export const MAPS: GameMap[] = [
   {
