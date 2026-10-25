@@ -1,0 +1,11 @@
+{
+  "name": "Undead Grid — CyberGrid: Breach & Sync",
+  "short_name": "Undead Grid",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0f17",
+  "theme_color": "#0b0f17",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

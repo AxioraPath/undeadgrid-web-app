@@ -193,6 +193,10 @@ html.ug-no-scroll #root {
 .ug-fit .min-h-dvh {
   min-height: calc(var(--ug-vh) * 100);
 }
+/* Mientras DesktopFit mide el contenido en celular, la pantalla no se estira a "una pantalla" de alto. */
+.ug-fit.ug-measuring .min-h-dvh {
+  min-height: 0;
+}
 
 /* ---------------------------------------------------------------------------
    Match results screen: one fixed viewport, never scrolls.

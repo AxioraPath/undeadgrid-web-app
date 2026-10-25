@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LogOut } from 'lucide-react'
+import { LogOut, Maximize, Settings } from 'lucide-react'
+import { SettingsModal } from '../../shared/components/SettingsModal'
+import { useFullscreen } from '../../shared/lib/fullscreen'
 import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
@@ -95,6 +97,10 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
   const [map, setMap] = useState<GameMap | null>(null)
   const [hud, setHud] = useState<HudSnapshot | null>(null)
   const [fps, setFps] = useState(0)
+  // Ajustes dentro de la partida (zoom, controles, HUD...) y botón para volver a pantalla completa en celular.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
+  const fullscreen = useFullscreen()
   // Aviso si el navegador no usa la tarjeta gráfica (aceleración por hardware apagada).
   const [gpuWarning, setGpuWarning] = useState(() => {
     try {
@@ -625,6 +631,14 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
                   </span>
                 </span>
               )}
+              {fullscreen.supported && !fullscreen.active && (
+                <button type="button" onClick={fullscreen.enter} aria-label="Pantalla completa" className="ug-panel grid size-9 place-items-center hover:border-ug-border-hi short:size-8" data-testid="game-fullscreen">
+                  <Maximize size={16} />
+                </button>
+              )}
+              <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Ajustes" className="ug-panel grid size-9 place-items-center hover:border-ug-border-hi short:size-8" data-testid="game-settings">
+                <Settings size={16} />
+              </button>
               <button type="button" onClick={onExit} aria-label="Salir" className="ug-panel grid size-9 place-items-center hover:border-ug-border-hi short:size-8">
                 <LogOut size={16} />
               </button>
@@ -736,6 +750,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
           </div>
         </div>
       )}
+
+      <SettingsModal open={settingsOpen} onClose={closeSettings} />
 
       {finished && summary && (
         <MatchResultsScreen

@@ -10,6 +10,7 @@ import { LoginPage } from './modules/Auth/LoginPage'
 import { RegisterPage } from './modules/Auth/RegisterPage'
 import { DesktopFit } from './shared/components/DesktopFit'
 import { RotateDevice } from './shared/components/RotateDevice'
+import { AutoFullscreen } from './shared/components/AutoFullscreen'
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
         </Routes>
       </AuthProvider>
       <RotateDevice />
+      <AutoFullscreen />
     </BrowserRouter>
   )
 }
