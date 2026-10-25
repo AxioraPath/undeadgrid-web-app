@@ -40,6 +40,11 @@ export const STAT_LABELS: Record<StatKey, string> = {
 export const STAT_MAX = 6
 
 const P = '/assets/survivors/'
+/**
+ * Versión de las imágenes de los supervivientes: el servidor las guarda en caché un año, así que al cambiar
+ * una imagen hay que subir este número (si no, el navegador sigue mostrando la vieja).
+ */
+const V = '?v=3'
 
 // Las habilidades describen las ventajas reales del servidor (SURVIVOR_PERKS en service-undeadgrid).
 export const SURVIVORS: Survivor[] = [
@@ -48,8 +53,8 @@ export const SURVIVORS: Survivor[] = [
     name: 'Explorador',
     tagline: 'Equilibrado y versátil',
     description: 'Un superviviente preparado para cualquier situación. Buena movilidad y daño estable.',
-    portrait: `${P}explorador.png`,
-    sprite: `${P}explorador-sprite.png`,
+    portrait: `${P}explorador.png${V}`,
+    sprite: `${P}explorador-sprite.png${V}`,
     locked: false,
     stats: { vida: 3, velocidad: 4, dano: 3, capacidad: 3 },
     skills: [
@@ -64,8 +69,8 @@ export const SURVIVORS: Survivor[] = [
     name: 'Mecánica',
     tagline: 'Construye, repara, sobrevive',
     description: 'Especialista en construcción y reparación. Aprovecha mejor los recursos de la caja.',
-    portrait: `${P}mecanica.png`,
-    sprite: `${P}mecanica-sprite.png`,
+    portrait: `${P}mecanica.png${V}`,
+    sprite: `${P}mecanica-sprite.png${V}`,
     locked: false,
     stats: { vida: 3, velocidad: 3, dano: 2, capacidad: 5 },
     skills: [
@@ -80,8 +85,8 @@ export const SURVIVORS: Survivor[] = [
     name: 'Militar',
     tagline: 'Potencia de fuego',
     description: 'Veterano entrenado para el combate. Cada disparo pega más fuerte.',
-    portrait: `${P}militar.png`,
-    sprite: `${P}militar-sprite.png`,
+    portrait: `${P}militar.png${V}`,
+    sprite: `${P}militar-sprite.png${V}`,
     locked: false,
     stats: { vida: 3, velocidad: 3, dano: 5, capacidad: 3 },
     skills: [
@@ -96,8 +101,8 @@ export const SURVIVORS: Survivor[] = [
     name: 'Médica',
     tagline: 'Aguanta más que nadie',
     description: 'Sabe mantenerse en pie. Empieza con más botiquines y los aprovecha mejor.',
-    portrait: `${P}medica.png`,
-    sprite: `${P}medica-sprite.png`,
+    portrait: `${P}medica.png${V}`,
+    sprite: `${P}medica-sprite.png${V}`,
     locked: false,
     stats: { vida: 5, velocidad: 3, dano: 3, capacidad: 3 },
     skills: [
@@ -112,8 +117,8 @@ export const SURVIVORS: Survivor[] = [
     name: 'Obrero',
     tagline: 'Muros que no caen',
     description: 'Constructor de oficio. Sus paredes resisten mucho más.',
-    portrait: `${P}obrero.png`,
-    sprite: `${P}obrero-sprite.png`,
+    portrait: `${P}obrero.png${V}`,
+    sprite: `${P}obrero-sprite.png${V}`,
     locked: false,
     stats: { vida: 4, velocidad: 3, dano: 2, capacidad: 4 },
     skills: [
