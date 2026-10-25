@@ -173,6 +173,8 @@ export interface PlayerInput {
   action: boolean
   /** Disparar siempre (clic izquierdo / stick de apuntar), también dentro de la base. */
   fire?: boolean
+  /** Con `fire`: el servidor apunta solo al objetivo más cercano (toque en el celular, como Brawl Stars). */
+  autoAim?: boolean
 }
 
 /** Direction from the local player to the mouse in world space (server normalizes it). Omitted when mouse aiming is off. */

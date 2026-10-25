@@ -143,7 +143,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
     },
     [sendCommand, selectWeapon],
   )
-  const { read: readInput, setTouchDirection, setTouchAim, readTouchAim, setMouseAction } = useGameInput(onCommand, swapToPreviousWeapon)
+  const { read: readInput, setTouchDirection, setTouchAim, setAimPressed, readTouchAim, setMouseAction } = useGameInput(onCommand, swapToPreviousWeapon)
   const finished = status === 'results'
   const aimEnabled = settings.mouseAim && !isTouch
   const aimEnabledRef = useRef(aimEnabled)
@@ -683,6 +683,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results }: Ga
                 weapon={weapon}
                 onDirection={setTouchDirection}
                 onAim={(x, y) => setTouchAim(x, y)}
+                onAimPress={setAimPressed}
                 onQuickWeapon={cycleWeapon}
               />
             )}

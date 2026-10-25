@@ -21,7 +21,7 @@ export function ControlsHelp({ mouseAim = false, touch = false }: { mouseAim?: b
       <p className="ug-panel hidden px-2 py-1 text-center font-terminal text-sm leading-tight text-ug-muted [@media(min-height:600px)]:block" data-testid="controls-help">
         <span>Joystick izquierdo: mover</span>
         <span className="mx-2 text-ug-border-hi">|</span>
-        <span>Joystick derecho: apuntar y disparar</span>
+        <span>Joystick derecho: toca para autoapuntar, arrastra para apuntar</span>
         <span className="mx-2 text-ug-border-hi">|</span>
         <span>Pared, trampa o torreta: toca tu base</span>
       </p>

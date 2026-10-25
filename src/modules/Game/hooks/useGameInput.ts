@@ -28,16 +28,22 @@ type InputState = {
   touchFire: boolean
   mouse: boolean
   touchAim: { x: number; y: number } | null
+  /** Botón de apuntar: cuándo se presionó, si se arrastró en este toque y si hay un toque de autoapuntado pendiente. */
+  aimPressAt: number | null
+  aimDragged: boolean
+  autoTap: boolean
 }
 
 const TOUCH_DEAD_ZONE = 0.35
 const TOUCH_AIM_DEAD_ZONE = 0.25
+/** Toque corto (ms) en el botón de apuntar = un disparo autoapuntado; mantenerlo sin arrastrar = ráfaga autoapuntada. */
+const AUTO_TAP_MS = 250
 
 const empty = (): PlayerInput => ({ up: false, down: false, left: false, right: false, action: false })
 
 /** Teclado (keydown/keyup) + estado táctil; el bucle del juego lee `read()` en cada tick. */
 export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: () => void) {
-  const state = useRef<InputState>({ keyboard: empty(), touch: empty(), tapped: false, fireTapped: false, touchFire: false, mouse: false, touchAim: null })
+  const state = useRef<InputState>({ keyboard: empty(), touch: empty(), tapped: false, fireTapped: false, touchFire: false, mouse: false, touchAim: null, aimPressAt: null, aimDragged: false, autoTap: false })
   const onCommandRef = useRef(onCommand)
   const onSwapRef = useRef(onSwapWeapon)
 
@@ -71,6 +77,7 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
       state.current.keyboard = empty()
       state.current.mouse = false
       state.current.touchFire = false
+      state.current.aimPressAt = null
     }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
@@ -83,9 +90,13 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
   }, [])
 
   const read = useCallback((): PlayerInput => {
-    const { keyboard: k, touch: t, tapped, fireTapped, mouse, touchFire } = state.current
+    const { keyboard: k, touch: t, tapped, fireTapped, mouse, touchFire, aimPressAt, aimDragged, autoTap } = state.current
     state.current.tapped = false
     state.current.fireTapped = false
+    state.current.autoTap = false
+    // Mantener el botón sin arrastrar: dispara seguido, autoapuntado.
+    const autoHold = aimPressAt !== null && !aimDragged && performance.now() - aimPressAt >= AUTO_TAP_MS
+    const auto = (autoTap || autoHold) && !touchFire && !mouse
     return {
       up: k.up || t.up,
       down: k.down || t.down,
@@ -94,7 +105,9 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
       // Espacio: acción según el lugar (en tu base construye, fuera dispara).
       action: k.action || t.action || tapped,
       // Clic izquierdo / stick derecho: siempre dispara, también dentro de tu base.
-      fire: mouse || touchFire || fireTapped,
+      fire: mouse || touchFire || fireTapped || auto,
+      // Toque o mantener sin arrastrar: el servidor apunta al objetivo más cercano (con un poco de desfase).
+      ...(auto ? { autoAim: true } : {}),
     }
   }, [])
 
@@ -120,8 +133,24 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
       return
     }
     if (!s.touchFire) s.fireTapped = true
+    s.aimDragged = true
     s.touchAim = { x: nx / len, y: ny / len }
     s.touchFire = true
+  }, [])
+
+  /**
+   * Botón de apuntar presionado / soltado. Un toque corto sin arrastrar es un disparo autoapuntado (como Brawl Stars);
+   * arrastrar apunta a mano.
+   */
+  const setAimPressed = useCallback((pressed: boolean) => {
+    const s = state.current
+    if (pressed) {
+      s.aimPressAt = performance.now()
+      s.aimDragged = false
+      return
+    }
+    if (s.aimPressAt !== null && !s.aimDragged && performance.now() - s.aimPressAt < AUTO_TAP_MS) s.autoTap = true
+    s.aimPressAt = null
   }, [])
 
   /** Current touch aim (unit vector) or null; read every frame by the game loop. */
@@ -133,5 +162,5 @@ export function useGameInput(onCommand: (cmd: Command) => void, onSwapWeapon?: (
     state.current.mouse = on
   }, [])
 
-  return { read, setTouchDirection, setTouchAim, readTouchAim, setMouseAction }
+  return { read, setTouchDirection, setTouchAim, setAimPressed, readTouchAim, setMouseAction }
 }

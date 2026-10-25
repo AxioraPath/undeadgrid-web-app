@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { API, enterMatch, readPos, roomCodeFromUrl } from './helpers'
 
 // Runs only in the "mobile" projects (landscape touch emulation, hasTouch).
-type LastInput = { up: boolean; down: boolean; left: boolean; right: boolean; action: boolean; fire?: boolean; aim?: { x: number; y: number } } | null
+type LastInput = { up: boolean; down: boolean; left: boolean; right: boolean; action: boolean; fire?: boolean; autoAim?: boolean; aim?: { x: number; y: number } } | null
 
 const lastInput = async (page: Page): Promise<LastInput> =>
   ((await (await fetch(`${API}/__test/last-input?code=${roomCodeFromUrl(page)}`)).json()) as { input: LastInput }).input
@@ -105,6 +105,24 @@ test.describe('Flow 3 - Canvas (twin-stick touch controls)', () => {
       await expect.poll(async () => (await lastInput(page))?.fire).toBe(false)
       expect((await lastInput(page))?.right).toBe(false)
       expect((await lastInput(page))?.aim).toBeUndefined()
+    } finally {
+      bot.disconnect()
+    }
+  })
+})
+
+test.describe('Autoapuntado táctil (como Brawl Stars)', () => {
+  test('mantener el botón de apuntar sin arrastrar dispara con autoapuntado; arrastrar apunta a mano', async ({ page }) => {
+    const bot = await enterMatch(page)
+    try {
+      const c = await centerOf(page, 'aim-stick')
+      const touch = await touchSender(page)
+      await touch('touchStart', [{ x: c.x, y: c.y, id: 3 }])
+      await expect.poll(async () => (await lastInput(page))?.autoAim === true && (await lastInput(page))?.fire === true).toBe(true)
+      // Al arrastrar, el apuntado es manual: ya no se pide autoapuntado.
+      await touch('touchMove', [{ x: c.x + 60, y: c.y, id: 3 }])
+      await expect.poll(async () => (await lastInput(page))?.autoAim ?? false).toBe(false)
+      await touch('touchEnd', [])
     } finally {
       bot.disconnect()
     }

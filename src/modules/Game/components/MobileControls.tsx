@@ -14,6 +14,8 @@ interface StickProps {
   label: string
   /** Fires on every change. (0, 0) means released. */
   onChange: (nx: number, ny: number) => void
+  /** Pressed / released (to tell a tap from a drag). */
+  onPress?: (pressed: boolean) => void
   baseClassName?: string
   knobClassName?: string
   children?: ReactNode
@@ -23,7 +25,7 @@ interface StickProps {
  * Fixed-position virtual joystick. Tracks a single pointer by id (pointer capture), so the
  * two sticks work at the same time with both thumbs. The knob moves through a ref (no re-render).
  */
-function Stick({ testId, label, onChange, baseClassName = '', knobClassName = '', children }: StickProps) {
+function Stick({ testId, label, onChange, onPress, baseClassName = '', knobClassName = '', children }: StickProps) {
   const baseRef = useRef<HTMLDivElement>(null)
   const knobRef = useRef<HTMLSpanElement>(null)
   const activeId = useRef<number | null>(null)
@@ -48,6 +50,7 @@ function Stick({ testId, label, onChange, baseClassName = '', knobClassName = ''
     knobRef.current!.style.transform = ''
     baseRef.current!.dataset.held = 'false'
     onChange(0, 0)
+    onPress?.(false)
   }
 
   return (
@@ -62,6 +65,7 @@ function Stick({ testId, label, onChange, baseClassName = '', knobClassName = ''
         activeId.current = e.pointerId
         e.currentTarget.setPointerCapture(e.pointerId)
         baseRef.current!.dataset.held = 'true'
+        onPress?.(true)
         track(e)
       }}
       onPointerMove={(e) => e.pointerId === activeId.current && track(e)}
@@ -94,6 +98,8 @@ interface MobileControlsProps {
   onDirection: (nx: number, ny: number) => void
   /** Right stick vector in [-1, 1] (not normalised); (0, 0) = released. */
   onAim: (nx: number, ny: number) => void
+  /** Right stick pressed / released: a tap without dragging fires auto-aimed. */
+  onAimPress?: (pressed: boolean) => void
   /** Cycles pistol <-> shotgun. */
   onQuickWeapon: () => void
 }
@@ -102,7 +108,7 @@ interface MobileControlsProps {
  * Twin-stick touch controls: left stick moves, right stick aims in any angle and fires while held,
  * and a quick button swaps weapons. Every piece can be moved / resized from the HUD editor.
  */
-export function MobileControls({ inBase, layout, weapon, onDirection, onAim, onQuickWeapon }: MobileControlsProps) {
+export function MobileControls({ inBase, layout, weapon, onDirection, onAim, onAimPress, onQuickWeapon }: MobileControlsProps) {
   return (
     <>
       <HudSlot id="moveStick" layout={layout} className="size-(--ug-ctl)" defaultClassName="absolute bottom-0 left-0">
@@ -119,6 +125,7 @@ export function MobileControls({ inBase, layout, weapon, onDirection, onAim, onQ
           testId="aim-stick"
           label={inBase ? 'Construir' : 'Apuntar y disparar'}
           onChange={onAim}
+          onPress={onAimPress}
           baseClassName={inBase ? 'border-ug-green/70 data-[held=true]:border-ug-green' : 'border-ug-red-hi/70 data-[held=true]:border-ug-red-hi'}
           knobClassName={inBase ? 'border-ug-green bg-ug-green/50 text-white' : 'border-ug-red-hi bg-ug-red/55 text-white'}
         >
