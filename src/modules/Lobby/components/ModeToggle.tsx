@@ -1,4 +1,4 @@
-import { Swords, Users } from 'lucide-react'
+import { Skull, Swords, Users } from 'lucide-react'
 import type { GameMode } from '../../../shared/lib/contracts'
 
 interface ModeToggleProps {
@@ -11,13 +11,14 @@ interface ModeToggleProps {
 const OPTIONS: { mode: GameMode; label: string; hint: string; icon: typeof Swords }[] = [
   { mode: '1v1', label: '1 VS 1', hint: 'Duelo', icon: Swords },
   { mode: '2v2', label: '2 VS 2', hint: 'Por equipos', icon: Users },
+  { mode: 'ffa', label: 'TODOS', hint: 'Todos vs todos', icon: Skull },
 ]
 
 export function ModeToggle({ mode, canEdit, onChange }: ModeToggleProps) {
   return (
     <section className="ug-panel flex items-center gap-3 px-3 py-2 phone:gap-2 phone:px-2 phone:py-1" aria-label="Modo de juego" data-testid="mode-toggle" data-mode={mode}>
       <h3 className="ug-title-shadow text-xl leading-none tracking-wide phone:hidden">MODO</h3>
-      <div className="grid flex-1 grid-cols-2 gap-2 phone:gap-1" role="group" aria-label="Modo de juego">
+      <div className="grid flex-1 grid-cols-3 gap-2 phone:gap-1" role="group" aria-label="Modo de juego">
         {OPTIONS.map(({ mode: m, label, hint, icon: Icon }) => {
           const active = m === mode
           return (

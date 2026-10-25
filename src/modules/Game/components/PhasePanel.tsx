@@ -2,6 +2,8 @@ import { Skull } from 'lucide-react'
 import { CORE_HP, type Team } from '../../../shared/lib/contracts'
 import { formatTime, TOTAL_WAVES, type HudSnapshot } from '../hud'
 
+const FFA_TEXT = { 1: 'text-[#6aa8ff]', 2: 'text-ug-red-hi', 3: 'text-[#5fe07f]', 4: 'text-[#ffd166]' } as const
+
 function CoreBar({ team, hp, mine }: { team: Team; hp: number; mine: boolean }) {
   const color = team === 1 ? 'bg-[#3d8bff]' : 'bg-ug-red-hi'
   return (
@@ -45,10 +47,23 @@ export function PhasePanel({ hud }: { hud: HudSnapshot }) {
           <p className="ug-title-shadow mt-1 text-2xl leading-none short:mt-0 short:text-lg lg:text-3xl" data-testid="hud-timer">{formatTime(hud.matchLeft)}</p>
         </>
       )}
-      <div className="mt-1.5 space-y-1 short:mt-1 short:space-y-0.5 lg:mt-2">
-        <CoreBar team={hud.myTeam} hp={hud.cores[hud.myTeam]} mine />
-        <CoreBar team={hud.rivalTeam} hp={hud.cores[hud.rivalTeam]} mine={false} />
-      </div>
+      {hud.ffa ? (
+        // Todos contra todos: vidas de cada jugador (sin núcleos).
+        <ul className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 short:mt-1" data-testid="hud-lives">
+          {hud.lives.map((p) => (
+            <li key={p.slot} className={`flex items-center gap-1 font-terminal text-xs leading-none lg:text-sm ${p.lives > 0 ? '' : 'opacity-40 line-through'}`} data-testid={`hud-lives-${p.slot}`} data-lives={p.lives}>
+              <span className={FFA_TEXT[p.slot]}>J{p.slot}</span>
+              <span className="truncate">{p.name}</span>
+              <span className="ml-auto text-ug-red-hi">{'♥'.repeat(Math.max(0, p.lives))}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-1.5 space-y-1 short:mt-1 short:space-y-0.5 lg:mt-2">
+          <CoreBar team={hud.myTeam} hp={hud.cores[hud.myTeam]} mine />
+          <CoreBar team={hud.rivalTeam} hp={hud.cores[hud.rivalTeam]} mine={false} />
+        </div>
+      )}
     </div>
   )
 }

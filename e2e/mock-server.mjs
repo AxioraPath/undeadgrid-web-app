@@ -4,7 +4,7 @@
 // Results flow: POST /__test/match-over?code=&winner=1|2|0&reason=&xp=1&left=1 ends the match deterministically
 // (emits match:over; `winner` is the winning TEAM); match:rematchRequest/Cancel, match:rematchState and
 // lobby:backToLobby behave like the real server.
-// Modes: rooms start as 1v1; the host switches with lobby:setMode ('1v1' | '2v2'); in 2v2 players pick a team with
+// Modes: rooms start as 1v1; the host switches with lobby:setMode ('1v1' | '2v2' | 'ffa'; ffa = todos contra todos, 2-4 jugadores, lobby:setLives 3|5); in 2v2 players pick a team with
 // room:setTeam (team 1 = slots 1,3; team 2 = slots 2,4). Errors: TEAM_FULL, TOO_MANY_PLAYERS, ROOM_FULL.
 // Simplifications vs the real server: lobby:start jumps straight to "combat" and the
 // simulation only moves players at constant speed according to game:input.
@@ -22,7 +22,7 @@ const MAP_H = 24
 const rooms = new Map()
 const sessions = new Map() // sessionId -> { code, id }
 
-const MODE_CAPACITY = { '1v1': 2, '2v2': 4 }
+const MODE_CAPACITY = { '1v1': 2, '2v2': 4, ffa: 4 }
 const teamOf = (slot) => (slot % 2 === 1 ? 1 : 2)
 const slotFor = (team, seat) => seat * 2 + team
 /** First free slot of a room (1v1 uses 1-2, 2v2 uses 1-4). */
@@ -173,6 +173,7 @@ const snapshot = (room) => ({
   difficulty: 'Estándar',
   mode: room.mode,
   capacity: room.capacity,
+  lives: room.lives ?? 3,
   hostSlot: room.players.find((p) => p.isHost)?.slot ?? 1,
   players: room.players.map(({ socketId: _s, input: _i, pos: _p, lastInput: _l, commands: _c, weapon: _w, build: _b, ...pub }) => pub),
   combat: null,
@@ -205,8 +206,9 @@ function addPlayer(room, socket, { name, survivor }, slot) {
   return { sessionId, slot, isHost: room.players.find((p) => p.id === id).isHost, room: snapshot(room) }
 }
 
-const buildMap = () => ({
+const buildMap = (room) => ({
   seed: 7,
+  ffa: room?.mode === 'ffa',
   w: MAP_W,
   h: MAP_H,
   tiles: Array.from({ length: MAP_W * MAP_H }, (_, i) => {
@@ -246,13 +248,15 @@ const gameState = (room) => ({
     id: p.id, slot: p.slot, team: p.team, name: p.name, survivor: p.survivor, x: p.pos.x, y: p.pos.y, dirX: 0, dirY: 1,
     hp: 100, alive: true, respawnIn: null, weapon: p.weapon ?? 'pistol', build: p.build ?? 'wall', ...emptyStock(),
     kills: 0, zombieKills: 0, deaths: 0, shotAt: -1, hurtAt: -1, inBase: !!process.env.MOCK_WALLS, onCrate: false,
+    lives: room.mode === 'ffa' ? (room.lives ?? 3) : null,
     buildHint: process.env.MOCK_WALLS ? { x: 8, y: 9, ok: true, label: 'Pared de madera', orient: 'v' } : null,
   })),
   zombies: [],
   bullets: [],
   structures: process.env.MOCK_WALLS ? sampleWalls() : [],
-  cores: { 1: 500, 2: 500 },
+  cores: room.mode === 'ffa' ? { 1: 0, 2: 0 } : { 1: 500, 2: 500 },
   crates: { 1: emptyStock(), 2: emptyStock() },
+  pickups: room.mode === 'ffa' ? [[1, 20.5, 10.5, 2]] : [],
   events: [],
   result: null,
 })
@@ -330,7 +334,7 @@ io.on('connection', (socket) => {
     const denied = hostOf()
     if (denied) return denied
     const room = roomOf()
-    if (p?.mode !== '1v1' && p?.mode !== '2v2') return fail('VALIDATION', 'Modo no válido')
+    if (p?.mode !== '1v1' && p?.mode !== '2v2' && p?.mode !== 'ffa') return fail('VALIDATION', 'Modo no válido')
     if (room.mode === p.mode) return ok(snapshot(room))
     if (room.players.length > MODE_CAPACITY[p.mode]) return fail('TOO_MANY_PLAYERS', `Hay demasiados jugadores para ${p.mode}`)
     room.mode = p.mode
@@ -345,6 +349,15 @@ io.on('connection', (socket) => {
         pl.pos = startPos(pl.slot)
       })
     }
+    broadcast(room)
+    return ok(snapshot(room))
+  })
+  handle('lobby:setLives', (p) => {
+    const denied = hostOf()
+    if (denied) return denied
+    const room = roomOf()
+    if (p?.lives !== 3 && p?.lives !== 5) return fail('VALIDATION', 'Vidas no válidas')
+    room.lives = p.lives
     broadcast(room)
     return ok(snapshot(room))
   })
@@ -370,7 +383,7 @@ io.on('connection', (socket) => {
     const player = me()
     if (!room || !player) return fail('NOT_IN_ROOM', 'No estás en una sala')
     if (!player.isHost) return fail('NOT_HOST', 'Solo el anfitrión puede iniciar la partida')
-    if (room.players.length !== room.capacity) return fail('BAD_STATE', 'Faltan jugadores para empezar')
+    if (room.mode === 'ffa' ? room.players.length < 2 : room.players.length !== room.capacity) return fail('BAD_STATE', 'Faltan jugadores para empezar')
     if (room.mode === '2v2' && (room.players.filter((p) => p.team === 1).length !== 2 || room.players.filter((p) => p.team === 2).length !== 2)) {
       return fail('BAD_STATE', 'Cada equipo debe tener 2 jugadores')
     }
@@ -437,7 +450,7 @@ io.on('connection', (socket) => {
   handle('ping', (p) => ok({ t: p?.t ?? Date.now() }))
   handle('game:sync', () => {
     const room = roomOf()
-    return room ? ok({ map: buildMap(), state: gameState(room) }) : fail('NOT_IN_ROOM', 'No estás en una sala')
+    return room ? ok({ map: buildMap(room), state: gameState(room) }) : fail('NOT_IN_ROOM', 'No estás en una sala')
   })
   socket.on('game:input', (p) => {
     const player = me()

@@ -5,7 +5,7 @@ import { playGameSounds, zombieAmbience } from './gameSounds'
 import type { ChatMessage } from '../Lobby/hooks/useLobbyRoom'
 import { SettingsModal } from '../../shared/components/SettingsModal'
 import { useFullscreen } from '../../shared/lib/fullscreen'
-import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, TILE, WEAPON_RANGE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
+import { ARMORY_OPEN_S, BUILD_REACH, CORE_HP, HEAVY_WEAPONS, PICKUP_INFO, TILE, WEAPON_RANGE, type GameCommand, type GameMap, type GameState, type GameSyncData, type MatchEndReason, type MatchXp, type PlayerInput, teamOf, type RoomStatus, type Slot, type Stock, type Team, type WeaponId } from '../../shared/lib/contracts'
 import { emitAck, getSocket } from '../../shared/lib/socket'
 import { SnapshotBuffer } from '../../game/client/interpolation'
 import { autoAimTarget, consumeEvents, createFx, createStaticLayer, aimFromMouse, drawCrosshair, drawFrame, drawMinimap, screenToWorld, type Camera } from '../../game/client/render'
@@ -41,6 +41,9 @@ const INPUT_HEARTBEAT_MS = 66
 const WHEEL_THROTTLE_MS = 160
 
 type Weapon = WeaponId
+
+/** Casillas que no se pueden pisar (igual que el servidor): para la vista previa de construcción. */
+const SOLID_TILES = new Set([1, 2, 3, 4, 7, 8, 9, 10, 11])
 
 export interface GamePageProps {
   mySlot: Slot
@@ -352,6 +355,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
       zombieAmbience(state, mySlot)
       for (const e of state.events) {
         if (e.type === 'rejected' && e.slot === mySlot) pushToast(e.reason)
+        if (e.type === 'pickup' && e.slot === mySlot) pushToast(`Recogiste: ${PICKUP_INFO[e.kind].name}`)
+        if (e.type === 'eliminated') pushToast(e.slot === mySlot ? '¡Te quedaste sin vidas!' : `J${e.slot} fue eliminado`)
         if (e.type === 'phase') pushToast(e.label.toUpperCase())
         if (e.type === 'armoryReady')
           pushToast(e.weapon ? `¡CAJA EN EL CENTRO: ${HEAVY_WEAPONS[e.weapon].name.toUpperCase()}!` : '¡CAJA DE ARMAMENTO EN EL CENTRO!')
@@ -510,7 +515,9 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
         const gx = Math.floor(w.x / TILE)
         const gy = Math.floor(w.y / TILE)
         const b = map.bases[teamOf(mySlot)]
-        if (gx >= b.x && gx < b.x + b.w && gy >= b.y && gy < b.y + b.h)
+        // Todos contra todos: se construye en cualquier casilla de piso (solo con pared/trampa/torreta elegida).
+        const free = gx > 0 && gy > 0 && gx < map.w - 1 && gy < map.h - 1 && !SOLID_TILES.has(map.tiles[gy * map.w + gx])
+        if (map.ffa ? buildModeRef.current && free : gx >= b.x && gx < b.x + b.w && gy >= b.y && gy < b.y + b.h)
           ghost = { x: gx, y: gy, inReach: Math.hypot(gx + 0.5 - mePos.x, gy + 0.5 - mePos.y) <= BUILD_REACH, build: meNow?.build ?? 'wall' }
       }
       cam = drawFrame(ctx, view, {
@@ -601,6 +608,8 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
       for (const [key, s] of Object.entries(serverSummary.stats)) stats[Number(key) as Slot] = { ...s, team: s.team ?? teamOf(Number(key) as Slot) }
       return {
         winner: serverSummary.winner,
+        winnerSlot: serverSummary.winnerSlot,
+        ffa: !!map?.ffa,
         reason: serverSummary.reason,
         durationS: serverSummary.durationS,
         mapId,
@@ -626,13 +635,15 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
     const winner = hud.result ? hud.result.winner : (roomResult?.winner ?? 0)
     return {
       winner: winner === 1 || winner === 2 ? winner : null,
+      winnerSlot: hud.result?.winnerSlot ?? null,
+      ffa: hud.ffa,
       reason: asReason(hud.result?.reason ?? roomResult?.reason),
       durationS: hud.result?.durationS ?? 0,
       mapId,
       mapName,
       stats,
     }
-  }, [serverSummary, hud, roomResult, mapId, mapName])
+  }, [serverSummary, hud, roomResult, mapId, mapName, map])
 
   return (
     <div
@@ -738,7 +749,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
           {/* Abajo: caja + pista de construcción + hotbar, apilados al centro */}
           <div className="ug-dock pointer-events-none absolute inset-x-0 flex flex-col items-center gap-1 px-2">
             {hud.me.onCrate && !finished && <CrateMenu stock={hud.crate} onTake={takeFromCrate} />}
-            {isTouch && settings.keyHelp && <ControlsHelp touch />}
+            {isTouch && settings.keyHelp && <ControlsHelp touch ffa={hud.ffa} />}
             {armoryProgress !== undefined && !finished && (
               <p className="ug-title-shadow text-center text-[clamp(1rem,3vmin,1.25rem)] leading-none text-yellow-300" data-testid="armory-progress">
                 Abriendo caja de armamento… {Math.min(armoryProgress, ARMORY_OPEN_S).toFixed(1)} / {ARMORY_OPEN_S} s (no recibas daño)
@@ -761,7 +772,7 @@ export function GamePage({ mySlot, status, roomResult, onExit, xp, results, chat
           </div>
           {!isTouch && settings.keyHelp && (
             <div className="absolute right-[calc(var(--ug-safe-right)+var(--ug-gap))] bottom-[calc(var(--ug-safe-bottom)+var(--ug-gap))]">
-              <ControlsHelp mouseAim={aimEnabled} />
+              <ControlsHelp mouseAim={aimEnabled} ffa={hud.ffa} />
             </div>
           )}
 

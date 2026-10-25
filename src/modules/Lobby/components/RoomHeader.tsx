@@ -31,7 +31,7 @@ export function RoomHeader({ code, playerCount, capacity = 2, mode = '1v1' }: Ro
           <p className="ug-title-shadow text-4xl phone:text-3xl leading-none tracking-wide whitespace-nowrap">
             SALA: <span data-testid="room-code">{code ?? '·····'}</span>
           </p>
-          <p className="font-terminal text-lg leading-tight text-ug-muted phone:hidden">{mode === '2v2' ? 'Código para unirse (hasta 4)' : 'Código para unirse'}</p>
+          <p className="font-terminal text-lg leading-tight text-ug-muted phone:hidden">{mode === '1v1' ? 'Código para unirse' : 'Código para unirse (hasta 4)'}</p>
         </div>
         <button
           type="button"
@@ -57,7 +57,7 @@ export function RoomHeader({ code, playerCount, capacity = 2, mode = '1v1' }: Ro
         <Swords size="1.875rem" />
         <div className="text-center">
           <p className="font-terminal text-lg leading-none text-ug-muted">Modo</p>
-          <p className="ug-title-shadow text-3xl leading-none" data-testid="room-mode">{mode === '2v2' ? '2 vs 2' : '1 vs 1'}</p>
+          <p className="ug-title-shadow text-3xl leading-none" data-testid="room-mode">{mode === 'ffa' ? 'Todos' : mode === '2v2' ? '2 vs 2' : '1 vs 1'}</p>
         </div>
       </div>
     </div>

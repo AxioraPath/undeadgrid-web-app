@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DIFFICULTIES, MAPS, UNLOCKED_SURVIVORS } from '../data/catalog'
+import { FFA_LIVES } from '../../../shared/lib/contracts'
 import { useAuth } from '../../Auth/context/authContext'
 import { emitAck, getSocket } from '../../../shared/lib/socket'
 import type {
@@ -47,6 +48,8 @@ export interface MatchSummary {
   durationS: number
   /** Winning team (1v1: same number as the slot). */
   winner: Team | null
+  /** Todos contra todos: slot ganador (null = empate). */
+  winnerSlot?: Slot | null
   reason: MatchEndReason
   mapName?: string
 }
@@ -207,10 +210,10 @@ export function useLobbyRoom(code: string, isHost: boolean) {
       setRoom((r) => (r ? { ...r, status: 'results' } : r))
     }
     const onMatchOver = (payload: MatchOverPayload) => {
-      const { xp, stats, durationS, winner, reason, mapName, ...snapshot } = payload
+      const { xp, stats, durationS, winner, winnerSlot, reason, mapName, ...snapshot } = payload
       setRoom(snapshot)
       setMatchXp(xp ?? null)
-      setMatchSummary({ stats: stats ?? {}, durationS, winner, reason, mapName })
+      setMatchSummary({ stats: stats ?? {}, durationS, winner, winnerSlot, reason, mapName })
       setRematchRequested([])
     }
 
@@ -318,7 +321,7 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   }, [])
 
   /** Runs a lobby action whose ack is a RoomSnapshot; failures show up inline in Spanish. */
-  const lobbyAction = useCallback(async (event: 'lobby:setMode' | 'room:setTeam' | 'lobby:start', payload?: unknown) => {
+  const lobbyAction = useCallback(async (event: 'lobby:setMode' | 'lobby:setLives' | 'room:setTeam' | 'lobby:start', payload?: unknown) => {
     setActionError(null)
     try {
       const snapshot = await emitAck<RoomSnapshot>(event, payload)
@@ -343,6 +346,13 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     },
     [me.isHost, mode, lobbyAction],
   )
+
+  /** Todos contra todos (anfitrión): alterna entre 3 y 5 vidas. */
+  const lives = room?.lives ?? FFA_LIVES[0]
+  const cycleLives = useCallback(() => {
+    if (!me.isHost) return
+    void lobbyAction('lobby:setLives', { lives: lives === FFA_LIVES[0] ? FFA_LIVES[1] : FFA_LIVES[0] })
+  }, [me.isHost, lives, lobbyAction])
 
   /** 2v2: move to a team. */
   const setTeam = useCallback(
@@ -420,11 +430,17 @@ export function useLobbyRoom(code: string, isHost: boolean) {
   }, [])
 
   const playerCount = players.length
-  const teamsBalanced = mode === '1v1' || (byTeam[1].length === TEAM_SIZE && byTeam[2].length === TEAM_SIZE)
+  const teamsBalanced = mode !== '2v2' || (byTeam[1].length === TEAM_SIZE && byTeam[2].length === TEAM_SIZE)
   /** Spanish reason why the host cannot start yet (null when everything is in place). */
   const missing = capacity - playerCount
   const startBlocker =
-    missing > 0
+    mode === 'ffa'
+      ? playerCount < 2
+        ? 'Se necesitan al menos 2 jugadores'
+        : !players.every((p) => p.ready)
+          ? 'Esperando a que todos estén listos'
+          : null
+      : missing > 0
       ? mode === '2v2'
         ? `Faltan ${missing} jugador${missing === 1 ? '' : 'es'} para empezar`
         : 'Falta un rival para empezar'
@@ -453,6 +469,8 @@ export function useLobbyRoom(code: string, isHost: boolean) {
     mode,
     capacity,
     setMode,
+    lives,
+    cycleLives,
     setTeam,
     actionError,
     clearActionError,

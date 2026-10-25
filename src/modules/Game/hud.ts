@@ -18,6 +18,9 @@ export interface HudSnapshot {
   armory: GameState['armory'] | null
   me: GamePlayer
   result: GameState['result']
+  /** Todos contra todos: vidas de cada jugador en lugar de núcleos. */
+  ffa: boolean
+  lives: { slot: Slot; name: string; lives: number; alive: boolean }[]
   /** Per-player counters keyed by slot (only the slots that exist in the match). */
   stats: Partial<Record<Slot, { kills: number; zombieKills: number; deaths: number }>>
 }
@@ -30,7 +33,9 @@ export function snapshotHud(s: GameState, meSlot: Slot): HudSnapshot | null {
   const myTeam: Team = me.team ?? teamOf(meSlot)
   const stats: HudSnapshot['stats'] = {}
   for (const p of s.players) stats[p.slot] = { kills: p.kills, zombieKills: p.zombieKills, deaths: p.deaths }
-  const mate = s.players.find((p) => p.slot !== meSlot && (p.team ?? teamOf(p.slot)) === myTeam) ?? null
+  // Todos contra todos (jugadores con vidas): no hay compañero.
+  const ffa = s.players.some((p) => p.lives != null)
+  const mate = ffa ? null : (s.players.find((p) => p.slot !== meSlot && (p.team ?? teamOf(p.slot)) === myTeam) ?? null)
   return {
     phaseId: ph.id,
     phaseLabel: ph.label,
@@ -48,6 +53,8 @@ export function snapshotHud(s: GameState, meSlot: Slot): HudSnapshot | null {
     armory: s.armory ?? null,
     me,
     result: s.result,
+    ffa,
+    lives: s.players.map((p) => ({ slot: p.slot, name: p.name, lives: p.lives ?? 0, alive: p.alive })),
     stats,
   }
 }

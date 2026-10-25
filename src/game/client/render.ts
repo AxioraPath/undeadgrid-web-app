@@ -7,6 +7,7 @@ import {
   TILE,
   Tile,
   isExplosive,
+  PICKUP_INFO,
   teamOf,
   type BuildHint,
   type GameEvent,
@@ -35,6 +36,17 @@ const CHAR_SCALE = 0.9
 const T2 = TILE / ART
 
 const ZOMBIE_SHEET: Record<ZombieKind, SheetName> = { normal: 'normal', fast: 'rapido', tank: 'tanque' }
+
+/** Todos contra todos: un color por jugador (azul, rojo, verde, amarillo). */
+const FFA_COLOR: Record<Slot, { main: string; light: string; dark: string; tint: string }> = {
+  1: { main: '#3d8bff', light: '#8fc1ff', dark: '#173d78', tint: 'rgba(61, 139, 255, 0.14)' },
+  2: { main: '#ff2a2f', light: '#ff8a8d', dark: '#6e0b0f', tint: 'rgba(255, 42, 47, 0.12)' },
+  3: { main: '#2ee86a', light: '#8af5ad', dark: '#145c2a', tint: 'rgba(46, 232, 106, 0.12)' },
+  4: { main: '#ffd166', light: '#ffe6a3', dark: '#6b4f0e', tint: 'rgba(255, 209, 102, 0.12)' },
+}
+
+/** Color de un jugador: el de su equipo, o el suyo propio en todos contra todos. */
+const colorOf = (map: GameMap, slot: Slot) => (map.ffa ? FFA_COLOR[slot] : SLOT_COLOR[teamOf(slot)])
 
 type Ctx = CanvasRenderingContext2D
 type Dir = 'down' | 'up' | 'left' | 'right'
@@ -118,8 +130,8 @@ export function createStaticLayer(map: GameMap, sp: Sprites): HTMLCanvasElement 
     g.fillRect(cx - T2 * 2, cy - T2 * 2, T2 * 4, T2 * 4)
   }
 
-  // Bases: tinte del equipo y borde
-  for (const slot of [1, 2] as Team[]) {
+  // Bases: tinte del equipo y borde (todos contra todos no tiene bases)
+  for (const slot of (map.ffa ? [] : [1, 2]) as Team[]) {
     const b = map.bases[slot]
     g.fillStyle = SLOT_COLOR[slot].tint
     g.fillRect(b.x * T2, b.y * T2, b.w * T2, b.h * T2)
@@ -564,7 +576,20 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     ctx.fill()
   }
 
-  if (o.hint) drawBuildGrid(ctx, map, teamOf(o.meSlot))
+  if (o.hint && !map.ffa) drawBuildGrid(ctx, map, teamOf(o.meSlot))
+
+  // Armas del suelo (todos contra todos): ícono que flota con un brillo debajo
+  for (const it of v.pickups) {
+    const cx = it.x * TILE
+    const cy = it.y * TILE
+    const bob = Math.sin(fx.clock * 3 + it.id) * 2.5
+    const grd = ctx.createRadialGradient(cx, cy + 6, 1, cx, cy + 6, 16)
+    grd.addColorStop(0, it.kind === 'medkit' ? 'rgba(90, 255, 140, 0.55)' : 'rgba(255, 215, 90, 0.55)')
+    grd.addColorStop(1, 'rgba(255, 215, 90, 0)')
+    ctx.fillStyle = grd
+    ctx.fillRect(cx - 16, cy - 10, 32, 32)
+    drawAnchored(ctx, sp[`icon-${PICKUP_INFO[it.kind].icon}`], cx, cy + 8 + bob, ART * 0.75)
+  }
 
   // Trampas (al ras del suelo)
   for (const [key, st] of v.structures) {
@@ -590,7 +615,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
     const tx = key % map.w
     const ty = Math.floor(key / map.w)
     if (st.type === 'turret') {
-      list.push({ y: ty + 1, draw: () => drawTurret(ctx, sp, v.turrets.get(key), tx, ty, st.hp / st.maxHp, st.owner, v.time) })
+      list.push({ y: ty + 1, draw: () => drawTurret(ctx, sp, v.turrets.get(key), tx, ty, st.hp / st.maxHp, colorOf(map, st.owner).main, v.time) })
       continue
     }
     list.push({ y: ty + 1, draw: () => drawWall(ctx, sp, tx, ty, st.type as 'wood' | 'reinforced', st.hp / st.maxHp, st.orient, lookup) })
@@ -616,7 +641,7 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   })
   const armoryAt = map.armory
   if (armoryAt) list.push({ y: armoryAt.y + 0.5, draw: () => drawArmory(ctx, v, sp, armoryAt.x, armoryAt.y, o.meSlot, fx.clock) })
-  for (const slot of [1, 2] as Team[]) {
+  for (const slot of (map.ffa ? [] : [1, 2]) as Team[]) {
     const c = map.crates[slot]
     list.push({ y: c.y + 1, draw: () => drawAnchored(ctx, sp[slot === 1 ? 'caja-azul' : 'caja-roja'], (c.x + 0.5) * TILE, (c.y + 1) * TILE, ART * 1.05) })
     const core = map.cores[slot]
@@ -631,7 +656,8 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
   for (const p of v.players) {
     if (p.alive) {
       const isMe = p.slot === o.meSlot
-      const isMate = !isMe && p.team === teamOf(o.meSlot)
+      // Todos contra todos: no hay compañeros.
+      const isMate = !isMe && !map.ffa && p.team === teamOf(o.meSlot)
       list.push({ y: p.y, draw: () => drawPlayer(ctx, v, sp, fx, p, isMe, isMate, isMe ? o.aim : null) })
     } else {
       const d = fx.deadPlayers[p.slot]
@@ -733,11 +759,10 @@ export function drawFrame(ctx: Ctx, v: View, o: FrameOptions): Camera {
 const TURRET_DIR: Record<Dir, string> = { down: 'abajo', up: 'arriba', left: 'izquierda', right: 'derecha' }
 
 /** Torreta: sprite en la dirección de su objetivo (con fogonazo al disparar); parpadea en ámbar al recargar. */
-function drawTurret(ctx: Ctx, sp: Sprites, t: TurretView | undefined, tx: number, ty: number, pct: number, owner: Slot, time: number) {
-  const team = teamOf(owner)
+function drawTurret(ctx: Ctx, sp: Sprites, t: TurretView | undefined, tx: number, ty: number, pct: number, color: string, time: number) {
   const cx = (tx + 0.5) * TILE
   const bottom = (ty + 1) * TILE + 2
-  ctx.fillStyle = SLOT_COLOR[team].main
+  ctx.fillStyle = color
   ctx.globalAlpha = 0.55
   ctx.beginPath()
   ctx.ellipse(cx, bottom - 3, 14, 5, 0, 0, Math.PI * 2)
@@ -855,7 +880,7 @@ function drawArmory(ctx: Ctx, v: View, sp: Sprites, x: number, y: number, meSlot
     ctx.beginPath()
     ctx.arc(cx, cy - 6, r, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.strokeStyle = SLOT_COLOR[teamOf(slot)].main
+    ctx.strokeStyle = colorOf(v.map, slot).main
     ctx.beginPath()
     ctx.arc(cx, cy - 6, r, -Math.PI / 2, -Math.PI / 2 + (Math.min(prog, ARMORY_OPEN_S) / ARMORY_OPEN_S) * Math.PI * 2)
     ctx.stroke()
@@ -973,7 +998,7 @@ function drawZombie(ctx: Ctx, v: View, sp: Sprites, fx: Fx, z: ZombieView) {
 function drawPlayer(ctx: Ctx, v: View, sp: Sprites, fx: Fx, p: PlayerView, isMe: boolean, isMate: boolean, aim?: { x: number; y: number } | null) {
   const x = p.x * TILE
   const y = p.y * TILE
-  const col = SLOT_COLOR[p.team]
+  const col = colorOf(v.map, p.slot)
   const base = survivorSheet(p.survivor)
   let dir = aim ? dirOf(aim.x, aim.y) : dirOf(p.dirX, p.dirY)
   const sinceShot = v.time - p.shotAt
@@ -1056,7 +1081,7 @@ export function drawMinimap(ctx: Ctx, v: View, staticLayer: HTMLCanvasElement, m
   ctx.imageSmoothingEnabled = true
   ctx.drawImage(staticLayer, 0, 0, map.w * TILE * k, map.h * TILE * k)
   ctx.setTransform(k, 0, 0, k, 0, 0)
-  for (const slot of [1, 2] as Team[]) {
+  for (const slot of (map.ffa ? [] : [1, 2]) as Team[]) {
     const c = map.cores[slot]
     ctx.fillStyle = v.cores[slot] > 0 ? SLOT_COLOR[slot].main : '#333'
     ctx.fillRect(c.x * TILE, c.y * TILE, TILE * 2, TILE * 2)
@@ -1065,7 +1090,7 @@ export function drawMinimap(ctx: Ctx, v: View, staticLayer: HTMLCanvasElement, m
   for (const z of v.zombies) ctx.fillRect(z.x * TILE - 12, z.y * TILE - 12, 24, 24)
   for (const p of v.players) {
     if (!p.alive) continue
-    ctx.fillStyle = p.slot === meSlot ? '#ffffff' : SLOT_COLOR[p.team].light
+    ctx.fillStyle = p.slot === meSlot ? '#ffffff' : colorOf(map, p.slot).light
     ctx.beginPath()
     ctx.arc(p.x * TILE, p.y * TILE, 26, 0, Math.PI * 2)
     ctx.fill()

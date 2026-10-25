@@ -1,4 +1,4 @@
-import { ChartNoAxesColumn, ChevronRight, Clock, Lock } from 'lucide-react'
+import { ChartNoAxesColumn, ChevronRight, Clock, Heart, Lock } from 'lucide-react'
 import { DIFFICULTY_INFO, MAPS, MATCH_DURATION_MIN, type GameMap } from '../data/catalog'
 
 interface MatchSettingsProps {
@@ -8,13 +8,16 @@ interface MatchSettingsProps {
   /** Solo los mapas disponibles se pueden elegir. */
   onSelectMap: (mapId: string) => void
   onCycleDifficulty: () => void
+  /** Todos contra todos: vidas por jugador (null en los otros modos). */
+  lives?: number | null
+  onCycleLives?: () => void
 }
 
 function Label({ children }: { children: string }) {
   return <h3 className="ug-title-shadow mb-2 phone:mb-1 text-xl phone:text-lg leading-none tracking-wide">{children}</h3>
 }
 
-export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDifficulty }: MatchSettingsProps) {
+export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDifficulty, lives = null, onCycleLives }: MatchSettingsProps) {
   return (
     <section className="ug-panel grid gap-4 p-3 phone:gap-2 phone:p-2 phone:grid-cols-[1.15fr_2fr] md:grid-cols-[1.15fr_2fr]" aria-label="Configuración de la partida">
       <div className="md:border-r-2 md:border-ug-border md:pr-3 phone:border-r-2 phone:border-ug-border phone:pr-2">
@@ -54,7 +57,7 @@ export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDi
       </div>
 
       <div className="flex flex-col">
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 phone:gap-2 ${lives !== null ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <div>
             <Label>DURACIÓN</Label>
             <div className="flex items-center gap-3 border-2 border-ug-border bg-black/30 px-3 py-3 phone:px-2 phone:py-1.5 font-terminal text-xl phone:text-lg">
@@ -74,6 +77,21 @@ export function MatchSettings({ map, difficulty, canEdit, onSelectMap, onCycleDi
               {canEdit && <ChevronRight size="1.25rem" />}
             </button>
           </div>
+          {lives !== null && (
+            <div>
+              <Label>VIDAS</Label>
+              <button
+                type="button"
+                disabled={!canEdit}
+                onClick={onCycleLives}
+                data-testid="ffa-lives"
+                className="flex w-full items-center gap-3 border-2 border-ug-border bg-black/30 px-3 py-3 phone:px-2 phone:py-1.5 text-left font-terminal text-xl phone:text-lg enabled:hover:border-ug-border-hi"
+              >
+                <Heart size="1.5rem" className="text-ug-red-hi" fill="currentColor" /> <span className="flex-1">{lives}</span>
+                {canEdit && <ChevronRight size="1.25rem" />}
+              </button>
+            </div>
+          )}
         </div>
         <p className="mt-auto pt-3 phone:pt-1 font-terminal text-base phone:text-sm leading-tight text-ug-muted" data-testid="difficulty-info">
           {DIFFICULTY_INFO[difficulty as keyof typeof DIFFICULTY_INFO] ?? ''}

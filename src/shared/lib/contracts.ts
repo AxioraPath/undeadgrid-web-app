@@ -5,10 +5,12 @@
 export type Slot = 1 | 2 | 3 | 4
 /** Team. 1v1: team == slot. 2v2: team 1 (blue) = slots 1 and 3, team 2 (red) = slots 2 and 4. */
 export type Team = 1 | 2
-export type GameMode = '1v1' | '2v2'
+export type GameMode = '1v1' | '2v2' | 'ffa'
 
-export const GAME_MODES: readonly GameMode[] = ['1v1', '2v2']
-export const MODE_CAPACITY: Record<GameMode, number> = { '1v1': 2, '2v2': 4 }
+export const GAME_MODES: readonly GameMode[] = ['1v1', '2v2', 'ffa']
+export const MODE_CAPACITY: Record<GameMode, number> = { '1v1': 2, '2v2': 4, ffa: 4 }
+/** Todos contra todos: vidas que puede elegir el anfitrión. */
+export const FFA_LIVES = [3, 5] as const
 export const TEAM_SIZE = 2
 
 export const teamOf = (slot: Slot): Team => (slot % 2 === 1 ? 1 : 2)
@@ -60,7 +62,9 @@ export interface CombatSnapshot {
 export interface MatchResult {
   /** Winning team (1v1: same as the slot), null = draw. */
   winner: Team | null
-  reason: 'core_destroyed' | 'opponent_left' | 'time_out'
+  /** Todos contra todos: slot ganador (null = empate). */
+  winnerSlot?: Slot | null
+  reason: 'core_destroyed' | 'opponent_left' | 'time_out' | 'last_standing'
   cores: Record<Team, number>
 }
 
@@ -73,6 +77,8 @@ export interface RoomSnapshot {
   mode: GameMode
   /** Max players for the mode (2 or 4). */
   capacity: number
+  /** Todos contra todos: vidas por jugador (falta en servidores viejos). */
+  lives?: number
   hostSlot: Slot
   players: PlayerSnapshot[]
   combat: CombatSnapshot | null
@@ -95,7 +101,7 @@ export interface MatchSlotStats {
   coreHpPct: number
 }
 
-export type MatchEndReason = 'core_destroyed' | 'time_out' | 'opponent_left'
+export type MatchEndReason = 'core_destroyed' | 'time_out' | 'opponent_left' | 'last_standing'
 
 export type MatchOverPayload = RoomSnapshot & {
   xp?: MatchXp
@@ -103,6 +109,8 @@ export type MatchOverPayload = RoomSnapshot & {
   durationS: number
   /** Winning team, null = draw. */
   winner: Team | null
+  /** Todos contra todos: slot ganador (null = empate). */
+  winnerSlot?: Slot | null
   reason: MatchEndReason
   mapName?: string
 }
@@ -150,6 +158,7 @@ export interface ClientToServerEvents {
   'lobby:setDifficulty': (p: { difficulty: string }, ack: (r: Ack<RoomSnapshot>) => void) => void
   /** Host only, lobby only. Slots may be remapped: re-read yours from the snapshot by player id. */
   'lobby:setMode': (p: { mode: GameMode }, ack: (r: Ack<RoomSnapshot>) => void) => void
+  'lobby:setLives': (p: { lives: number }, ack: (r: Ack<RoomSnapshot>) => void) => void
   /** 2v2 lobby only: move to a team (max 2 per team). */
   'room:setTeam': (p: { team: Team }, ack: (r: Ack<RoomSnapshot>) => void) => void
   'lobby:start': (ack: (r: Ack<RoomSnapshot>) => void) => void
@@ -227,6 +236,8 @@ export interface GameMap {
   seed: number
   /** Falta en servidores viejos: se toma como 'ciudad'. */
   theme?: MapTheme
+  /** Todos contra todos: sin núcleos, bases ni cajas de equipo. */
+  ffa?: boolean
   w: number
   h: number
   /** Capa de colisión por casilla (ver Tile). */
@@ -268,6 +279,8 @@ export interface GamePlayer {
   weapon: WeaponId
   build: 'wall' | 'trap' | 'turret'
   /** Arma pesada de la caja de armamento y su munición; torretas por colocar. */
+  /** Todos contra todos: vidas que le quedan (null en los otros modos). */
+  lives?: number | null
   heavy?: HeavyId | null
   heavyAmmo?: number
   turrets?: number
@@ -298,6 +311,17 @@ export type BulletTuple = [number, number, number, number, number, number?]
 export type WeaponId = 'pistol' | 'shotgun' | 'smg' | 'sniper' | 'rocket'
 export type HeavyId = 'smg' | 'sniper' | 'rocket'
 export type ProjectileKind = 'bullet' | 'sniper' | 'rocket'
+/** Armas del suelo (todos contra todos), en el orden del índice que manda el servidor. */
+export type PickupKind = 'shotgun' | 'medkit' | 'smg' | 'sniper' | 'rocket'
+export const PICKUP_KINDS: PickupKind[] = ['shotgun', 'medkit', 'smg', 'sniper', 'rocket']
+/** Ícono y nombre de cada arma del suelo. */
+export const PICKUP_INFO: Record<PickupKind, { icon: string; name: string }> = {
+  shotgun: { icon: 'escopeta', name: 'Escopeta' },
+  medkit: { icon: 'botiquin', name: 'Botiquín' },
+  smg: { icon: 'ametralladora', name: 'Ametralladora' },
+  sniper: { icon: 'sniper', name: 'Sniper' },
+  rocket: { icon: 'lanzacohetes', name: 'Lanzacohetes' },
+}
 export const PROJECTILE_KINDS: ProjectileKind[] = ['bullet', 'sniper', 'rocket']
 
 /** Nombre e ícono de cada arma pesada (los íconos están en /assets/game/iconos). */
@@ -315,6 +339,8 @@ export type GameEvent =
   | { type: 'shot'; x: number; y: number; dirX: number; dirY: number; slot: Slot }
   | { type: 'explosion'; x: number; y: number; big?: boolean }
   | { type: 'propDestroyed'; index: number }
+  | { type: 'pickup'; slot: Slot; kind: PickupKind; x: number; y: number }
+  | { type: 'eliminated'; slot: Slot }
   | { type: 'knife'; slot: Slot; x: number; y: number }
   | { type: 'hit'; x: number; y: number }
   | { type: 'zombieDied'; x: number; y: number; kind: ZombieKind }
@@ -344,7 +370,9 @@ export interface GameState {
   /** Torretas: [casilla, aimX, aimY, tiros en el cargador, recargando (0/1), disparando (0/1)]. */
   turrets?: [number, number, number, number, number, number?][]
   events: GameEvent[]
-  result: { winner: Team | 0; reason: string; durationS: number; byTime: boolean } | null
+  result: { winner: Team | 0; winnerSlot?: Slot | null; reason: string; durationS: number; byTime: boolean } | null
+  /** Todos contra todos: armas en el suelo [id, x, y, tipo (ver PICKUP_KINDS)]. */
+  pickups?: [number, number, number, number][]
 }
 
 export interface GameSyncData {

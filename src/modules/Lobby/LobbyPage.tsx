@@ -15,6 +15,7 @@ import { RoomChat } from './components/RoomChat'
 import { StartButton } from './components/StartButton'
 import { ModeToggle } from './components/ModeToggle'
 import { TeamBoard } from './components/TeamBoard'
+import { FFA_THEME } from './data/slotTheme'
 import { useRoom } from './context/roomContext'
 
 export function LobbyPage() {
@@ -94,7 +95,26 @@ export function LobbyPage() {
       {/* Centro: jugadores, configuración y comenzar */}
       <main className="flex flex-col gap-4 phone:col-start-1 phone:row-start-2 phone:row-span-2 phone:gap-2 lg:col-start-2 lg:row-start-2">
         <ModeToggle mode={room.mode} canEdit={room.me.isHost} onChange={room.setMode} />
-        {room.mode === '2v2' ? (
+        {room.mode === 'ffa' ? (
+          // Todos contra todos: 4 asientos, cada uno de su color; nadie es aliado.
+          <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-3 phone:gap-1.5" data-testid="ffa-board">
+            {([1, 2, 3, 4] as const).map((slot) => (
+              <PlayerSlot
+                key={slot}
+                slot={slot}
+                team={slot % 2 === 1 ? 1 : 2}
+                theme={FFA_THEME[slot]}
+                compact
+                waitingText="Esperando jugador…"
+                player={room.bySlot[slot]}
+                isMe={room.bySlot[slot]?.id === room.me.id}
+                onToggleReady={room.toggleReady}
+                onRename={room.rename}
+                onChangeSurvivor={() => navigate('personaje')}
+              />
+            ))}
+          </div>
+        ) : room.mode === '2v2' ? (
           <TeamBoard
             byTeam={room.byTeam}
             myId={room.me.id}
@@ -126,6 +146,8 @@ export function LobbyPage() {
           <MatchSettings
             map={room.map}
             difficulty={room.difficulty}
+            lives={room.mode === 'ffa' ? room.lives : null}
+            onCycleLives={room.cycleLives}
             canEdit={room.me.isHost}
             onSelectMap={room.selectMap}
             onCycleDifficulty={room.cycleDifficulty}
@@ -150,7 +172,7 @@ export function LobbyPage() {
           data-testid="rival-left"
           className="ug-panel fixed left-1/2 top-4 z-40 -translate-x-1/2 px-4 py-2 font-terminal text-xl text-ug-red-hi"
         >
-          {room.mode === '2v2' ? 'Un jugador salió de la sala' : 'El rival salió de la sala'}
+          {room.mode === '1v1' ? 'El rival salió de la sala' : 'Un jugador salió de la sala'}
         </p>
       )}
 

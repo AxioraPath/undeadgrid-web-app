@@ -1,5 +1,5 @@
 import type { GameMap, GameState, ProjectileKind, Slot, Team, WeaponId, ZombieKind } from '../../shared/lib/contracts'
-import { PROJECTILE_KINDS, STRUCTURE_TYPES, ZOMBIE_KINDS, teamOf } from '../../shared/lib/contracts'
+import { PICKUP_KINDS, PROJECTILE_KINDS, STRUCTURE_TYPES, ZOMBIE_KINDS, teamOf, type PickupKind } from '../../shared/lib/contracts'
 
 /** Retraso de dibujo: se pinta ~100 ms en el pasado para tener siempre dos estados entre los que interpolar. */
 const INTERP_DELAY_S = 0.1
@@ -69,6 +69,8 @@ export interface View {
   armory: { available: boolean; progress: Partial<Record<Slot, number>> } | null
   /** Explosivos del mapa (índice de objeto): los que ya explotaron y la vida de los dañados. */
   props: { destroyed: Set<number>; damaged: Map<number, number> }
+  /** Todos contra todos: armas y botiquines en el suelo. */
+  pickups: { id: number; x: number; y: number; kind: PickupKind }[]
 }
 
 export interface TurretView {
@@ -191,5 +193,7 @@ function buildView(map: GameMap, a: GameState, b: GameState, t: number, time: nu
     damaged: new Map((b.props?.damaged ?? []).map(([i, hp, max]) => [i, hp / max] as [number, number])),
   }
 
-  return { time, map, players, zombies, bullets, structures, cores: b.cores, turrets, armory, props }
+  const pickups = (b.pickups ?? []).map(([id, x, y, k]) => ({ id, x, y, kind: PICKUP_KINDS[k] ?? 'shotgun' }))
+
+  return { time, map, players, zombies, bullets, structures, cores: b.cores, turrets, armory, props, pickups }
 }

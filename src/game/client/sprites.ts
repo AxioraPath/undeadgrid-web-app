@@ -84,6 +84,8 @@ for (const f of FLOOR_FAMILIES) for (let i = 1; i <= 4; i++) FILES[`${f}-${i}`] 
 for (const n of [...ROADS, ...SHORES, ...URBAN_ROADS]) FILES[n] = `suelos/${n}.png`
 for (const n of OBJECTS) FILES[n] = `objetos/${n}.png`
 for (const n of CONSTRUCTION) FILES[n] = `construccion/${n}.png`
+// Íconos de las armas del suelo (todos contra todos).
+for (const n of ['escopeta', 'botiquin', 'ametralladora', 'sniper', 'lanzacohetes']) FILES[`icon-${n}`] = `iconos/${n}.png`
 // Estructuras del mapa: casi todas están en objetos/; las vallas y sacos, en construccion/.
 for (const { name } of BUILDINGS) FILES[name] ??= `${name.startsWith('valla-metal-v') || name.startsWith('sacos') ? 'construccion' : 'objetos'}/${name}.png`
 for (const [name, sheet] of Object.entries(SHEETS)) FILES[`sheet-${name}`] = sheet.file

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { CircleCheck, Clock, Crown, Pencil, Shirt } from 'lucide-react'
 import { getSurvivor } from '../data/catalog'
 import { NAME_MAX, validateDisplayName } from '../../../shared/lib/validation'
-import { SLOT_THEME, SPRITE_MASK } from '../data/slotTheme'
+import { SLOT_THEME, SPRITE_MASK, type SlotTheme } from '../data/slotTheme'
 import type { LobbyPlayer, Slot, Team } from '../hooks/useLobbyRoom'
 
 interface PlayerSlotProps {
@@ -17,13 +17,15 @@ interface PlayerSlotProps {
   isMe: boolean
   /** Compañero de equipo (2v2): su personaje se ve; el de los rivales no se revela. */
   ally?: boolean
+  /** Color propio del asiento (todos contra todos: uno por jugador). */
+  theme?: SlotTheme
   onToggleReady: () => void
   onRename: (name: string) => void
   onChangeSurvivor: () => void
 }
 
-export function PlayerSlot({ slot, team, compact = false, waitingText = 'Esperando rival…', player, isMe, ally = false, onToggleReady, onRename, onChangeSurvivor }: PlayerSlotProps) {
-  const t = SLOT_THEME[team]
+export function PlayerSlot({ slot, team, compact = false, waitingText = 'Esperando rival…', player, isMe, ally = false, theme, onToggleReady, onRename, onChangeSurvivor }: PlayerSlotProps) {
+  const t = theme ?? SLOT_THEME[team]
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)

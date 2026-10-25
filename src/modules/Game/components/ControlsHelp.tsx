@@ -9,13 +9,25 @@ const ROWS = [
   ['Caja', 'Párate encima para tomar recursos'],
 ]
 
+/** Todos contra todos: sin base ni caja propia; armas en el suelo y se construye en cualquier parte. */
+const FFA_ROWS = [
+  ['WASD', 'Moverse'],
+  ['Espacio', 'Disparar'],
+  ['1 2 6', 'Pistola / Escopeta / Arma pesada'],
+  ['3', 'Usar botiquín'],
+  ['4 5 7', 'Elegir pared / trampa / torreta'],
+  ['Clic der.', 'Construir en cualquier casilla'],
+  ['Armas', 'Pasa encima de las armas del suelo'],
+  ['Centro', 'Quédate 5 s junto a la caja de armamento'],
+]
+
 const MOUSE_ROWS = [
   ['Mouse', 'Apuntar'],
   ['Clic izq.', 'Disparar (también en tu base)'],
   ['Clic der.', 'Construir en la casilla'],
 ]
 
-export function ControlsHelp({ mouseAim = false, touch = false }: { mouseAim?: boolean; touch?: boolean }) {
+export function ControlsHelp({ mouseAim = false, touch = false, ffa = false }: { mouseAim?: boolean; touch?: boolean; ffa?: boolean }) {
   if (touch) {
     return (
       <p className="ug-panel hidden px-2 py-1 text-center font-terminal text-sm leading-tight text-ug-muted [@media(min-height:600px)]:block" data-testid="controls-help">
@@ -23,11 +35,12 @@ export function ControlsHelp({ mouseAim = false, touch = false }: { mouseAim?: b
         <span className="mx-2 text-ug-border-hi">|</span>
         <span>Joystick derecho: toca para autoapuntar, arrastra para apuntar</span>
         <span className="mx-2 text-ug-border-hi">|</span>
-        <span>Pared, trampa o torreta: toca tu base</span>
+        <span>{ffa ? 'Pared, trampa o torreta: toca cualquier casilla' : 'Pared, trampa o torreta: toca tu base'}</span>
       </p>
     )
   }
-  const rows = mouseAim ? [ROWS[0], ...MOUSE_ROWS, ...ROWS.slice(1)] : ROWS
+  const base = ffa ? FFA_ROWS : ROWS
+  const rows = mouseAim ? [base[0], ...MOUSE_ROWS.slice(0, ffa ? 1 : 3), ...base.slice(1)] : base
   return (
     <div className="ug-panel hidden max-w-72 space-y-1 p-2 lg:block short:hidden" data-testid="controls-help">
       {rows.map(([key, text]) => (

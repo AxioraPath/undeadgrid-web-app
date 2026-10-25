@@ -12,6 +12,9 @@ import { ResultsDialog } from './ResultsDialog'
 export interface ResultsSummary {
   /** Winning TEAM (1v1: same number as the slot); null = draw. */
   winner: Team | null
+  /** Todos contra todos: slot ganador (null = empate) y si la partida fue de ese modo. */
+  winnerSlot?: Slot | null
+  ffa?: boolean
   reason: MatchEndReason
   durationS: number
   mapId: string
@@ -70,6 +73,17 @@ const TITLE: Record<Outcome, { text: string; color: string; shadow: string }> = 
   victory: { text: 'VICTORIA', color: '#8fd3ff', shadow: '3px 3px 0 #0a2a55, 0 0 24px rgb(80 170 255 / 0.65)' },
   defeat: { text: 'DERROTA', color: '#ff2a2f', shadow: '3px 3px 0 #5b070a, 0 0 24px rgb(255 30 40 / 0.5)' },
   draw: { text: 'EMPATE', color: '#facc15', shadow: '3px 3px 0 #4a3a05, 0 0 24px rgb(250 204 21 / 0.35)' },
+}
+
+/** Todos contra todos: frases según cómo terminó. */
+function ffaCopy(outcome: Outcome, reason: MatchEndReason, winnerName: string): { subtitle: string; footer: string } {
+  if (outcome === 'draw') return { subtitle: 'Tiempo agotado sin ganador', footer: 'Empataron en vidas y bajas. La revancha decide.' }
+  if (outcome === 'victory') {
+    if (reason === 'opponent_left') return { subtitle: 'Tus rivales abandonaron la partida', footer: 'Ganas por abandono. El resultado se conserva.' }
+    if (reason === 'time_out') return { subtitle: 'Tiempo agotado: terminaste con más vidas', footer: 'Sobreviviste mejor que todos tus rivales.' }
+    return { subtitle: 'Fuiste el último superviviente en pie', footer: 'Sobreviviste a tus rivales y a las oleadas.' }
+  }
+  return { subtitle: `Ganó ${winnerName}`, footer: 'Te quedaste sin vidas o terminaste con menos. Inténtalo en la revancha.' }
 }
 
 /** Subtitle + footer sentence for every outcome / reason combination. */
@@ -249,17 +263,32 @@ export function MatchResultsScreen({
   const teams = taken(3) || taken(4)
   const membersOf = (team: Team): Member[] =>
     ALL_SLOTS.filter((s) => teamOf(s) === team && (taken(s) || s === mySlot || (!teams && s === team))).map((slot) => ({ slot, player: players[slot] }))
-  const myMembers = membersOf(myTeam)
-  const rivalMembers = membersOf(rivalTeam)
+  const ffa = !!summary.ffa
+  // Todos contra todos: cada quien va solo; los demás son rivales.
+  const myMembers = ffa ? [{ slot: mySlot, player: players[mySlot] }] : membersOf(myTeam)
+  const rivalMembers = ffa
+    ? ALL_SLOTS.filter((s) => s !== mySlot && taken(s)).map((slot) => ({ slot, player: players[slot] }))
+    : membersOf(rivalTeam)
   // Stat columns: me, teammate (2v2), then the rivals.
   const columns = [
     { key: 'me', label: 'TÚ', slot: mySlot },
     ...myMembers.filter((m) => m.slot !== mySlot).map((m) => ({ key: 'mate', label: 'ALIADO', slot: m.slot })),
     ...rivalMembers.map((m, i) => ({ key: i === 0 ? 'rival' : 'rival2', label: teams ? 'RIVAL' : 'RIVAL', slot: m.slot })),
   ]
-  const outcome: Outcome = summary.winner === null ? 'draw' : summary.winner === myTeam ? 'victory' : 'defeat'
+  const outcome: Outcome = ffa
+    ? summary.winnerSlot == null
+      ? 'draw'
+      : summary.winnerSlot === mySlot
+        ? 'victory'
+        : 'defeat'
+    : summary.winner === null
+      ? 'draw'
+      : summary.winner === myTeam
+        ? 'victory'
+        : 'defeat'
   const title = TITLE[outcome]
-  const copy = resultCopy(outcome, summary.reason, teams)
+  const winnerName = summary.winnerSlot ? (players[summary.winnerSlot]?.name ?? `J${summary.winnerSlot}`) : ''
+  const copy = ffa ? ffaCopy(outcome, summary.reason, winnerName) : resultCopy(outcome, summary.reason, teams)
   const mapName = summary.mapName ?? MAPS.find((m) => m.id === summary.mapId)?.name ?? MAPS[0].name
   const mapPreview = (MAPS.find((m) => m.id === summary.mapId) ?? MAPS[0]).preview
 

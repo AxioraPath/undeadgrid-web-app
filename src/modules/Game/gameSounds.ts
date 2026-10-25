@@ -59,6 +59,12 @@ export function playGameSounds(state: GameState, mySlot: Slot) {
       case 'armoryReady':
         sfx.armoryReady()
         break
+      case 'pickup':
+        if (e.slot === mySlot) sfx.pickup()
+        break
+      case 'eliminated':
+        sfx.playerDied(e.slot === mySlot)
+        break
       case 'armoryOpened':
         sfx.armoryOpened(teamOf(e.slot) === myTeam)
         break

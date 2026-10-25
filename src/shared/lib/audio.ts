@@ -232,6 +232,10 @@ export const sfx = {
   playerDied(mine: boolean) {
     tone('triangle', 440, 60, mine ? 0.9 : 0.5, mine ? 0.25 : 0.12)
   },
+  pickup() {
+    tone('square', 660, 660, 0.06, 0.1)
+    tone('square', 990, 990, 0.08, 0.1, 0.06)
+  },
   click() {
     tone('square', 880, 660, 0.04, 0.06)
   },
