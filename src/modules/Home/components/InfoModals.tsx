@@ -11,25 +11,33 @@ const TITLES: Record<InfoModalKind, string> = {
 }
 
 const PHASES = [
-  ['0:00 – 0:25', 'Preparación', 'Construye tu base 8 × 8. Sin zombis ni PvP. En todos contra todos dura solo 5 s y la partida sigue hasta que quede uno (máximo 5 min).'],
+  ['0:00 – 0:25', 'Preparación', 'Construye tu base 8 × 8. Sin zombis ni PvP. En todos contra todos dura solo 5 s.'],
   ['0:25 – 1:25', 'Oleada 1', 'Zombis normales. La caja se rellena.'],
   ['1:25 – 2:25', 'Oleada 2', 'Más zombis, con más vida y daño.'],
-  ['2:25 – 3:25', 'Horda final', 'Oleada enorme para cerrar la partida.'],
+  ['2:25 – 5:00', 'Horda final', 'Oleada enorme hasta el final de la partida.'],
 ]
 
 const CONTROLS = [
-  ['Moverse', 'WASD / flechas', 'D-pad'],
-  ['Construir (en tu base)', 'Espacio', 'Botón de acción'],
-  ['Disparar (fuera)', 'Espacio', 'Botón de acción'],
-  ['Elegir arma / bloque', 'Teclas 1 – 4', 'Menú de la caja'],
+  ['Moverse', 'WASD / flechas', 'Joystick izquierdo'],
+  ['Apuntar y disparar', 'Mouse + clic o Espacio', 'Joystick derecho (un toque = apuntado automático)'],
+  ['Construir', 'Clic derecho o Espacio en tu base', 'Tocar la casilla'],
+  ['Elegir arma / bloque', 'Teclas 1 – 7, Q o rueda', 'Barra de armas'],
+  ['Chat', 'Enter', 'Botón de chat'],
 ]
 
 function Instructions() {
   return (
     <div className="space-y-4 font-terminal text-xl leading-tight text-ug-muted">
       <p>
-        Defiende tu <b className="text-ug-text">núcleo</b> (500 HP) y destruye el del rival. En 2v2 el núcleo es compartido con tu compañero (sin fuego amigo). Mientras tu núcleo viva,
-        reapareces a los 5 s.
+        <b className="text-ug-text">1v1 y 2v2:</b> defiende tu <b className="text-ug-text">núcleo</b> (500 HP) y destruye el del rival. En 2v2 el núcleo es compartido con tu compañero (sin fuego
+        amigo). Mientras tu núcleo viva, reapareces a los 5 s. Gana el equipo que destruya el núcleo rival y elimine a sus jugadores.
+      </p>
+      <p>
+        <b className="text-ug-text">Todos contra todos (2 a 4):</b> sin núcleos; cada quien tiene 3 o 5 vidas, construye donde quiera y recoge las armas del mapa. Gana el último en pie.
+      </p>
+      <p>
+        Cada partida dura <b className="text-ug-text">hasta 5 minutos</b>. Si se acaba el tiempo gana el núcleo con más vida (o, en todos contra todos, quien tenga más vidas); si empatan, el de
+        más bajas.
       </p>
       <ul className="space-y-1">
         {PHASES.map(([time, name, desc]) => (

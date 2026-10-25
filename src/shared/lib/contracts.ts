@@ -387,8 +387,8 @@ export interface GameSyncData {
 
 /** Casilla lógica en px (el servidor trabaja en casillas). */
 export const TILE = 32
-/** Duración de 1v1/2v2 (25 s de preparación + 3 oleadas de 60 s). El servidor manda la real en `GameState.duration`. */
-export const MATCH_DURATION = 205
+/** Duración máxima de 1v1/2v2: 5 minutos (25 s de preparación; la horda final llega hasta el final). El servidor manda la real en `GameState.duration`. */
+export const MATCH_DURATION = 300
 /** Todos contra todos: dura hasta que quede uno, con tope de 5 minutos. */
 export const MATCH_DURATION_FFA = 300
 export const CORE_HP = 500

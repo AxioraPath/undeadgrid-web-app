@@ -124,7 +124,7 @@ const http = createServer(async (req, res) => {
     const payload = {
       ...snapshot(room),
       stats: Object.fromEntries(statSlots.map((slot) => [slot, { team: teamOf(slot), ...STATS[slot - 1], kills: 5 - slot, deaths: slot - 1 }])),
-      durationS: 205,
+      durationS: 300,
       winner: room.mode === 'ffa' ? null : winnerParam === 1 || winnerParam === 2 ? winnerParam : null,
       ...(room.mode === 'ffa' ? { winnerSlot } : {}),
       reason,

@@ -22,7 +22,7 @@ test.describe('Flow 5 - Match results', () => {
       await expect(page.getByTestId('results-subtitle')).toHaveText('Destruiste el núcleo enemigo')
       await expect(page.getByTestId('results-room')).toHaveText(/^[A-Z0-9]{5}$/)
       await expect(page.getByTestId('results-map')).toHaveText('Ciudad Abandonada')
-      await expect(page.getByTestId('results-duration')).toHaveText('03:25')
+      await expect(page.getByTestId('results-duration')).toHaveText('05:00')
       await expect(page.getByTestId('results-badge-1')).toHaveText('GANADOR')
       await expect(page.getByTestId('results-badge-2')).toHaveText('DERROTA')
       await expect(page.getByTestId('stat-zombies-me')).toHaveText('47')

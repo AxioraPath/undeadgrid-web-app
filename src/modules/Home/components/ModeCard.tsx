@@ -1,7 +1,7 @@
 import { Clock, Skull, Users } from 'lucide-react'
 
 const STATS = [
-  { icon: Clock, value: '4 MIN', label: 'por partida' },
+  { icon: Clock, value: 'HASTA 5', label: 'minutos' },
   { icon: Users, value: '2 A 4', label: 'jugadores' },
   { icon: Skull, value: 'ZOMBIS', label: 'por oleadas' },
 ]
